@@ -1,0 +1,68 @@
+//! Common Backend Implementation
+
+use crate::{SimdAdd, SimdBitAnd, SimdBitNot, SimdBitOr, SimdBitXor, SimdDiv, SimdMul, SimdShiftLeft, SimdShiftRight, SimdSub};
+
+pub trait Backend: SimdAdd<f32,f32,f32> +
+                   SimdAdd<f64,f64,f64> +
+                   SimdAdd<i32,i32,i32> +
+                   SimdAdd<i64,i64,i64> +
+                   SimdAdd<i16,i16,i16> +
+                   SimdAdd<i8,i8,i8> +
+                   SimdSub<f32,f32,f32> +
+                   SimdSub<f64,f64,f64> +
+                   SimdSub<i32,i32,i32> +
+                   SimdSub<i64,i64,i64> +
+                   SimdSub<i16,i16,i16> +
+                   SimdSub<i8,i8,i8> +
+                   SimdDiv<f32,f32,f32> +
+                   SimdDiv<f64,f64,f64> +
+                   SimdDiv<i32,i32,i32> +
+                   SimdDiv<i64,i64,i64> +
+                   SimdDiv<i16,i16,i16> +
+                   SimdDiv<i8,i8,i8> +
+                   SimdMul<f32,f32,f32> +
+                   SimdMul<f64,f64,f64> +
+                   SimdMul<i32,i32,i32> +
+                   SimdMul<i64,i64,i64> +
+                   SimdMul<i16,i16,i16> +
+                   SimdMul<i8,i8,i8> +
+                   SimdMul<i8,i8,i32> +
+                   SimdMul<i8,i16,i32> +
+                   SimdMul<i16,i16,i32> +
+                   SimdBitOr<i8> +
+                   SimdBitOr<i16> +
+                   SimdBitOr<i32> +
+                   SimdBitOr<i64> +
+                   SimdBitOr<f32> +
+                   SimdBitOr<f64> +
+                   SimdBitAnd<i8> +
+                   SimdBitAnd<i16> +
+                   SimdBitAnd<i32> +
+                   SimdBitAnd<i64> +
+                   SimdBitAnd<f32> +
+                   SimdBitAnd<f64> +
+                   SimdBitXor<i8> +
+                   SimdBitXor<i16> +
+                   SimdBitXor<i32> +
+                   SimdBitXor<i64> +
+                   SimdBitXor<f32> +
+                   SimdBitXor<f64> +
+                   SimdBitNot<i8> +
+                   SimdBitNot<i16> +
+                   SimdBitNot<i32> +
+                   SimdBitNot<i64> +
+                   SimdBitNot<f32> +
+                   SimdBitNot<f64> +
+                   SimdShiftLeft<i8> +
+                   SimdShiftLeft<i16> +
+                   SimdShiftLeft<i32> +
+                   SimdShiftLeft<i64> +
+                   SimdShiftLeft<f32> +
+                   SimdShiftLeft<f64> +
+                   SimdShiftRight<i8> +
+                   SimdShiftRight<i16> +
+                   SimdShiftRight<i32> +
+                   SimdShiftRight<i64> +
+                   SimdShiftRight<f32> +
+                   SimdShiftRight<f64> {
+}

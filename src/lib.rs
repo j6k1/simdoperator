@@ -1,5 +1,7 @@
 //! Trait and data type features for abstracting SIMD operations
 
+pub mod backend;
+
 pub struct Vector<T,const N: usize> {
     data: [T; N]
 }
