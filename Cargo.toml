@@ -1,5 +1,6 @@
 [package]
 name = "simdoperator"
+authors = ["jinpu <nanasi18@gmail.com>"]
 version = "0.1.0"
 edition = "2024"
 
