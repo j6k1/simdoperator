@@ -1,10 +1,82 @@
 //! Common Backend Implementation
 
-use crate::traits::{SimdAdd, SimdBitAnd, SimdBitNot, SimdBitOr, SimdBitXor, SimdDiv, SimdMul, SimdShiftLeft, SimdShiftRight, SimdSub};
+use crate::traits::{SimdAdd, SimdBitAnd, SimdBitNot, SimdBitOr, SimdBitXor, SimdDiv, SimdDot, SimdHSum, SimdMatMul, SimdMatVec, SimdHMax, SimdMul, SimdShiftLeft, SimdShiftRight, SimdSub, SimdVMat, SimdHMin, SimdHOr, SimdTranspose, SimdMask};
 
 pub trait Backend: ArithmeticBackend +
                    BitOperationsBackend +
-                   BitShiftBackend {
+                   BitShiftBackend +
+                   ProductBackend +
+                   HorizontalHSumBackend +
+                   HorizontalMaxBackend +
+                   HorizontalMinBackend +
+                   HorizontalOrBackend +
+                   TransposeBackend +
+                   MaskBackend {
+}
+pub trait MaskBackend: SimdMask<f32> +
+                       SimdMask<f64> +
+                       SimdMask<i8> +
+                       SimdMask<i16> +
+                       SimdMask<i32> +
+                       SimdMask<i64> +
+                       SimdMask<i16> +
+                       SimdMask<i8> {
+}
+pub trait TransposeBackend: SimdTranspose<f32> +
+                            SimdTranspose<f64> +
+                            SimdTranspose<i32> +
+                            SimdTranspose<i64> +
+                            SimdTranspose<i16> +
+                            SimdTranspose<i8> {
+}
+pub trait HorizontalHSumBackend: SimdHSum<f32> +
+                                SimdHSum<f64> +
+                                SimdHSum<i32> +
+                                SimdHSum<i64> +
+                                SimdHSum<i16> +
+                                SimdHSum<i8> {
+}
+pub trait HorizontalMaxBackend: SimdHMax<f32> +
+                                SimdHMax<f64> +
+                                SimdHMax<i32> +
+                                SimdHMax<i64> +
+                                SimdHMax<i16> +
+                                SimdHMax<i8> {
+}
+pub trait HorizontalMinBackend: SimdHMin<f32> +
+                                SimdHMin<f64> +
+                                SimdHMin<i32> +
+                                SimdHMin<i64> +
+                                SimdHMin<i16> +
+                                SimdHMin<i8> {
+}
+pub trait HorizontalOrBackend: SimdHOr<f32> +
+                               SimdHOr<f64> +
+                               SimdHOr<i32> +
+                               SimdHOr<i64> +
+                               SimdHOr<i16> +
+                               SimdHOr<i8> {
+}
+pub trait ProductBackend: SimdDot<f32,f32,f32> +
+                          SimdDot<f64,f64,f64> +
+                          SimdDot<i8,i8,i32> +
+                          SimdDot<i8,i16,i32> +
+                          SimdDot<i16,i16,i32> +
+                          SimdVMat<f32,f32,f32> +
+                          SimdVMat<f64,f64,f64> +
+                          SimdVMat<i8,i8,i32> +
+                          SimdVMat<i8,i16,i32> +
+                          SimdVMat<i16,i16,i32> +
+                          SimdMatVec<f32,f32,f32> +
+                          SimdMatVec<f64,f64,f64> +
+                          SimdMatVec<i8,i8,i32> +
+                          SimdMatVec<i8,i16,i32> +
+                          SimdMatVec<i16,i16,i32> +
+                          SimdMatMul<f32,f32,f32> +
+                          SimdMatMul<f64,f64,f64> +
+                          SimdMatMul<i8,i8,i32> +
+                          SimdMatMul<i8,i16,i32> +
+                          SimdMatMul<i16,i16,i32> {
 }
 pub trait BitShiftBackend: SimdShiftLeft<i8> +
                         SimdShiftLeft<i16> +

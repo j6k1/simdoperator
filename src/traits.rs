@@ -41,8 +41,8 @@ pub trait SimdDot<SL,SR,SO> {
 pub trait SimdVMat<SL,SR,SO> {
     fn vmat<'a,const N: usize,const M: usize>(l:&Vector<'a,SL,N>,r:&Matrix<'a,SR,N,M>) -> OwnedMatrix<SO,N,M>;
 }
-pub trait SimdMatVect<SL,SR,SO> {
-    fn matvect<'a,const N: usize,const M: usize>(l:&Matrix<'a,SL,N,M>,r:&Vector<'a,SR,N>) -> OwnedVector<SO,M>;
+pub trait SimdMatVec<SL,SR,SO> {
+    fn matvec<'a,const N: usize,const M: usize>(l:&Matrix<'a,SL,N,M>,r:&Vector<'a,SR,N>) -> OwnedVector<SO,M>;
 }
 pub trait SimdMatMul<SL,SR,SO> {
     fn matmul<'a,const N: usize,const M: usize,const K: usize>(l:&Matrix<'a,SL,M,N>,r:&Matrix<'a,SR,N,K>) -> OwnedMatrix<SO,M,K>;
@@ -50,7 +50,7 @@ pub trait SimdMatMul<SL,SR,SO> {
 pub trait SimdHSum<S> {
     fn hsum<'a,const N: usize>(v:&Vector<'a,S,N>) -> S;
 }
-pub trait SimdMax<S> {
+pub trait SimdHMax<S> {
     fn hmax<'a,const N: usize>(v:&Vector<'a,S,N>) -> S;
 }
 pub trait SimdHMin<S> {
