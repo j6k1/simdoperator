@@ -1,6 +1,6 @@
 //! Trait and data type features for abstracting SIMD operations
 
-use std::ops::{Add, BitAnd, BitOr, BitXor, Index, Mul, Not, Shl, Shr, Sub};
+use std::ops::{Add, BitAnd, BitOr, BitXor, Index, IndexMut, Mul, Not, Shl, Shr, Sub};
 use crate::error::TryFromSliceError;
 use crate::backend::common::{Backend};
 use crate::traits::{Dims, Dot, HAnd, HMax, HMin, HOr, HSum, Product, SimdAdd, SimdBitAnd, SimdBitNot, SimdBitOr, SimdBitXor, SimdDot, SimdHAnd, SimdHMax, SimdHMin, SimdHOr, SimdHSum, SimdMatMul, SimdMatVec, SimdMul, SimdOuterProduct, SimdScalarMul, SimdShiftLeft, SimdShiftRight, SimdSub, SimdVMat};
@@ -121,6 +121,17 @@ impl<T,const N: usize> AsMut<[T;N]> for OwnedVector<T,N> {
 impl<T,const N: usize,const M: usize> AsMut<[T]> for OwnedMatrix<T,N,M> {
     fn as_mut(&mut self) -> &mut [T] {
         &mut self.data
+    }
+}
+impl<T,const N: usize> Index<usize> for OwnedVector<T,N> {
+    type Output = T;
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.data[index]
+    }   
+}
+impl<T,const N: usize> IndexMut<usize> for OwnedVector<T,N> {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.data[index]
     }
 }
 impl<T,const N: usize,const M: usize> From<OwnedMatrix<T,N,M>> for Box<[T]> {

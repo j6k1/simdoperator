@@ -274,16 +274,9 @@ impl SimdAdd<i8,i8,i8> for Avx2
             }
 
             if <Self as SimdLanes::<i8>>::LANES % N != 0 {
-
-                let ra = self.load(pa.add(i));
-                let rb = self.load(pb.add(i));
-
-                let tail_mask = <Self as SimdMask<i8>>::tail_mask(self,i,N);
-
-                let rr = _mm256_add_epi8(ra,rb);
-                let rr = <Self as SimdMask<i8>>::mask_zero(self,tail_mask,rr);
-
-                self.store(po.add(i),rr);
+                for j in i..N {
+                    rs[j] = l[j] + r[j];
+                }
             }
         }
 
