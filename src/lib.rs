@@ -23,9 +23,6 @@ pub struct OwnedVector<T,const N: usize> {
 pub struct OwnedMatrix<T,const N: usize,const M: usize> {
     data: Box<[T]>
 }
-pub struct VectorMask<M,const N: usize> {
-    data: M
-}
 impl<'a,BE: Backend,T,const N: usize,const M: usize> Dims<N,M> for Matrix<'a,T,N,M,BE> {}
 impl<T,const N: usize,const M:usize> Dims<N,M> for OwnedMatrix<T,N,M> {}
 impl<'a,BE: Backend,T,const N: usize,const M: usize> Matrix<'a,T,N,M,BE> {

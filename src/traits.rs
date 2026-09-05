@@ -1,6 +1,6 @@
 //! Trait and data type features for abstracting SIMD operations
 
-use crate::{Matrix, OwnedMatrix, OwnedVector, Vector, VectorMask};
+use crate::{Matrix, OwnedMatrix, OwnedVector, Vector};
 use crate::backend::common::Backend;
 
 pub trait SimdAdd<SL,SR,SO> {
@@ -94,16 +94,23 @@ pub trait SimdTranspose<S> {
 pub trait SimdLanes<S> {
     const LANES: usize;
 }
-pub trait SimdMask<S> {
-    type Backend: Backend;
+pub trait SimdReg<S> {
+    type Reg;
+}
+pub trait SimdLoad<S>: SimdReg<S> {
+    unsafe fn load(&self,ptr: *const S) -> Self::Reg;
+}
+pub trait SimdStore<S>: SimdReg<S> {
+    unsafe fn store(&self, ptr: *mut S, reg: Self::Reg);
+}
+pub trait SimdMask<S>: SimdReg<S> {
     type Mask;
-    type TailMask;
 
-    fn cmp_gt<'a,const N: usize>(&self,v:&Vector<'a,S,N,Self::Backend>,w:&Vector<'a,S,N,Self::Backend>) -> VectorMask<Self::Mask,N>;
-    fn cmp_eq<'a,const N: usize>(&self,v:&Vector<'a,S,N,Self::Backend>,w:&Vector<'a,S,N,Self::Backend>) -> VectorMask<Self::Mask,N>;
-    fn select<'a,const N: usize>(&self,m:&VectorMask<Self::Mask,N>,a:&Vector<'a,S,N,Self::Backend>,b:&Vector<'a,S,N,Self::Backend>,) -> OwnedVector<S,N>;
-    fn mask_zero<'a,const N: usize>(&self,m:&VectorMask<Self::Mask,N>,a:&Vector<'a,S,N,Self::Backend>) -> OwnedVector<S,N>;
-    fn tail_mask(index: usize, total: usize) -> Self::TailMask;
+    fn cmp_gt(&self,a:Self::Reg,b:Self::Reg) -> Self::Mask;
+    fn cmp_eq(&self,a:Self::Reg,b:Self::Reg) -> Self::Mask;
+    fn select(&self,mask:Self::Mask,a:Self::Reg,b:Self::Reg) -> Self::Reg;
+    fn mask_zero(&self,m:Self::Mask,a:Self::Reg,b:Self::Reg) -> Self::Reg;
+    fn tail_mask(&self,index: usize, total: usize) -> Self::Mask;
 }
 pub trait Dot<R,O> {
     fn dot(&self,r:R) -> O;

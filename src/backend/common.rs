@@ -2,7 +2,7 @@
 
 use crate::traits::{SimdAdd, SimdBitAnd, SimdBitNot, SimdBitOr, SimdBitXor, SimdDiv, SimdDot, SimdHSum, SimdMatMul, SimdMatVec, SimdHMax, SimdMul, SimdShiftLeft, SimdShiftRight, SimdSub, SimdVMat, SimdHMin, SimdHOr, SimdTranspose, SimdMask, SimdScalarMul, SimdOuterProduct};
 
-pub trait Backend: ArithmeticBackend +
+pub trait Backend/* : ArithmeticBackend +
                    ScalarMulBackend +
                    BitOperationsBackend +
                    BitShiftBackend +
@@ -12,7 +12,7 @@ pub trait Backend: ArithmeticBackend +
                    HorizontalMinBackend +
                    HorizontalOrBackend +
                    TransposeBackend +
-                   MaskBackend {
+                   MaskBackend */{
     fn new() -> Self;
 }
 pub trait MaskBackend: SimdMask<f32> +
@@ -20,9 +20,7 @@ pub trait MaskBackend: SimdMask<f32> +
                        SimdMask<i8> +
                        SimdMask<i16> +
                        SimdMask<i32> +
-                       SimdMask<i64> +
-                       SimdMask<i16> +
-                       SimdMask<i8> {
+                       SimdMask<i64> {
 }
 pub trait TransposeBackend: SimdTranspose<f32> +
                             SimdTranspose<f64> +
