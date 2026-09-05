@@ -1,8 +1,8 @@
 //! Implementation of SIMD Operations Using AVX2
 
-use std::arch::x86_64::{__m256, __m256d, __m256i, _mm256_and_pd, _mm256_and_ps, _mm256_and_si256, _mm256_blendv_epi8, _mm256_blendv_pd, _mm256_blendv_ps, _mm256_castpd_si256, _mm256_castps_si256, _mm256_castsi256_pd, _mm256_castsi256_ps, _mm256_cmp_pd, _mm256_cmp_ps, _mm256_cmpeq_epi16, _mm256_cmpeq_epi32, _mm256_cmpeq_epi8, _mm256_cmpgt_epi16, _mm256_cmpgt_epi32, _mm256_cmpgt_epi8, _mm256_loadu_si256, _CMP_EQ_OQ, _CMP_GT_OQ};
+use std::arch::x86_64::{__m256, __m256d, __m256i, _mm256_and_pd, _mm256_and_ps, _mm256_and_si256, _mm256_blendv_epi8, _mm256_blendv_pd, _mm256_blendv_ps, _mm256_castpd_si256, _mm256_castps_si256, _mm256_castsi256_pd, _mm256_castsi256_ps, _mm256_cmp_pd, _mm256_cmp_ps, _mm256_cmpeq_epi16, _mm256_cmpeq_epi32, _mm256_cmpeq_epi8, _mm256_cmpgt_epi16, _mm256_cmpgt_epi32, _mm256_cmpgt_epi8, _mm256_loadu_pd, _mm256_loadu_ps, _mm256_loadu_si256, _mm256_storeu_pd, _mm256_storeu_ps, _mm256_storeu_si256, _CMP_EQ_OQ, _CMP_GT_OQ};
 use crate::backend::common::Backend;
-use crate::traits::{SimdLanes, SimdMask, SimdReg};
+use crate::traits::{SimdLanes, SimdLoad, SimdMask, SimdReg, SimdStore};
 use crate::{Vector};
 
 pub struct Avx2 {
@@ -45,6 +45,56 @@ impl SimdReg<f32> for Avx2 {
 }
 impl SimdReg<f64> for Avx2 {
     type Reg = __m256d;
+}
+impl SimdLoad<i8> for Avx2 {
+    unsafe fn load(&self, ptr: *const i8) -> Self::Reg {
+        _mm256_loadu_si256(ptr as *const __m256i)
+    }
+}
+impl SimdLoad<i16> for Avx2 {
+    unsafe fn load(&self, ptr: *const i16) -> Self::Reg {
+        _mm256_loadu_si256(ptr as *const __m256i)
+    }
+}
+impl SimdLoad<i32> for Avx2 {
+    unsafe fn load(&self, ptr: *const i32) -> Self::Reg {
+        _mm256_loadu_si256(ptr as *const __m256i)
+    }
+}
+impl SimdLoad<f32> for Avx2 {
+    unsafe fn load(&self, ptr: *const f32) -> Self::Reg {
+        _mm256_loadu_ps(ptr)
+    }
+}
+impl SimdLoad<f64> for Avx2 {
+    unsafe fn load(&self, ptr: *const f64) -> Self::Reg {
+        _mm256_loadu_pd(ptr)
+    }
+}
+impl SimdStore<i8> for Avx2 {
+    unsafe fn store(&self, ptr: *mut i8, a: Self::Reg) {
+        _mm256_storeu_si256(ptr as *mut __m256i, a);
+    }
+}
+impl SimdStore<i16> for Avx2 {
+    unsafe fn store(&self, ptr: *mut i16, a: Self::Reg) {
+        _mm256_storeu_si256(ptr as *mut __m256i, a);
+    }
+}
+impl SimdStore<i32> for Avx2 {
+    unsafe fn store(&self, ptr: *mut i32, a: Self::Reg) {
+        _mm256_storeu_si256(ptr as *mut __m256i, a);
+    }
+}
+impl SimdStore<f32> for Avx2 {
+    unsafe fn store(&self, ptr: *mut f32, a: Self::Reg) {
+        _mm256_storeu_ps(ptr, a);
+    }
+}
+impl SimdStore<f64> for Avx2 {
+    unsafe fn store(&self, ptr: *mut f64, a: Self::Reg) {
+        _mm256_storeu_pd(ptr, a);
+    }
 }
 impl SimdMask<i8> for Avx2 where Self: SimdReg<i8> {
     type Mask = __m256i;
