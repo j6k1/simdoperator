@@ -2,7 +2,7 @@
 
 use std::arch::x86_64::{__m256, __m256d, __m256i, _mm256_add_epi8, _mm256_and_pd, _mm256_and_ps, _mm256_and_si256, _mm256_blendv_epi8, _mm256_blendv_pd, _mm256_blendv_ps, _mm256_castpd_si256, _mm256_castps_si256, _mm256_castsi256_pd, _mm256_castsi256_ps, _mm256_cmp_pd, _mm256_cmp_ps, _mm256_cmpeq_epi16, _mm256_cmpeq_epi32, _mm256_cmpeq_epi8, _mm256_cmpgt_epi16, _mm256_cmpgt_epi32, _mm256_cmpgt_epi8, _mm256_loadu_pd, _mm256_loadu_ps, _mm256_loadu_si256, _mm256_storeu_pd, _mm256_storeu_ps, _mm256_storeu_si256, _CMP_EQ_OQ, _CMP_GT_OQ};
 use crate::backend::common::Backend;
-use crate::traits::{SimdAdd, SimdLanes, SimdLoad, SimdMask, SimdReg, SimdStore};
+use crate::traits::{SimdAdd, SimdLanes, SimdLoad, SimdMask, SimdReg, SimdRows, SimdStore};
 use crate::{OwnedVector, Vector};
 
 pub struct Avx2 {
@@ -30,6 +30,21 @@ impl SimdLanes<i32> for Avx2 {
 }
 impl SimdLanes<i64> for Avx2 {
     const LANES: usize = 4;
+}
+impl SimdRows<i8> for Avx2 {
+    const ROWS: usize = 1;
+}
+impl SimdRows<i16> for Avx2 {
+    const ROWS: usize = 1;
+}
+impl SimdRows<i32> for Avx2 {
+    const ROWS: usize = 2;
+}
+impl SimdRows<f32> for Avx2 {
+    const ROWS: usize = 2;
+}
+impl SimdRows<f64> for Avx2 {
+    const ROWS: usize = 1;
 }
 impl SimdReg<i8> for Avx2 {
     type Reg = __m256i;
@@ -249,6 +264,7 @@ impl SimdMask<f64> for Avx2 where Self: SimdReg<f64> {
 impl SimdAdd<i8,i8,i8> for Avx2
     where Self: SimdReg<i8> +
                 SimdLanes<i8> +
+                SimdRows<i8> +
                 SimdMask<i8> {
     type Backend = Avx2;
     fn add<'a,const N: usize>(&self,l: &Vector<'a,i8,N,Self::Backend>,r: &Vector<'a,i8,N,Self::Backend>)
@@ -262,18 +278,33 @@ impl SimdAdd<i8,i8,i8> for Avx2
             let pb = r.as_ref().as_ptr();
             let po = rs.as_mut().as_mut_ptr();
 
-            while i + <Self as SimdLanes::<i8>>::LANES <= N && i < N {
-                let ra = self.load(pa.add(i));
-                let rb = self.load(pb.add(i));
+            while i + <Self as SimdLanes::<i8>>::LANES * <Self as SimdRows::<i8>>::ROWS <= N {
+                for j in 0..<Self as SimdRows::<i8>>::ROWS {
+                    let ra = self.load(pa.add(i + j * <Self as SimdLanes::<i8>>::LANES));
+                    let rb = self.load(pb.add(i + j * <Self as SimdLanes::<i8>>::LANES));
 
-                let rr = _mm256_add_epi8(ra,rb);
+                    let rr = _mm256_add_epi8(ra,rb);
 
-                self.store(po.add(i),rr);
+                    self.store(po.add(i + j * <Self as SimdLanes::<i8>>::LANES),rr);
 
-                i += <Self as SimdLanes::<i8>>::LANES;
+                    i += <Self as SimdLanes::<i8>>::LANES * <Self as SimdRows::<i8>>::ROWS;
+                }
             }
 
-            if <Self as SimdLanes::<i8>>::LANES % N != 0 {
+            if N % (<Self as SimdLanes<i8>>::LANES * <Self as SimdRows::<i8>>::ROWS) != 0 {
+                while i + <Self as SimdLanes::<i8>>::LANES <= N {
+                    let ra = self.load(pa.add(i));
+                    let rb = self.load(pb.add(i));
+
+                    let rr = _mm256_add_epi8(ra,rb);
+
+                    self.store(po.add(i),rr);
+
+                    i += <Self as SimdLanes::<i8>>::LANES;
+                }
+            }
+
+            if N % <Self as SimdLanes::<i8>>::LANES != 0 {
                 for j in i..N {
                     rs[j] = l[j] + r[j];
                 }

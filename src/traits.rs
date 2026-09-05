@@ -90,6 +90,9 @@ pub trait SimdTranspose<S> {
 pub trait SimdLanes<S> {
     const LANES: usize;
 }
+pub trait SimdRows<S> {
+    const ROWS: usize;
+}
 pub trait SimdReg<S> {
     type Reg;
     type Mask;
