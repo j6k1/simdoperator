@@ -19,10 +19,6 @@ pub trait SimdScalarMul<SL,SR,SO> {
     type Backend: Backend;
     fn scalarmul<'a,const N: usize>(&self,l:&Vector<'a,SL,N,Self::Backend>,r:SR) -> OwnedVector<SO,N>;
 }
-pub trait SimdDiv<SL,SR,SO> {
-    type Backend: Backend;
-    fn div<'a,const N: usize>(&self,l:&Vector<'a,SL,N,Self::Backend>,r:&Vector<'a,SR,N,Self::Backend>) -> OwnedVector<SO,N>;
-}
 pub trait SimdBitXor<S> {
     type Backend: Backend;
     fn bitxor<'a,const N: usize>(&self,l:&Vector<'a,S,N,Self::Backend>,r:&Vector<'a,S,N,Self::Backend>) -> OwnedVector<S,N>;
@@ -96,6 +92,7 @@ pub trait SimdLanes<S> {
 }
 pub trait SimdReg<S> {
     type Reg;
+    type Mask;
 }
 pub trait SimdLoad<S>: SimdReg<S> {
     unsafe fn load(&self,ptr: *const S) -> Self::Reg;
@@ -104,12 +101,11 @@ pub trait SimdStore<S>: SimdReg<S> {
     unsafe fn store(&self, ptr: *mut S, reg: Self::Reg);
 }
 pub trait SimdMask<S>: SimdReg<S> {
-    type Mask;
 
     fn cmp_gt(&self,a:Self::Reg,b:Self::Reg) -> Self::Mask;
     fn cmp_eq(&self,a:Self::Reg,b:Self::Reg) -> Self::Mask;
     fn select(&self,mask:Self::Mask,a:Self::Reg,b:Self::Reg) -> Self::Reg;
-    fn mask_zero(&self,m:Self::Mask,a:Self::Reg,b:Self::Reg) -> Self::Reg;
+    fn mask_zero(&self,m:Self::Mask,a:Self::Reg) -> Self::Reg;
     fn tail_mask(&self,index: usize, total: usize) -> Self::Mask;
 }
 pub trait Dot<R,O> {

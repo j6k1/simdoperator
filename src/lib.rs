@@ -1,9 +1,9 @@
 //! Trait and data type features for abstracting SIMD operations
 
-use std::ops::{Add, BitAnd, BitOr, BitXor, Div, Index, Mul, Not, Shl, Shr, Sub};
+use std::ops::{Add, BitAnd, BitOr, BitXor, Index, Mul, Not, Shl, Shr, Sub};
 use crate::error::TryFromSliceError;
 use crate::backend::common::{Backend};
-use crate::traits::{Dims, Dot, HAnd, HMax, HMin, HOr, HSum, Product, SimdAdd, SimdBitAnd, SimdBitNot, SimdBitOr, SimdBitXor, SimdDiv, SimdDot, SimdHAnd, SimdHMax, SimdHMin, SimdHOr, SimdHSum, SimdMatMul, SimdMatVec, SimdMul, SimdOuterProduct, SimdScalarMul, SimdShiftLeft, SimdShiftRight, SimdSub, SimdVMat};
+use crate::traits::{Dims, Dot, HAnd, HMax, HMin, HOr, HSum, Product, SimdAdd, SimdBitAnd, SimdBitNot, SimdBitOr, SimdBitXor, SimdDot, SimdHAnd, SimdHMax, SimdHMin, SimdHOr, SimdHSum, SimdMatMul, SimdMatVec, SimdMul, SimdOuterProduct, SimdScalarMul, SimdShiftLeft, SimdShiftRight, SimdSub, SimdVMat};
 
 pub mod backend;
 pub mod traits;
@@ -73,6 +73,11 @@ impl<T,BE: Backend,const N: usize> Index<usize> for Vector<'_,T,N,BE> {
         &self.data[index]
     }
 }
+impl<T,BE: Backend,const N: usize> AsRef<[T;N]> for Vector<'_,T,N,BE> {
+    fn as_ref(&self) -> &[T;N] {
+        &self.data
+    }
+}
 impl<T,BE: Backend,const N: usize,const M: usize> Index<usize> for Matrix<'_,T,N,M,BE> {
     type Output = [T];
 
@@ -101,6 +106,23 @@ impl<T,const N: usize> From<OwnedVector<T,N>> for [T;N] {
         value.data
     }
 }
+impl<T,const N: usize> From<[T;N]> for OwnedVector<T,N> {
+    fn from(value: [T;N]) -> Self {
+        OwnedVector {
+            data: value
+        }
+    }
+}
+impl<T,const N: usize> AsMut<[T;N]> for OwnedVector<T,N> {
+    fn as_mut(&mut self) -> &mut [T;N] {
+        &mut self.data
+    }
+}
+impl<T,const N: usize,const M: usize> AsMut<[T]> for OwnedMatrix<T,N,M> {
+    fn as_mut(&mut self) -> &mut [T] {
+        &mut self.data
+    }
+}
 impl<T,const N: usize,const M: usize> From<OwnedMatrix<T,N,M>> for Box<[T]> {
     fn from(value: OwnedMatrix<T,N,M>) -> Self {
         value.data
@@ -120,14 +142,6 @@ impl<'a,BE,T,const N: usize> Sub<&'a Vector<'a,T,N,BE>> for &'a Vector<'a,T,N,BE
 
     fn sub(self, rhs: &'a Vector<'a,T,N,BE>) -> Self::Output {
         self.backend.sub(self, rhs)
-    }
-}
-impl<'a,BE,T,const N: usize> Div<&'a Vector<'a,T,N,BE>> for &'a Vector<'a,T,N,BE>
-    where BE: Backend + SimdDiv<T,T,T,Backend = BE> {
-    type Output = OwnedVector<T,N>;
-
-    fn div(self, rhs: &'a Vector<'a,T,N,BE>) -> Self::Output {
-        self.backend.div(self, rhs)
     }
 }
 impl<'a,BE,const N: usize> Mul<&'a Vector<'a,i8,N,BE>> for &'a Vector<'a,i8,N,BE>

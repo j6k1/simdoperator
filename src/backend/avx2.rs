@@ -1,9 +1,9 @@
 //! Implementation of SIMD Operations Using AVX2
 
-use std::arch::x86_64::{__m256, __m256d, __m256i, _mm256_and_pd, _mm256_and_ps, _mm256_and_si256, _mm256_blendv_epi8, _mm256_blendv_pd, _mm256_blendv_ps, _mm256_castpd_si256, _mm256_castps_si256, _mm256_castsi256_pd, _mm256_castsi256_ps, _mm256_cmp_pd, _mm256_cmp_ps, _mm256_cmpeq_epi16, _mm256_cmpeq_epi32, _mm256_cmpeq_epi8, _mm256_cmpgt_epi16, _mm256_cmpgt_epi32, _mm256_cmpgt_epi8, _mm256_loadu_pd, _mm256_loadu_ps, _mm256_loadu_si256, _mm256_storeu_pd, _mm256_storeu_ps, _mm256_storeu_si256, _CMP_EQ_OQ, _CMP_GT_OQ};
+use std::arch::x86_64::{__m256, __m256d, __m256i, _mm256_add_epi8, _mm256_and_pd, _mm256_and_ps, _mm256_and_si256, _mm256_blendv_epi8, _mm256_blendv_pd, _mm256_blendv_ps, _mm256_castpd_si256, _mm256_castps_si256, _mm256_castsi256_pd, _mm256_castsi256_ps, _mm256_cmp_pd, _mm256_cmp_ps, _mm256_cmpeq_epi16, _mm256_cmpeq_epi32, _mm256_cmpeq_epi8, _mm256_cmpgt_epi16, _mm256_cmpgt_epi32, _mm256_cmpgt_epi8, _mm256_loadu_pd, _mm256_loadu_ps, _mm256_loadu_si256, _mm256_storeu_pd, _mm256_storeu_ps, _mm256_storeu_si256, _CMP_EQ_OQ, _CMP_GT_OQ};
 use crate::backend::common::Backend;
-use crate::traits::{SimdLanes, SimdLoad, SimdMask, SimdReg, SimdStore};
-use crate::{Vector};
+use crate::traits::{SimdAdd, SimdLanes, SimdLoad, SimdMask, SimdReg, SimdStore};
+use crate::{OwnedVector, Vector};
 
 pub struct Avx2 {
 
@@ -33,18 +33,23 @@ impl SimdLanes<i64> for Avx2 {
 }
 impl SimdReg<i8> for Avx2 {
     type Reg = __m256i;
+    type Mask = __m256i;
 }
 impl SimdReg<i16> for Avx2 {
     type Reg = __m256i;
+    type Mask = __m256i;
 }
 impl SimdReg<i32> for Avx2 {
     type Reg = __m256i;
+    type Mask = __m256i;
 }
 impl SimdReg<f32> for Avx2 {
     type Reg = __m256;
+    type Mask = __m256i;
 }
 impl SimdReg<f64> for Avx2 {
     type Reg = __m256d;
+    type Mask = __m256i;
 }
 impl SimdLoad<i8> for Avx2 {
     unsafe fn load(&self, ptr: *const i8) -> Self::Reg {
@@ -97,8 +102,6 @@ impl SimdStore<f64> for Avx2 {
     }
 }
 impl SimdMask<i8> for Avx2 where Self: SimdReg<i8> {
-    type Mask = __m256i;
-
     fn cmp_gt(&self, a:Self::Reg,b:Self::Reg) -> Self::Mask {
         unsafe { _mm256_cmpgt_epi8(a,b) }
     }
@@ -107,7 +110,7 @@ impl SimdMask<i8> for Avx2 where Self: SimdReg<i8> {
         unsafe { _mm256_cmpeq_epi8(a,b) }
     }
 
-    fn mask_zero(&self, mask: Self::Mask, a: Self::Reg, b: Self::Reg) -> Self::Reg {
+    fn mask_zero(&self, mask: Self::Mask, a: Self::Reg) -> Self::Reg {
         unsafe { _mm256_and_si256(a, mask) }
     }
 
@@ -128,8 +131,6 @@ impl SimdMask<i8> for Avx2 where Self: SimdReg<i8> {
     }
 }
 impl SimdMask<i16> for Avx2 where Self: SimdReg<i16> {
-    type Mask = __m256i;
-
     fn cmp_gt(&self, a:Self::Reg,b:Self::Reg) -> Self::Mask {
         unsafe { _mm256_cmpgt_epi16(a,b) }
     }
@@ -138,7 +139,7 @@ impl SimdMask<i16> for Avx2 where Self: SimdReg<i16> {
         unsafe { _mm256_cmpeq_epi16(a,b) }
     }
 
-    fn mask_zero(&self, mask: Self::Mask, a: Self::Reg, b: Self::Reg) -> Self::Reg {
+    fn mask_zero(&self, mask: Self::Mask, a: Self::Reg) -> Self::Reg {
         unsafe { _mm256_and_si256(a, mask) }
     }
 
@@ -159,8 +160,6 @@ impl SimdMask<i16> for Avx2 where Self: SimdReg<i16> {
     }
 }
 impl SimdMask<i32> for Avx2 where Self: SimdReg<i32> {
-    type Mask = __m256i;
-
     fn cmp_gt(&self, a:Self::Reg,b:Self::Reg) -> Self::Mask {
         unsafe { _mm256_cmpgt_epi32(a,b) }
     }
@@ -169,7 +168,7 @@ impl SimdMask<i32> for Avx2 where Self: SimdReg<i32> {
         unsafe { _mm256_cmpeq_epi32(a,b) }
     }
 
-    fn mask_zero(&self, mask: Self::Mask, a: Self::Reg, b: Self::Reg) -> Self::Reg {
+    fn mask_zero(&self, mask: Self::Mask, a: Self::Reg) -> Self::Reg {
         unsafe { _mm256_and_si256(a, mask) }
     }
 
@@ -190,8 +189,6 @@ impl SimdMask<i32> for Avx2 where Self: SimdReg<i32> {
     }
 }
 impl SimdMask<f32> for Avx2 where Self: SimdReg<f32> {
-    type Mask = __m256i;
-
     fn cmp_gt(&self, a:Self::Reg,b:Self::Reg) -> Self::Mask {
         unsafe { _mm256_castps_si256(_mm256_cmp_ps(a,b, _CMP_GT_OQ)) }
     }
@@ -200,7 +197,7 @@ impl SimdMask<f32> for Avx2 where Self: SimdReg<f32> {
         unsafe { _mm256_castps_si256(_mm256_cmp_ps(a,b, _CMP_EQ_OQ)) }
     }
 
-    fn mask_zero(&self, mask: Self::Mask, a: Self::Reg, b: Self::Reg) -> Self::Reg {
+    fn mask_zero(&self, mask: Self::Mask, a: Self::Reg) -> Self::Reg {
         unsafe { _mm256_and_ps(a,_mm256_castsi256_ps(mask)) }
     }
 
@@ -221,8 +218,6 @@ impl SimdMask<f32> for Avx2 where Self: SimdReg<f32> {
     }
 }
 impl SimdMask<f64> for Avx2 where Self: SimdReg<f64> {
-    type Mask = __m256i;
-
     fn cmp_gt(&self, a:Self::Reg,b:Self::Reg) -> Self::Mask {
         unsafe { _mm256_castpd_si256(_mm256_cmp_pd(a,b, _CMP_GT_OQ)) }
     }
@@ -231,7 +226,7 @@ impl SimdMask<f64> for Avx2 where Self: SimdReg<f64> {
         unsafe { _mm256_castpd_si256(_mm256_cmp_pd(a,b, _CMP_EQ_OQ)) }
     }
 
-    fn mask_zero(&self, mask: Self::Mask, a: Self::Reg, b: Self::Reg) -> Self::Reg {
+    fn mask_zero(&self, mask: Self::Mask, a: Self::Reg) -> Self::Reg {
         unsafe { _mm256_and_pd(a,_mm256_castsi256_pd(mask)) }
     }
 
@@ -249,5 +244,49 @@ impl SimdMask<f64> for Avx2 where Self: SimdReg<f64> {
         }
 
         unsafe { _mm256_loadu_si256(arr.as_ptr() as *const __m256i) }
+    }
+}
+impl SimdAdd<i8,i8,i8> for Avx2
+    where Self: SimdReg<i8> +
+                SimdLanes<i8> +
+                SimdMask<i8> {
+    type Backend = Avx2;
+    fn add<'a,const N: usize>(&self,l: &Vector<'a,i8,N,Self::Backend>,r: &Vector<'a,i8,N,Self::Backend>)
+        -> OwnedVector<i8,N> {
+        let mut i = 0;
+
+        let mut rs = OwnedVector::from([0i8; N]);
+
+        unsafe {
+            let pa = l.as_ref().as_ptr();
+            let pb = r.as_ref().as_ptr();
+            let po = rs.as_mut().as_mut_ptr();
+
+            while i + <Self as SimdLanes::<i8>>::LANES <= N && i < N {
+                let ra = self.load(pa.add(i));
+                let rb = self.load(pb.add(i));
+
+                let rr = _mm256_add_epi8(ra,rb);
+
+                self.store(po.add(i),rr);
+
+                i += <Self as SimdLanes::<i8>>::LANES;
+            }
+
+            if <Self as SimdLanes::<i8>>::LANES % N != 0 {
+
+                let ra = self.load(pa.add(i));
+                let rb = self.load(pb.add(i));
+
+                let tail_mask = <Self as SimdMask<i8>>::tail_mask(self,i,N);
+
+                let rr = _mm256_add_epi8(ra,rb);
+                let rr = <Self as SimdMask<i8>>::mask_zero(self,tail_mask,rr);
+
+                self.store(po.add(i),rr);
+            }
+        }
+
+        rs
     }
 }
