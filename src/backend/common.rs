@@ -19,8 +19,7 @@ pub trait MaskBackend: SimdMask<f32> +
                        SimdMask<f64> +
                        SimdMask<i8> +
                        SimdMask<i16> +
-                       SimdMask<i32> +
-                       SimdMask<i64> {
+                       SimdMask<i32> {
 }
 pub trait TransposeBackend: SimdTranspose<f32> +
                             SimdTranspose<f64> +
