@@ -1,80 +1,103 @@
 //! Trait and data type features for abstracting SIMD operations
 
 use crate::{Matrix, OwnedMatrix, OwnedVector, Vector, VectorMask};
+use crate::backend::common::Backend;
 
 pub trait SimdAdd<SL,SR,SO> {
-    fn add<'a,const N: usize>(l:&Vector<'a,SL,N>,r:&Vector<'a,SR,N>) -> OwnedVector<SO,N>;
+    type Backend: Backend;
+    fn add<'a,const N: usize>(&self, l:&Vector<'a,SL,N,Self::Backend>, r:&Vector<'a,SR,N,Self::Backend>) -> OwnedVector<SO,N>;
 }
 pub trait SimdSub<SL,SR,SO> {
-    fn sub<'a,const N: usize>(l:&Vector<'a,SL,N>,r:&Vector<'a,SR,N>) -> OwnedVector<SO,N>;
+    type Backend: Backend;
+    fn sub<'a,const N: usize>(&self,l:&Vector<'a,SL,N,Self::Backend>,r:&Vector<'a,SR,N,Self::Backend>) -> OwnedVector<SO,N>;
 }
 pub trait SimdMul<SL,SR,SO> {
-    fn mul<'a,const N: usize>(l:&Vector<'a,SL,N>,r:&Vector<'a,SR,N>) -> OwnedVector<SO,N>;
+    type Backend: Backend;
+    fn mul<'a,const N: usize>(&self,l:&Vector<'a,SL,N,Self::Backend>,r:&Vector<'a,SR,N,Self::Backend>) -> OwnedVector<SO,N>;
 }
-pub trait SimdSclarMul<SL,SR,SO> {
-    fn scalarmul<'a,const N: usize>(s:SL,v:&Vector<'a,SR,N>) -> OwnedVector<SO,N>;
+pub trait SimdScalarMul<SL,SR,SO> {
+    type Backend: Backend;
+    fn scalarmul<'a,const N: usize>(&self,l:&Vector<'a,SL,N,Self::Backend>,r:SR) -> OwnedVector<SO,N>;
 }
 pub trait SimdDiv<SL,SR,SO> {
-    fn div<'a,const N: usize>(l:&Vector<'a,SL,N>,r:&Vector<'a,SR,N>) -> OwnedVector<SO,N>;
+    type Backend: Backend;
+    fn div<'a,const N: usize>(&self,l:&Vector<'a,SL,N,Self::Backend>,r:&Vector<'a,SR,N,Self::Backend>) -> OwnedVector<SO,N>;
 }
 pub trait SimdBitXor<S> {
-    fn bitxor<'a,const N: usize>(l:&Vector<'a,S,N>,r:&Vector<'a,S,N>) -> OwnedVector<S,N>;
+    type Backend: Backend;
+    fn bitxor<'a,const N: usize>(&self,l:&Vector<'a,S,N,Self::Backend>,r:&Vector<'a,S,N,Self::Backend>) -> OwnedVector<S,N>;
 }
 pub trait SimdBitAnd<S> {
-    fn bitand<'a,const N: usize>(l:&Vector<'a,S,N>,r:&Vector<'a,S,N>) -> OwnedVector<S,N>;
+    type Backend: Backend;
+    fn bitand<'a,const N: usize>(&self,l:&Vector<'a,S,N,Self::Backend>,r:&Vector<'a,S,N,Self::Backend>) -> OwnedVector<S,N>;
 }
 pub trait SimdBitOr<S> {
-    fn bitor<'a,const N: usize>(l:&Vector<'a,S,N>,r:&Vector<'a,S,N>) -> OwnedVector<S,N>;
+    type Backend: Backend;
+    fn bitor<'a,const N: usize>(&self,l:&Vector<'a,S,N,Self::Backend>,r:&Vector<'a,S,N,Self::Backend>) -> OwnedVector<S,N>;
 }
 pub trait SimdBitNot<S> {
-    fn bitnot<'a,const N: usize>(v:&Vector<'a,S,N>) -> OwnedVector<S,N>;
+    type Backend: Backend;
+    fn bitnot<'a,const N: usize>(&self,v:&Vector<'a,S,N,Self::Backend>) -> OwnedVector<S,N>;
 }
 pub trait SimdShiftLeft<S> {
-    fn shl<'a,const N: usize>(v:&Vector<'a,S,N>,w:usize) -> OwnedVector<S,N>;
+    type Backend: Backend;
+    fn shl<'a,const N: usize>(&self,v:&Vector<'a,S,N,Self::Backend>,w:usize) -> OwnedVector<S,N>;
 }
 pub trait SimdShiftRight<S> {
-    fn shr<'a,const N: usize>(v:&Vector<'a,S,N>,w:usize) -> OwnedVector<S,N>;
+    type Backend: Backend;
+    fn shr<'a,const N: usize>(&self,v:&Vector<'a,S,N,Self::Backend>,w:usize) -> OwnedVector<S,N>;
 }
 pub trait SimdDot<SL,SR,SO> {
-    fn dot<'a,const N: usize>(l:&Vector<'a,SL,N>,r:&Vector<'a,SR,N>) -> SO;
+    type Backend: Backend;
+    fn dot<'a,const N: usize>(&self,l:&Vector<'a,SL,N,Self::Backend>,r:&Vector<'a,SR,N,Self::Backend>) -> SO;
 }
 pub trait SimdVMat<SL,SR,SO> {
-    fn vmat<'a,const N: usize,const M: usize>(l:&Vector<'a,SL,N>,r:&Matrix<'a,SR,N,M>) -> OwnedMatrix<SO,N,M>;
+    type Backend: Backend;
+    fn vmat<'a,const N: usize,const M: usize>(l:&Vector<'a,SL,N,Self::Backend>,r:&Matrix<'a,SR,N,M,Self::Backend>) -> OwnedMatrix<SO,N,M>;
 }
 pub trait SimdMatVec<SL,SR,SO> {
-    fn matvec<'a,const N: usize,const M: usize>(l:&Matrix<'a,SL,N,M>,r:&Vector<'a,SR,N>) -> OwnedVector<SO,M>;
+    type Backend: Backend;
+    fn matvec<'a,const N: usize,const M: usize>(l:&Matrix<'a,SL,N,M,Self::Backend>,r:&Vector<'a,SR,N,Self::Backend>) -> OwnedVector<SO,M>;
 }
 pub trait SimdMatMul<SL,SR,SO> {
-    fn matmul<'a,const N: usize,const M: usize,const K: usize>(l:&Matrix<'a,SL,M,N>,r:&Matrix<'a,SR,N,K>) -> OwnedMatrix<SO,M,K>;
+    type Backend: Backend;
+    fn matmul<'a,const N: usize,const M: usize,const K: usize>(l:&Matrix<'a,SL,M,N,Self::Backend>,r:&Matrix<'a,SR,N,K,Self::Backend>) -> OwnedMatrix<SO,M,K>;
 }
 pub trait SimdHSum<S> {
-    fn hsum<'a,const N: usize>(v:&Vector<'a,S,N>) -> S;
+    type Backend: Backend;
+    fn hsum<'a,const N: usize>(&self,v:&Vector<'a,S,N,Self::Backend>) -> S;
 }
 pub trait SimdHMax<S> {
-    fn hmax<'a,const N: usize>(v:&Vector<'a,S,N>) -> S;
+    type Backend: Backend;
+    fn hmax<'a,const N: usize>(&self,v:&Vector<'a,S,N,Self::Backend>) -> S;
 }
 pub trait SimdHMin<S> {
-    fn hmin<'a,const N: usize>(v:&Vector<'a,S,N>) -> S;
+    type Backend: Backend;
+    fn hmin<'a,const N: usize>(&self,v:&Vector<'a,S,N,Self::Backend>) -> S;
 }
 pub trait SimdHOr<S> {
-    fn hor<'a,const N: usize>(v:&Vector<'a,S,N>) -> S;
+    type Backend: Backend;
+    fn hor<'a,const N: usize>(&self,v:&Vector<'a,S,N,Self::Backend>) -> S;
 }
 pub trait SimdHAnd<S> {
-    fn hand<'a,const N: usize>(v:&Vector<'a,S,N>) -> S;
+    type Backend: Backend;
+    fn hand<'a,const N: usize>(&self,v:&Vector<'a,S,N,Self::Backend>) -> S;
 }
 pub trait SimdTranspose<S> {
-    fn transpose<'a,const N: usize,const M: usize>(v:&Matrix<'a,S,N,M>) -> OwnedMatrix<S,M,N>;
+    type Backend: Backend;
+    fn transpose<'a,const N: usize,const M: usize>(v:&Matrix<'a,S,N,M,Self::Backend>) -> OwnedMatrix<S,M,N>;
 }
 pub trait SimdLanes<S> {
     const LANES: usize;
 }
 pub trait SimdMask<S> {
+    type Backend: Backend;
     type Mask;
     type TailMask;
 
-    fn cmp_gt<'a,const N: usize>(v:&Vector<'a,S,N>,w:&Vector<'a,S,N>) -> VectorMask<Self::Mask,N>;
-    fn cmp_eq<'a,const N: usize>(v:&Vector<'a,S,N>,w:&Vector<'a,S,N>) -> VectorMask<Self::Mask,N>;
-    fn select<'a,const N: usize>(m:&VectorMask<Self::Mask,N>,a:&Vector<'a,S,N>,b:&Vector<'a,S,N>,) -> OwnedVector<S,N>;
-    fn mask_zero<'a,const N: usize>(m:&VectorMask<Self::Mask,N>,a:&Vector<'a,S,N>) -> OwnedVector<S,N>;
+    fn cmp_gt<'a,const N: usize>(&self,v:&Vector<'a,S,N,Self::Backend>,w:&Vector<'a,S,N,Self::Backend>) -> VectorMask<Self::Mask,N>;
+    fn cmp_eq<'a,const N: usize>(&self,v:&Vector<'a,S,N,Self::Backend>,w:&Vector<'a,S,N,Self::Backend>) -> VectorMask<Self::Mask,N>;
+    fn select<'a,const N: usize>(&self,m:&VectorMask<Self::Mask,N>,a:&Vector<'a,S,N,Self::Backend>,b:&Vector<'a,S,N,Self::Backend>,) -> OwnedVector<S,N>;
+    fn mask_zero<'a,const N: usize>(&self,m:&VectorMask<Self::Mask,N>,a:&Vector<'a,S,N,Self::Backend>) -> OwnedVector<S,N>;
     fn tail_mask(index: usize, total: usize) -> Self::TailMask;
 }

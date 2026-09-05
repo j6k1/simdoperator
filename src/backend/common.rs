@@ -1,8 +1,9 @@
 //! Common Backend Implementation
 
-use crate::traits::{SimdAdd, SimdBitAnd, SimdBitNot, SimdBitOr, SimdBitXor, SimdDiv, SimdDot, SimdHSum, SimdMatMul, SimdMatVec, SimdHMax, SimdMul, SimdShiftLeft, SimdShiftRight, SimdSub, SimdVMat, SimdHMin, SimdHOr, SimdTranspose, SimdMask};
+use crate::traits::{SimdAdd, SimdBitAnd, SimdBitNot, SimdBitOr, SimdBitXor, SimdDiv, SimdDot, SimdHSum, SimdMatMul, SimdMatVec, SimdHMax, SimdMul, SimdShiftLeft, SimdShiftRight, SimdSub, SimdVMat, SimdHMin, SimdHOr, SimdTranspose, SimdMask, SimdScalarMul};
 
 pub trait Backend: ArithmeticBackend +
+                   ScalarMulBackend +
                    BitOperationsBackend +
                    BitShiftBackend +
                    ProductBackend +
@@ -12,6 +13,7 @@ pub trait Backend: ArithmeticBackend +
                    HorizontalOrBackend +
                    TransposeBackend +
                    MaskBackend {
+    fn new() -> Self;
 }
 pub trait MaskBackend: SimdMask<f32> +
                        SimdMask<f64> +
@@ -117,6 +119,14 @@ pub trait BitOperationsBackend: SimdBitOr<i8> +
                                 SimdBitNot<f64> {
 
 }
+pub trait ScalarMulBackend: SimdScalarMul<i8,i8,i32> +
+                            SimdScalarMul<i8,i16,i32> +
+                            SimdScalarMul<i16,i16,i32> +
+                            SimdScalarMul<i32,i32,i32> +
+                            SimdScalarMul<i64,i64,i64> +
+                            SimdScalarMul<f32,f32,f32> +
+                            SimdScalarMul<f64,f64,f64> {
+}
 pub trait ArithmeticBackend: SimdAdd<f32,f32,f32> +
                              SimdAdd<f64,f64,f64> +
                              SimdAdd<i32,i32,i32> +
@@ -139,8 +149,6 @@ pub trait ArithmeticBackend: SimdAdd<f32,f32,f32> +
                              SimdMul<f64,f64,f64> +
                              SimdMul<i32,i32,i32> +
                              SimdMul<i64,i64,i64> +
-                             SimdMul<i16,i16,i16> +
-                             SimdMul<i8,i8,i8> +
                              SimdMul<i8,i8,i32> +
                              SimdMul<i8,i16,i32> +
                              SimdMul<i16,i16,i32> {
