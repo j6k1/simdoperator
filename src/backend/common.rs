@@ -1,6 +1,6 @@
 //! Common Backend Implementation
 
-use crate::traits::{SimdAdd, SimdBitAnd, SimdBitNot, SimdBitOr, SimdBitXor, SimdDiv, SimdDot, SimdHSum, SimdMatMul, SimdMatVec, SimdHMax, SimdMul, SimdShiftLeft, SimdShiftRight, SimdSub, SimdVMat, SimdHMin, SimdHOr, SimdTranspose, SimdMask, SimdScalarMul};
+use crate::traits::{SimdAdd, SimdBitAnd, SimdBitNot, SimdBitOr, SimdBitXor, SimdDiv, SimdDot, SimdHSum, SimdMatMul, SimdMatVec, SimdHMax, SimdMul, SimdShiftLeft, SimdShiftRight, SimdSub, SimdVMat, SimdHMin, SimdHOr, SimdTranspose, SimdMask, SimdScalarMul, SimdOuterProduct};
 
 pub trait Backend: ArithmeticBackend +
                    ScalarMulBackend +
@@ -78,7 +78,12 @@ pub trait ProductBackend: SimdDot<f32,f32,f32> +
                           SimdMatMul<f64,f64,f64> +
                           SimdMatMul<i8,i8,i32> +
                           SimdMatMul<i8,i16,i32> +
-                          SimdMatMul<i16,i16,i32> {
+                          SimdMatMul<i16,i16,i32> +
+                          SimdOuterProduct<f32,f32,f32> +
+                          SimdOuterProduct<f64,f64,f64> +
+                          SimdOuterProduct<i8,i8,i32> +
+                          SimdOuterProduct<i8,i16,i32> +
+                          SimdOuterProduct<i16,i16,i32> {
 }
 pub trait BitShiftBackend: SimdShiftLeft<i8> +
                         SimdShiftLeft<i16> +

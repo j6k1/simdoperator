@@ -51,17 +51,21 @@ pub trait SimdDot<SL,SR,SO> {
     type Backend: Backend;
     fn dot<'a,const N: usize>(&self,l:&Vector<'a,SL,N,Self::Backend>,r:&Vector<'a,SR,N,Self::Backend>) -> SO;
 }
+pub trait SimdOuterProduct<SL,SR,SO> {
+    type Backend: Backend;
+    fn outer_product<'a,const N: usize,const M: usize>(&self,l:&Vector<'a,SL,N,Self::Backend>,r:&Vector<'a,SR,M,Self::Backend>) -> OwnedMatrix<SO,N,M>;
+}
 pub trait SimdVMat<SL,SR,SO> {
     type Backend: Backend;
-    fn vmat<'a,const N: usize,const M: usize>(l:&Vector<'a,SL,N,Self::Backend>,r:&Matrix<'a,SR,N,M,Self::Backend>) -> OwnedMatrix<SO,N,M>;
+    fn vmat<'a,const N: usize,const M: usize>(&self,l:&Vector<'a,SL,N,Self::Backend>,r:&Matrix<'a,SR,N,M,Self::Backend>) -> OwnedMatrix<SO,N,M>;
 }
 pub trait SimdMatVec<SL,SR,SO> {
     type Backend: Backend;
-    fn matvec<'a,const N: usize,const M: usize>(l:&Matrix<'a,SL,N,M,Self::Backend>,r:&Vector<'a,SR,N,Self::Backend>) -> OwnedVector<SO,M>;
+    fn matvec<'a,const N: usize,const M: usize>(&self,l:&Matrix<'a,SL,N,M,Self::Backend>,r:&Vector<'a,SR,N,Self::Backend>) -> OwnedVector<SO,M>;
 }
 pub trait SimdMatMul<SL,SR,SO> {
     type Backend: Backend;
-    fn matmul<'a,const N: usize,const M: usize,const K: usize>(l:&Matrix<'a,SL,M,N,Self::Backend>,r:&Matrix<'a,SR,N,K,Self::Backend>) -> OwnedMatrix<SO,M,K>;
+    fn matmul<'a,const N: usize,const M: usize,const K: usize>(&self,l:&Matrix<'a,SL,M,N,Self::Backend>,r:&Matrix<'a,SR,N,K,Self::Backend>) -> OwnedMatrix<SO,M,K>;
 }
 pub trait SimdHSum<S> {
     type Backend: Backend;
@@ -100,4 +104,31 @@ pub trait SimdMask<S> {
     fn select<'a,const N: usize>(&self,m:&VectorMask<Self::Mask,N>,a:&Vector<'a,S,N,Self::Backend>,b:&Vector<'a,S,N,Self::Backend>,) -> OwnedVector<S,N>;
     fn mask_zero<'a,const N: usize>(&self,m:&VectorMask<Self::Mask,N>,a:&Vector<'a,S,N,Self::Backend>) -> OwnedVector<S,N>;
     fn tail_mask(index: usize, total: usize) -> Self::TailMask;
+}
+pub trait Dot<R,O> {
+    fn dot(&self,r:R) -> O;
+}
+pub trait Product<R,O> {
+    fn product(&self, r: R) -> O;
+}
+pub trait HSum<S> {
+    fn hsum(&self) -> S;
+}
+pub trait HMax<S> {
+    fn hmax(&self) -> S;
+}
+pub trait HMin<S> {
+    fn hmin(&self) -> S;
+}
+pub trait HOr<S> {
+    fn hor(&self) -> S;
+}
+pub trait HAnd<S> {
+    fn hand(&self) -> S;
+}
+pub trait Transpose<T,const N: usize, const M: usize> where Self: Dims<N,M> {
+    type Output: Dims<M,N>;
+    fn transpose(v:Self) -> Self::Output;
+}
+pub trait Dims<const N: usize,const M: usize> {
 }
