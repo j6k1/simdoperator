@@ -3033,12 +3033,7 @@ impl SimdTranspose<i8,1> for Avx2 {
         v
     }
 }
-impl SimdTranspose<i8,1> for Avx2 {
-    type Backend = Avx2;
-    fn transpose<'a, const N: usize, const M: usize>(v: [Self::Reg; 1]) -> [Self::Reg; 1] {
-        v
-    }
-}impl SimdTranspose<i16,1> for Avx2 {
+impl SimdTranspose<i16,1> for Avx2 {
     type Backend = Avx2;
     fn transpose<'a, const N: usize, const M: usize>(v: [Self::Reg; 1]) -> [Self::Reg; 1] {
         v
