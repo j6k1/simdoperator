@@ -1,9 +1,9 @@
 //! Implementation of SIMD Operations Using AVX2
 
-use std::arch::x86_64::{__m128i, __m256, __m256d, __m256i, _mm256_add_epi16, _mm256_add_epi32, _mm256_add_epi8, _mm256_add_pd, _mm256_add_ps, _mm256_and_pd, _mm256_and_ps, _mm256_and_si256, _mm256_andnot_si256, _mm256_blendv_epi8, _mm256_blendv_pd, _mm256_blendv_ps, _mm256_castpd_si256, _mm256_castps_si256, _mm256_castsi256_pd, _mm256_castsi256_ps, _mm256_cmp_pd, _mm256_cmp_ps, _mm256_cmpeq_epi16, _mm256_cmpeq_epi32, _mm256_cmpeq_epi8, _mm256_cmpgt_epi16, _mm256_cmpgt_epi32, _mm256_cmpgt_epi8, _mm256_cvtepi16_epi32, _mm256_cvtepi8_epi32, _mm256_loadu_pd, _mm256_loadu_ps, _mm256_loadu_si256, _mm256_mul_epi32, _mm256_mul_pd, _mm256_mul_ps, _mm256_mullo_epi32, _mm256_or_si256, _mm256_set1_epi32, _mm256_set1_pd, _mm256_set1_ps, _mm256_storeu_pd, _mm256_storeu_ps, _mm256_storeu_si256, _mm256_sub_epi16, _mm256_sub_epi32, _mm256_sub_epi8, _mm256_sub_pd, _mm256_sub_ps, _mm256_xor_si256, _mm_cvtepi16_epi32, _mm_cvtepi8_epi16, _mm_loadl_epi64, _mm_loadu_si128, _mm_mullo_epi16, _CMP_EQ_OQ, _CMP_GT_OQ};
+use std::arch::x86_64::{__m128i, __m256, __m256d, __m256i, _mm256_add_epi16, _mm256_add_epi32, _mm256_add_epi8, _mm256_add_pd, _mm256_add_ps, _mm256_and_pd, _mm256_and_ps, _mm256_and_si256, _mm256_andnot_si256, _mm256_blendv_epi8, _mm256_blendv_pd, _mm256_blendv_ps, _mm256_castpd_si256, _mm256_castps_si256, _mm256_castsi256_pd, _mm256_castsi256_ps, _mm256_cmp_pd, _mm256_cmp_ps, _mm256_cmpeq_epi16, _mm256_cmpeq_epi32, _mm256_cmpeq_epi8, _mm256_cmpgt_epi16, _mm256_cmpgt_epi32, _mm256_cmpgt_epi8, _mm256_cvtepi16_epi32, _mm256_cvtepi16_epi8, _mm256_cvtepi32_epi16, _mm256_cvtepi8_epi32, _mm256_loadu_pd, _mm256_loadu_ps, _mm256_loadu_si256, _mm256_mul_epi32, _mm256_mul_pd, _mm256_mul_ps, _mm256_mullo_epi32, _mm256_or_si256, _mm256_set1_epi32, _mm256_set1_pd, _mm256_set1_ps, _mm256_sll_epi32, _mm256_sll_epi64, _mm256_slli_epi32, _mm256_srl_epi32, _mm256_srl_epi64, _mm256_storeu_pd, _mm256_storeu_ps, _mm256_storeu_si256, _mm256_sub_epi16, _mm256_sub_epi32, _mm256_sub_epi8, _mm256_sub_pd, _mm256_sub_ps, _mm256_xor_si256, _mm_cvtepi16_epi32, _mm_cvtepi8_epi16, _mm_loadl_epi64, _mm_loadu_si128, _mm_mullo_epi16, _mm_packus_epi16, _mm_set1_epi32, _mm_storel_epi64, _CMP_EQ_OQ, _CMP_GT_OQ};
 use std::mem::transmute;
 use crate::backend::common::Backend;
-use crate::traits::{SimdAdd, SimdBitAnd, SimdBitNot, SimdBitOr, SimdBitXor, SimdLanes, SimdLoad, SimdMask, SimdMul, SimdReg, SimdRows, SimdScalarMul, SimdStore, SimdSub};
+use crate::traits::{SimdAdd, SimdBitAnd, SimdBitNot, SimdBitOr, SimdBitXor, SimdLanes, SimdLoad, SimdMask, SimdMul, SimdReg, SimdRows, SimdScalarMul, SimdShiftLeft, SimdShiftRight, SimdStore, SimdSub};
 use crate::{OwnedVector, Vector};
 
 pub struct Avx2 {
@@ -40,6 +40,9 @@ impl SimdRows<i16> for Avx2 {
 }
 impl SimdRows<i32> for Avx2 {
     const ROWS: usize = 2;
+}
+impl SimdRows<i64> for Avx2 {
+    const ROWS: usize = 1;
 }
 impl SimdRows<f32> for Avx2 {
     const ROWS: usize = 2;
@@ -2475,6 +2478,548 @@ impl SimdBitNot<f64> for Avx2
             if N % <Self as SimdLanes::<f64>>::LANES != 0 {
                 for j in i..N {
                     rs[j] = f64::from_bits(!v[j].to_bits());
+                }
+            }
+        }
+
+        rs
+    }
+}
+impl SimdShiftLeft<i8> for Avx2
+    where Self: SimdReg<i8> +
+                SimdLanes<i8> +
+                SimdRows<i8> +
+                SimdMask<i8> {
+    type Backend = Avx2;
+    fn shl<'a,const N: usize>(&self,v: &Vector<'a,i8,N,Self::Backend>,w:usize)
+        -> OwnedVector<i8,N> {
+        let mut i = 0;
+
+        let mut rs = OwnedVector::from([0i8; N]);
+
+        unsafe {
+            let rw = _mm_set1_epi32(w as i32);
+
+            let pa = v.as_ref().as_ptr();
+            let po = rs.as_mut().as_mut_ptr();
+
+            while i + <Self as SimdLanes::<i32>>::LANES * <Self as SimdRows::<i32>>::ROWS <= N {
+                for j in 0..<Self as SimdRows::<i32>>::ROWS {
+                    let v8 = _mm_loadl_epi64(pa.add(i + j * <Self as SimdLanes::<i32>>::LANES) as *const __m128i);
+                    let v16 = _mm_cvtepi8_epi16(v8);
+                    let v32 = _mm256_cvtepi16_epi32(v16);
+                    let s32 = _mm256_sll_epi32(v32,rw);
+                    let s16 = _mm256_cvtepi32_epi16(s32);
+                    let s8 = _mm_packus_epi16(s16, s16);
+
+                    _mm_storel_epi64(po.add(i + j * <Self as SimdLanes::<i32>>::LANES) as *mut __m128i,s8);
+
+                    i += <Self as SimdLanes::<i32>>::LANES * <Self as SimdRows::<i32>>::ROWS;
+                }
+            }
+
+            if N % (<Self as SimdLanes<i8>>::LANES * <Self as SimdRows::<i32>>::ROWS) != 0 {
+                while i + <Self as SimdLanes::<i32>>::LANES <= N {
+                    let v8 = _mm_loadl_epi64(pa.add(i) as *const __m128i);
+                    let v16 = _mm_cvtepi8_epi16(v8);
+                    let v32 = _mm256_cvtepi16_epi32(v16);
+                    let s32 = _mm256_sll_epi32(v32,rw);
+                    let s16 = _mm256_cvtepi32_epi16(s32);
+                    let s8 = _mm_packus_epi16(s16, s16);
+
+                    _mm_storel_epi64(po.add(i) as *mut __m128i,s8);
+
+                    i += <Self as SimdLanes::<i32>>::LANES;
+                }
+            }
+
+            if N % <Self as SimdLanes::<i32>>::LANES != 0 {
+                for j in i..N {
+                    rs[j] = rs[j] << w;
+                }
+            }
+        }
+
+        rs
+    }
+}
+impl SimdShiftLeft<i16> for Avx2
+    where Self: SimdReg<i16> +
+                SimdLanes<i16> +
+                SimdRows<i16> +
+                SimdMask<i16> {
+    type Backend = Avx2;
+    fn shl<'a,const N: usize>(&self,v: &Vector<'a,i16,N,Self::Backend>,w:usize)
+        -> OwnedVector<i16,N> {
+        let mut i = 0;
+
+        let mut rs = OwnedVector::from([0i16; N]);
+
+        unsafe {
+            let rw = _mm_set1_epi32(w as i32);
+
+            let pa = v.as_ref().as_ptr();
+            let po = rs.as_mut().as_mut_ptr();
+
+            while i + <Self as SimdLanes::<i32>>::LANES * <Self as SimdRows::<i32>>::ROWS <= N {
+                for j in 0..<Self as SimdRows::<i32>>::ROWS {
+                    let v16 = _mm_loadl_epi64(pa.add(i + j * <Self as SimdLanes::<i32>>::LANES) as *const __m128i);
+                    let v32 = _mm256_cvtepi16_epi32(v16);
+                    let s32 = _mm256_sll_epi32(v32,rw);
+                    let s16 = _mm256_cvtepi32_epi16(s32);
+
+                    _mm_storel_epi64(po.add(i + j * <Self as SimdLanes::<i32>>::LANES) as *mut __m128i,s16);
+
+                    i += <Self as SimdLanes::<i32>>::LANES * <Self as SimdRows::<i32>>::ROWS;
+                }
+            }
+
+            if N % (<Self as SimdLanes<i16>>::LANES * <Self as SimdRows::<i32>>::ROWS) != 0 {
+                while i + <Self as SimdLanes::<i32>>::LANES <= N {
+                    let v8 = _mm_loadl_epi64(pa.add(i) as *const __m128i);
+                    let v16 = _mm_cvtepi8_epi16(v8);
+                    let v32 = _mm256_cvtepi16_epi32(v16);
+                    let s32 = _mm256_sll_epi32(v32,rw);
+                    let s16 = _mm256_cvtepi32_epi16(s32);
+
+                    _mm_storel_epi64(po.add(i) as *mut __m128i,s16);
+
+                    i += <Self as SimdLanes::<i32>>::LANES;
+                }
+            }
+
+            if N % <Self as SimdLanes::<i32>>::LANES != 0 {
+                for j in i..N {
+                    rs[j] = rs[j] << w;
+                }
+            }
+        }
+
+        rs
+    }
+}
+impl SimdShiftLeft<i32> for Avx2
+    where Self: SimdReg<i32> +
+                SimdLanes<i32> +
+                SimdRows<i32> +
+                SimdMask<i32> {
+    type Backend = Avx2;
+    fn shl<'a,const N: usize>(&self,v: &Vector<'a,i32,N,Self::Backend>,w:usize)
+                              -> OwnedVector<i32,N> {
+        let mut i = 0;
+
+        let mut rs = OwnedVector::from([0i32; N]);
+
+        unsafe {
+            let rw = _mm_set1_epi32(w as i32);
+
+            let pa = v.as_ref().as_ptr();
+            let po = rs.as_mut().as_mut_ptr();
+
+            while i + <Self as SimdLanes::<i32>>::LANES * <Self as SimdRows::<i32>>::ROWS <= N {
+                for j in 0..<Self as SimdRows::<i32>>::ROWS {
+                    let v32 = self.load(pa.add(i + j * <Self as SimdLanes::<i32>>::LANES));
+                    let s32 = _mm256_sll_epi32(v32,rw);
+
+                   self.store(po.add(i + j * <Self as SimdLanes::<i32>>::LANES),s32);
+
+                    i += <Self as SimdLanes::<i32>>::LANES * <Self as SimdRows::<i32>>::ROWS;
+                }
+            }
+
+            if N % (<Self as SimdLanes<i32>>::LANES * <Self as SimdRows::<i32>>::ROWS) != 0 {
+                while i + <Self as SimdLanes::<i32>>::LANES <= N {
+                    let v32 = self.load(pa.add(i));
+                    let s32 = _mm256_sll_epi32(v32,rw);
+
+                    self.store(po.add(i),s32);
+
+                    i += <Self as SimdLanes::<i32>>::LANES;
+                }
+            }
+
+            if N % <Self as SimdLanes::<i32>>::LANES != 0 {
+                for j in i..N {
+                    rs[j] = rs[j] << w;
+                }
+            }
+        }
+
+        rs
+    }
+}
+impl SimdShiftLeft<f32> for Avx2
+    where Self: SimdReg<f32> +
+                SimdLanes<f32> +
+                SimdRows<f32> +
+                SimdMask<f32> {
+    type Backend = Avx2;
+    fn shl<'a,const N: usize>(&self,v: &Vector<'a,f32,N,Self::Backend>,w:usize)
+                              -> OwnedVector<f32,N> {
+        let mut i = 0;
+
+        let mut rs = OwnedVector::from([0f32; N]);
+
+        unsafe {
+            let rw = _mm_set1_epi32(w as i32);
+
+            let pa = v.as_ref().as_ptr();
+            let po = rs.as_mut().as_mut_ptr();
+
+            while i + <Self as SimdLanes::<i32>>::LANES * <Self as SimdRows::<i32>>::ROWS <= N {
+                for j in 0..<Self as SimdRows::<i32>>::ROWS {
+                    let v32 = self.load(pa.add(i + j * <Self as SimdLanes::<i32>>::LANES));
+                    let bits = _mm256_castps_si256(v32);
+                    let s32 = _mm256_sll_epi32(bits,rw);
+                    let o = _mm256_castsi256_ps(s32);
+
+                    self.store(po.add(i + j * <Self as SimdLanes::<i32>>::LANES),o);
+
+                    i += <Self as SimdLanes::<i32>>::LANES * <Self as SimdRows::<i32>>::ROWS;
+                }
+            }
+
+            if N % (<Self as SimdLanes<i32>>::LANES * <Self as SimdRows::<i32>>::ROWS) != 0 {
+                while i + <Self as SimdLanes::<i32>>::LANES <= N {
+                    let v32 = self.load(pa.add(i));
+                    let bits = _mm256_castps_si256(v32);
+                    let s32 = _mm256_sll_epi32(bits,rw);
+                    let o = _mm256_castsi256_ps(s32);
+
+                    self.store(po.add(i),o);
+
+                    i += <Self as SimdLanes::<i32>>::LANES;
+                }
+            }
+
+            if N % <Self as SimdLanes::<i32>>::LANES != 0 {
+                for j in i..N {
+                    rs[j] = f32::from_bits(rs[j].to_bits() << w);
+                }
+            }
+        }
+
+        rs
+    }
+}
+impl SimdShiftLeft<f64> for Avx2
+    where Self: SimdReg<f64> +
+                SimdLanes<f64> +
+                SimdRows<f64> +
+                SimdMask<f64> {
+    type Backend = Avx2;
+    fn shl<'a,const N: usize>(&self,v: &Vector<'a,f64,N,Self::Backend>,w:usize)
+        -> OwnedVector<f64,N> {
+        let mut i = 0;
+
+        let mut rs = OwnedVector::from([0f64; N]);
+
+        unsafe {
+            let rw = _mm_set1_epi32(w as i32);
+
+            let pa = v.as_ref().as_ptr();
+            let po = rs.as_mut().as_mut_ptr();
+
+            while i + <Self as SimdLanes::<i64>>::LANES * <Self as SimdRows::<i64>>::ROWS <= N {
+                for j in 0..<Self as SimdRows::<i64>>::ROWS {
+                    let v64 = self.load(pa.add(i + j * <Self as SimdLanes::<i64>>::LANES));
+                    let bits = _mm256_castpd_si256(v64);
+                    let s64 = _mm256_sll_epi64(bits,rw);
+                    let o = _mm256_castsi256_pd(s64);
+
+                    self.store(po.add(i + j * <Self as SimdLanes::<i64>>::LANES),o);
+
+                    i += <Self as SimdLanes::<i64>>::LANES * <Self as SimdRows::<i64>>::ROWS;
+                }
+            }
+
+            if N % (<Self as SimdLanes<i64>>::LANES * <Self as SimdRows::<i64>>::ROWS) != 0 {
+                while i + <Self as SimdLanes::<i64>>::LANES <= N {
+                    let v64 = self.load(pa.add(i));
+                    let bits = _mm256_castpd_si256(v64);
+                    let s64 = _mm256_sll_epi64(bits,rw);
+                    let o = _mm256_castsi256_pd(s64);
+
+                    self.store(po.add(i),o);
+
+                    i += <Self as SimdLanes::<i64>>::LANES;
+                }
+            }
+
+            if N % <Self as SimdLanes::<i64>>::LANES != 0 {
+                for j in i..N {
+                    rs[j] = f64::from_bits(rs[j].to_bits() << w);
+                }
+            }
+        }
+
+        rs
+    }
+}
+impl SimdShiftRight<i8> for Avx2
+    where Self: SimdReg<i8> +
+                SimdLanes<i8> +
+                SimdRows<i8> +
+                SimdMask<i8> {
+    type Backend = Avx2;
+    fn shr<'a,const N: usize>(&self,v: &Vector<'a,i8,N,Self::Backend>,w:usize)
+                              -> OwnedVector<i8,N> {
+        let mut i = 0;
+
+        let mut rs = OwnedVector::from([0i8; N]);
+
+        unsafe {
+            let rw = _mm_set1_epi32(w as i32);
+
+            let pa = v.as_ref().as_ptr();
+            let po = rs.as_mut().as_mut_ptr();
+
+            while i + <Self as SimdLanes::<i32>>::LANES * <Self as SimdRows::<i32>>::ROWS <= N {
+                for j in 0..<Self as SimdRows::<i32>>::ROWS {
+                    let v8 = _mm_loadl_epi64(pa.add(i + j * <Self as SimdLanes::<i32>>::LANES) as *const __m128i);
+                    let v16 = _mm_cvtepi8_epi16(v8);
+                    let v32 = _mm256_cvtepi16_epi32(v16);
+                    let s32 = _mm256_srl_epi32(v32,rw);
+                    let s16 = _mm256_cvtepi32_epi16(s32);
+                    let s8 = _mm_packus_epi16(s16, s16);
+
+                    _mm_storel_epi64(po.add(i + j * <Self as SimdLanes::<i32>>::LANES) as *mut __m128i,s8);
+
+                    i += <Self as SimdLanes::<i32>>::LANES * <Self as SimdRows::<i32>>::ROWS;
+                }
+            }
+
+            if N % (<Self as SimdLanes<i8>>::LANES * <Self as SimdRows::<i32>>::ROWS) != 0 {
+                while i + <Self as SimdLanes::<i32>>::LANES <= N {
+                    let v8 = _mm_loadl_epi64(pa.add(i) as *const __m128i);
+                    let v16 = _mm_cvtepi8_epi16(v8);
+                    let v32 = _mm256_cvtepi16_epi32(v16);
+                    let s32 = _mm256_srl_epi32(v32,rw);
+                    let s16 = _mm256_cvtepi32_epi16(s32);
+                    let s8 = _mm_packus_epi16(s16, s16);
+
+                    _mm_storel_epi64(po.add(i) as *mut __m128i,s8);
+
+                    i += <Self as SimdLanes::<i32>>::LANES;
+                }
+            }
+
+            if N % <Self as SimdLanes::<i32>>::LANES != 0 {
+                for j in i..N {
+                    rs[j] = rs[j] >> w;
+                }
+            }
+        }
+
+        rs
+    }
+}
+impl SimdShiftRight<i16> for Avx2
+    where Self: SimdReg<i16> +
+                SimdLanes<i16> +
+                SimdRows<i16> +
+                SimdMask<i16> {
+    type Backend = Avx2;
+    fn shr<'a,const N: usize>(&self,v: &Vector<'a,i16,N,Self::Backend>,w:usize)
+                              -> OwnedVector<i16,N> {
+        let mut i = 0;
+
+        let mut rs = OwnedVector::from([0i16; N]);
+
+        unsafe {
+            let rw = _mm_set1_epi32(w as i32);
+
+            let pa = v.as_ref().as_ptr();
+            let po = rs.as_mut().as_mut_ptr();
+
+            while i + <Self as SimdLanes::<i32>>::LANES * <Self as SimdRows::<i32>>::ROWS <= N {
+                for j in 0..<Self as SimdRows::<i32>>::ROWS {
+                    let v16 = _mm_loadl_epi64(pa.add(i + j * <Self as SimdLanes::<i32>>::LANES) as *const __m128i);
+                    let v32 = _mm256_cvtepi16_epi32(v16);
+                    let s32 = _mm256_srl_epi32(v32,rw);
+                    let s16 = _mm256_cvtepi32_epi16(s32);
+
+                    _mm_storel_epi64(po.add(i + j * <Self as SimdLanes::<i32>>::LANES) as *mut __m128i,s16);
+
+                    i += <Self as SimdLanes::<i32>>::LANES * <Self as SimdRows::<i32>>::ROWS;
+                }
+            }
+
+            if N % (<Self as SimdLanes<i16>>::LANES * <Self as SimdRows::<i32>>::ROWS) != 0 {
+                while i + <Self as SimdLanes::<i32>>::LANES <= N {
+                    let v8 = _mm_loadl_epi64(pa.add(i) as *const __m128i);
+                    let v16 = _mm_cvtepi8_epi16(v8);
+                    let v32 = _mm256_cvtepi16_epi32(v16);
+                    let s32 = _mm256_srl_epi32(v32,rw);
+                    let s16 = _mm256_cvtepi32_epi16(s32);
+
+                    _mm_storel_epi64(po.add(i) as *mut __m128i,s16);
+
+                    i += <Self as SimdLanes::<i32>>::LANES;
+                }
+            }
+
+            if N % <Self as SimdLanes::<i32>>::LANES != 0 {
+                for j in i..N {
+                    rs[j] = rs[j] >> w;
+                }
+            }
+        }
+
+        rs
+    }
+}
+impl SimdShiftRight<i32> for Avx2
+    where Self: SimdReg<i32> +
+                SimdLanes<i32> +
+                SimdRows<i32> +
+                SimdMask<i32> {
+    type Backend = Avx2;
+    fn shr<'a,const N: usize>(&self,v: &Vector<'a,i32,N,Self::Backend>,w:usize)
+                              -> OwnedVector<i32,N> {
+        let mut i = 0;
+
+        let mut rs = OwnedVector::from([0i32; N]);
+
+        unsafe {
+            let rw = _mm_set1_epi32(w as i32);
+
+            let pa = v.as_ref().as_ptr();
+            let po = rs.as_mut().as_mut_ptr();
+
+            while i + <Self as SimdLanes::<i32>>::LANES * <Self as SimdRows::<i32>>::ROWS <= N {
+                for j in 0..<Self as SimdRows::<i32>>::ROWS {
+                    let v32 = self.load(pa.add(i + j * <Self as SimdLanes::<i32>>::LANES));
+                    let s32 = _mm256_srl_epi32(v32,rw);
+
+                    self.store(po.add(i + j * <Self as SimdLanes::<i32>>::LANES),s32);
+
+                    i += <Self as SimdLanes::<i32>>::LANES * <Self as SimdRows::<i32>>::ROWS;
+                }
+            }
+
+            if N % (<Self as SimdLanes<i32>>::LANES * <Self as SimdRows::<i32>>::ROWS) != 0 {
+                while i + <Self as SimdLanes::<i32>>::LANES <= N {
+                    let v32 = self.load(pa.add(i));
+                    let s32 = _mm256_srl_epi32(v32,rw);
+
+                    self.store(po.add(i),s32);
+
+                    i += <Self as SimdLanes::<i32>>::LANES;
+                }
+            }
+
+            if N % <Self as SimdLanes::<i32>>::LANES != 0 {
+                for j in i..N {
+                    rs[j] = rs[j] >> w;
+                }
+            }
+        }
+
+        rs
+    }
+}
+impl SimdShiftRight<f32> for Avx2
+    where Self: SimdReg<f32> +
+                SimdLanes<f32> +
+                SimdRows<f32> +
+                SimdMask<f32> {
+    type Backend = Avx2;
+    fn shr<'a,const N: usize>(&self,v: &Vector<'a,f32,N,Self::Backend>,w:usize)
+                              -> OwnedVector<f32,N> {
+        let mut i = 0;
+
+        let mut rs = OwnedVector::from([0f32; N]);
+
+        unsafe {
+            let rw = _mm_set1_epi32(w as i32);
+
+            let pa = v.as_ref().as_ptr();
+            let po = rs.as_mut().as_mut_ptr();
+
+            while i + <Self as SimdLanes::<i32>>::LANES * <Self as SimdRows::<i32>>::ROWS <= N {
+                for j in 0..<Self as SimdRows::<i32>>::ROWS {
+                    let v32 = self.load(pa.add(i + j * <Self as SimdLanes::<i32>>::LANES));
+                    let bits = _mm256_castps_si256(v32);
+                    let s32 = _mm256_srl_epi32(bits,rw);
+                    let o = _mm256_castsi256_ps(s32);
+
+                    self.store(po.add(i + j * <Self as SimdLanes::<i32>>::LANES),o);
+
+                    i += <Self as SimdLanes::<i32>>::LANES * <Self as SimdRows::<i32>>::ROWS;
+                }
+            }
+
+            if N % (<Self as SimdLanes<i32>>::LANES * <Self as SimdRows::<i32>>::ROWS) != 0 {
+                while i + <Self as SimdLanes::<i32>>::LANES <= N {
+                    let v32 = self.load(pa.add(i));
+                    let bits = _mm256_castps_si256(v32);
+                    let s32 = _mm256_srl_epi32(bits,rw);
+                    let o = _mm256_castsi256_ps(s32);
+
+                    self.store(po.add(i),o);
+
+                    i += <Self as SimdLanes::<i32>>::LANES;
+                }
+            }
+
+            if N % <Self as SimdLanes::<i32>>::LANES != 0 {
+                for j in i..N {
+                    rs[j] = f32::from_bits(rs[j].to_bits() >> w);
+                }
+            }
+        }
+
+        rs
+    }
+}
+impl SimdShiftRight<f64> for Avx2
+    where Self: SimdReg<f64> +
+                SimdLanes<f64> +
+                SimdRows<f64> +
+                SimdMask<f64> {
+    type Backend = Avx2;
+    fn shr<'a,const N: usize>(&self,v: &Vector<'a,f64,N,Self::Backend>,w:usize)
+                              -> OwnedVector<f64,N> {
+        let mut i = 0;
+
+        let mut rs = OwnedVector::from([0f64; N]);
+
+        unsafe {
+            let rw = _mm_set1_epi32(w as i32);
+
+            let pa = v.as_ref().as_ptr();
+            let po = rs.as_mut().as_mut_ptr();
+
+            while i + <Self as SimdLanes::<i64>>::LANES * <Self as SimdRows::<i64>>::ROWS <= N {
+                for j in 0..<Self as SimdRows::<i64>>::ROWS {
+                    let v64 = self.load(pa.add(i + j * <Self as SimdLanes::<i64>>::LANES));
+                    let bits = _mm256_castpd_si256(v64);
+                    let s64 = _mm256_srl_epi64(bits,rw);
+                    let o = _mm256_castsi256_pd(s64);
+
+                    self.store(po.add(i + j * <Self as SimdLanes::<i64>>::LANES),o);
+
+                    i += <Self as SimdLanes::<i64>>::LANES * <Self as SimdRows::<i64>>::ROWS;
+                }
+            }
+
+            if N % (<Self as SimdLanes<i64>>::LANES * <Self as SimdRows::<i64>>::ROWS) != 0 {
+                while i + <Self as SimdLanes::<i64>>::LANES <= N {
+                    let v64 = self.load(pa.add(i));
+                    let bits = _mm256_castpd_si256(v64);
+                    let s64 = _mm256_srl_epi64(bits,rw);
+                    let o = _mm256_castsi256_pd(s64);
+
+                    self.store(po.add(i),o);
+
+                    i += <Self as SimdLanes::<i64>>::LANES;
+                }
+            }
+
+            if N % <Self as SimdLanes::<i64>>::LANES != 0 {
+                for j in i..N {
+                    rs[j] = f64::from_bits(rs[j].to_bits() >> w);
                 }
             }
         }

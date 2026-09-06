@@ -22,13 +22,15 @@ pub trait RegBackend: SimdReg<f32> +
                       SimdReg<f64> +
                       SimdReg<i8> +
                       SimdReg<i16> +
-                      SimdReg<i32> {
+                      SimdReg<i32> +
+                      SimdReg<i64> {
 }
 pub trait LoadBackend: SimdLoad<f32> +
                        SimdLoad<f64> +
                        SimdLoad<i8> +
                        SimdLoad<i16> +
-                       SimdLoad<i32> {
+                       SimdLoad<i32> +
+                       SimdLoad<i64> {
 }
 pub trait StoreBackend: SimdStore<f32> +
                         SimdStore<f64> +
