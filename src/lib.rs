@@ -389,36 +389,6 @@ impl<'a,BE,T,const N: usize> Shr<usize> for &'a Vector<'a,T,N,BE>
         self.backend.shr(self, rhs)
     }
 }
-impl<'a,BE,T,const N: usize> HSum<T> for &'a Vector<'a,T,N,BE>
-    where BE: Backend + SimdHSum<T,Backend = BE> {
-    fn hsum(&self) -> T {
-        self.backend.hsum(self)
-    }
-}
-impl<'a,BE,T,const N: usize> HAnd<T> for &'a Vector<'a,T,N,BE>
-    where BE: Backend + SimdHAnd<T,Backend = BE> {
-    fn hand(&self) -> T {
-        self.backend.hand(self)
-    }
-}
-impl<'a,BE,T,const N: usize> HOr<T> for &'a Vector<'a,T,N,BE>
-    where BE: Backend + SimdHOr<T,Backend = BE> {
-    fn hor(&self) -> T {
-        self.backend.hor(self)
-    }
-}
-impl<'a,BE,T,const N: usize> HMax<T> for &'a Vector<'a,T,N,BE>
-    where BE: Backend + SimdHMax<T,Backend = BE> {
-    fn hmax(&self) -> T {
-        self.backend.hmax(self)
-    }
-}
-impl<'a,BE,T,const N: usize> HMin<T> for &'a Vector<'a,T,N,BE>
-    where BE: Backend + SimdHMin<T,Backend = BE> {
-    fn hmin(&self) -> T {
-        self.backend.hmin(self)
-    }
-}
 impl<'a,BE,SL,SR,SO,const N: usize> Dot<&'a Vector<'a,SR,N,BE>,SO> for &'a Vector<'a,SL,N,BE>
     where BE: Backend + SimdDot<SL,SR,SO,Backend = BE> {
     fn dot(&self,r:&'a Vector<'a,SR,N,BE>) -> SO {

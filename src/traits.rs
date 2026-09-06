@@ -63,25 +63,25 @@ pub trait SimdMatMul<SL,SR,SO> {
     type Backend: Backend;
     fn matmul<'a,const N: usize,const M: usize,const K: usize>(&self,l:&Matrix<'a,SL,M,N,Self::Backend>,r:&Matrix<'a,SR,N,K,Self::Backend>) -> OwnedMatrix<SO,M,K>;
 }
-pub trait SimdHSum<S> {
+pub trait SimdHSum<S>: SimdReg<S> {
     type Backend: Backend;
-    fn hsum<'a,const N: usize>(&self,v:&Vector<'a,S,N,Self::Backend>) -> S;
+    fn hsum<'a,const N: usize>(&self,v:Self::Reg) -> S;
 }
-pub trait SimdHMax<S> {
+pub trait SimdHMax<S>: SimdReg<S> {
     type Backend: Backend;
-    fn hmax<'a,const N: usize>(&self,v:&Vector<'a,S,N,Self::Backend>) -> S;
+    fn hmax<'a,const N: usize>(&self,v:Self::Reg) -> S;
 }
-pub trait SimdHMin<S> {
+pub trait SimdHMin<S>: SimdReg<S> {
     type Backend: Backend;
-    fn hmin<'a,const N: usize>(&self,v:&Vector<'a,S,N,Self::Backend>) -> S;
+    fn hmin<'a,const N: usize>(&self,v:Self::Reg) -> S;
 }
-pub trait SimdHOr<S> {
+pub trait SimdHOr<S>: SimdReg<S> {
     type Backend: Backend;
-    fn hor<'a,const N: usize>(&self,v:&Vector<'a,S,N,Self::Backend>) -> S;
+    fn hor<'a,const N: usize>(&self,v:Self::Reg) -> Self::Reg;
 }
-pub trait SimdHAnd<S> {
+pub trait SimdHAnd<S>: SimdReg<S> {
     type Backend: Backend;
-    fn hand<'a,const N: usize>(&self,v:&Vector<'a,S,N,Self::Backend>) -> S;
+    fn hand<'a,const N: usize>(&self,v:Self::Reg) -> Self::Reg;
 }
 pub trait SimdTranspose<S,const Rows: usize> where Self: SimdReg<S> {
     type Backend: Backend;

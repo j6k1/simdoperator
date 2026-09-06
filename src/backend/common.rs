@@ -45,9 +45,7 @@ pub trait MaskBackend: SimdMask<f32> +
 }
 pub trait HorizontalHSumBackend: SimdHSum<f32> +
                                  SimdHSum<f64> +
-                                 SimdHSum<i32> +
-                                 SimdHSum<i16> +
-                                 SimdHSum<i8> {
+                                 SimdHSum<i32> {
 }
 pub trait HorizontalMaxBackend: SimdHMax<f32> +
                                 SimdHMax<f64> +
