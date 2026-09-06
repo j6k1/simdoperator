@@ -75,14 +75,6 @@ pub trait SimdHMin<S>: SimdReg<S> {
     type Backend: Backend;
     fn hmin<'a,const N: usize>(&self,v:Self::Reg) -> S;
 }
-pub trait SimdHOr<S>: SimdReg<S> {
-    type Backend: Backend;
-    fn hor<'a,const N: usize>(&self,v:Self::Reg) -> Self::Reg;
-}
-pub trait SimdHAnd<S>: SimdReg<S> {
-    type Backend: Backend;
-    fn hand<'a,const N: usize>(&self,v:Self::Reg) -> Self::Reg;
-}
 pub trait SimdTranspose<S,const Rows: usize> where Self: SimdReg<S> {
     type Backend: Backend;
     fn transpose<'a,const N: usize,const M: usize>(v:[Self::Reg; Rows]) -> [Self::Reg; Rows];

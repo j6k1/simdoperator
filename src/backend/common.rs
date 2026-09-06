@@ -1,6 +1,6 @@
 //! Common Backend Implementation
 
-use crate::traits::{SimdAdd, SimdBitAnd, SimdBitNot, SimdBitOr, SimdBitXor, SimdDot, SimdHSum, SimdMatMul, SimdMatVec, SimdHMax, SimdMul, SimdShiftLeft, SimdShiftRight, SimdSub, SimdVMat, SimdHMin, SimdHOr, SimdTranspose, SimdMask, SimdScalarMul, SimdOuterProduct, SimdLoad, SimdStore, SimdReg};
+use crate::traits::{SimdAdd, SimdBitAnd, SimdBitNot, SimdBitOr, SimdBitXor, SimdDot, SimdHSum, SimdMatMul, SimdMatVec, SimdHMax, SimdMul, SimdShiftLeft, SimdShiftRight, SimdSub, SimdVMat, SimdHMin, SimdMask, SimdScalarMul, SimdOuterProduct, SimdLoad, SimdStore, SimdReg};
 
 pub trait Backend/* : ArithmeticBackend +
                    ScalarMulBackend +
@@ -10,7 +10,6 @@ pub trait Backend/* : ArithmeticBackend +
                    HorizontalHSumBackend +
                    HorizontalMaxBackend +
                    HorizontalMinBackend +
-                   HorizontalOrBackend +
                    MaskBackend +
                    StoreBackend +
                    LoadBackend +
@@ -58,12 +57,6 @@ pub trait HorizontalMinBackend: SimdHMin<f32> +
                                 SimdHMin<i32> +
                                 SimdHMin<i16> +
                                 SimdHMin<i8> {
-}
-pub trait HorizontalOrBackend: SimdHOr<f32> +
-                               SimdHOr<f64> +
-                               SimdHOr<i32> +
-                               SimdHOr<i16> +
-                               SimdHOr<i8> {
 }
 pub trait ProductBackend: SimdDot<f32,f32,f32> +
                           SimdDot<f64,f64,f64> +
