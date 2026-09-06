@@ -127,7 +127,7 @@ impl<T,const N: usize> Index<usize> for OwnedVector<T,N> {
     type Output = T;
     fn index(&self, index: usize) -> &Self::Output {
         &self.data[index]
-    }   
+    }
 }
 impl<T,const N: usize> IndexMut<usize> for OwnedVector<T,N> {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
@@ -179,60 +179,52 @@ impl<'a,BE,const N: usize> Mul<&'a Vector<'a,i16,N,BE>> for &'a Vector<'a,i16,N,
         self.backend.mul(self, rhs)
     }
 }
-impl<'a,BE,const N: usize> Mul<i8> for &'a Vector<'a,i8,N,BE>
+impl<'a,BE,const N: usize> Mul<&'a Vector<'a,i8,N,BE>> for i8
     where BE: Backend + SimdScalarMul<i8,i8,i32,Backend = BE> {
     type Output = OwnedVector<i32,N>;
 
-    fn mul(self, rhs: i8) -> Self::Output {
-        self.backend.scalarmul(self, rhs)
+    fn mul(self, rhs: &'a Vector<'a,i8,N,BE>) -> Self::Output {
+        rhs.backend.scalarmul(self, rhs)
     }
 }
-impl<'a,BE,const N: usize> Mul<i16> for &'a Vector<'a,i8,N,BE>
+impl<'a,BE,const N: usize> Mul<&'a Vector<'a,i16,N,BE>> for i8
     where BE: Backend + SimdScalarMul<i8,i16,i32,Backend = BE> {
     type Output = OwnedVector<i32,N>;
 
-    fn mul(self, rhs: i16) -> Self::Output {
-        self.backend.scalarmul(self, rhs)
+    fn mul(self, rhs: &'a Vector<'a,i16,N,BE>) -> Self::Output {
+        rhs.backend.scalarmul(self, rhs)
     }
 }
-impl<'a,BE,const N: usize> Mul<i16> for &'a Vector<'a,i16,N,BE>
+impl<'a,BE,const N: usize> Mul<&'a Vector<'a,i16,N,BE>> for i16
     where BE: Backend + SimdScalarMul<i16,i16,i32,Backend = BE> {
     type Output = OwnedVector<i32,N>;
 
-    fn mul(self, rhs: i16) -> Self::Output {
-        self.backend.scalarmul(self, rhs)
+    fn mul(self, rhs: &'a Vector<'a,i16,N,BE>) -> Self::Output {
+        rhs.backend.scalarmul(self, rhs)
     }
 }
-impl<'a,BE,const N: usize> Mul<i32> for &'a Vector<'a,i32,N,BE>
+impl<'a,BE,const N: usize> Mul<&'a Vector<'a,i32,N,BE>> for i32
     where BE: Backend + SimdScalarMul<i32,i32,i32,Backend = BE> {
     type Output = OwnedVector<i32,N>;
 
-    fn mul(self, rhs: i32) -> Self::Output {
-        self.backend.scalarmul(self, rhs)
+    fn mul(self, rhs: &'a Vector<'a,i32,N,BE>) -> Self::Output {
+        rhs.backend.scalarmul(self, rhs)
     }
 }
-impl<'a,BE,const N: usize> Mul<i64> for &'a Vector<'a,i64,N,BE>
-    where BE: Backend + SimdScalarMul<i64,i64,i64,Backend = BE> {
-    type Output = OwnedVector<i64,N>;
-
-    fn mul(self, rhs: i64) -> Self::Output {
-        self.backend.scalarmul(self, rhs)
-    }
-}
-impl<'a,BE,const N: usize> Mul<f32> for &'a Vector<'a,f32,N,BE>
+impl<'a,BE,const N: usize> Mul<&'a Vector<'a,f32,N,BE>> for f32
     where BE: Backend + SimdScalarMul<f32,f32,f32,Backend = BE> {
     type Output = OwnedVector<f32,N>;
 
-    fn mul(self, rhs: f32) -> Self::Output {
-        self.backend.scalarmul(self, rhs)
+    fn mul(self, rhs: &'a Vector<'a,f32,N,BE>) -> Self::Output {
+        rhs.backend.scalarmul(self, rhs)
     }
 }
-impl<'a,BE,const N: usize> Mul<f64> for &'a Vector<'a,f64,N,BE>
+impl<'a,BE,const N: usize> Mul<&'a Vector<'a,f64,N,BE>> for f64
     where BE: Backend + SimdScalarMul<f64,f64,f64,Backend = BE> {
     type Output = OwnedVector<f64,N>;
 
-    fn mul(self, rhs: f64) -> Self::Output {
-        self.backend.scalarmul(self, rhs)
+    fn mul(self, rhs: &'a Vector<'a,f64,N,BE>) -> Self::Output {
+        rhs.backend.scalarmul(self, rhs)
     }
 }
 impl<'a,BE,T,const N: usize> BitXor<&'a Vector<'a,T,N,BE>> for &'a Vector<'a,T,N,BE>

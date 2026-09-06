@@ -17,7 +17,7 @@ pub trait SimdMul<SL,SR,SO> {
 }
 pub trait SimdScalarMul<SL,SR,SO> {
     type Backend: Backend;
-    fn scalarmul<'a,const N: usize>(&self,l:&Vector<'a,SL,N,Self::Backend>,r:SR) -> OwnedVector<SO,N>;
+    fn scalarmul<'a,const N: usize>(&self,l:SL,r:&Vector<'a,SR,N,Self::Backend>) -> OwnedVector<SO,N>;
 }
 pub trait SimdBitXor<S> {
     type Backend: Backend;
