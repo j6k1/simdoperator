@@ -49,10 +49,10 @@ pub trait TransposeBackend: SimdTranspose<f32> +
                             SimdTranspose<i8> {
 }
 pub trait HorizontalHSumBackend: SimdHSum<f32> +
-                                SimdHSum<f64> +
-                                SimdHSum<i32> +
-                                SimdHSum<i16> +
-                                SimdHSum<i8> {
+                                 SimdHSum<f64> +
+                                 SimdHSum<i32> +
+                                 SimdHSum<i16> +
+                                 SimdHSum<i8> {
 }
 pub trait HorizontalMaxBackend: SimdHMax<f32> +
                                 SimdHMax<f64> +
@@ -99,15 +99,15 @@ pub trait ProductBackend: SimdDot<f32,f32,f32> +
                           SimdOuterProduct<i16,i16,i32> {
 }
 pub trait BitShiftBackend: SimdShiftLeft<i8> +
-                        SimdShiftLeft<i16> +
-                        SimdShiftLeft<i32> +
-                        SimdShiftLeft<f32> +
-                        SimdShiftLeft<f64> +
-                        SimdShiftRight<i8> +
-                        SimdShiftRight<i16> +
-                        SimdShiftRight<i32> +
-                        SimdShiftRight<f32> +
-                        SimdShiftRight<f64> {
+                           SimdShiftLeft<i16> +
+                           SimdShiftLeft<i32> +
+                           SimdShiftLeft<f32> +
+                           SimdShiftLeft<f64> +
+                           SimdShiftRight<i8> +
+                           SimdShiftRight<i16> +
+                           SimdShiftRight<i32> +
+                           SimdShiftRight<f32> +
+                           SimdShiftRight<f64> {
 }
 pub trait BitOperationsBackend: SimdBitOr<i8> +
                                 SimdBitOr<i16> +
