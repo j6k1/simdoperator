@@ -1,8 +1,8 @@
 //! Implementation of SIMD Operations Using AVX2
 
-use std::arch::x86_64::{__m256, __m256d, __m256i, _mm256_add_epi8, _mm256_and_pd, _mm256_and_ps, _mm256_and_si256, _mm256_blendv_epi8, _mm256_blendv_pd, _mm256_blendv_ps, _mm256_castpd_si256, _mm256_castps_si256, _mm256_castsi256_pd, _mm256_castsi256_ps, _mm256_cmp_pd, _mm256_cmp_ps, _mm256_cmpeq_epi16, _mm256_cmpeq_epi32, _mm256_cmpeq_epi8, _mm256_cmpgt_epi16, _mm256_cmpgt_epi32, _mm256_cmpgt_epi8, _mm256_loadu_pd, _mm256_loadu_ps, _mm256_loadu_si256, _mm256_storeu_pd, _mm256_storeu_ps, _mm256_storeu_si256, _CMP_EQ_OQ, _CMP_GT_OQ};
+use std::arch::x86_64::{__m128i, __m256, __m256d, __m256i, _mm256_add_epi16, _mm256_add_epi32, _mm256_add_epi8, _mm256_add_pd, _mm256_add_ps, _mm256_and_pd, _mm256_and_ps, _mm256_and_si256, _mm256_blendv_epi8, _mm256_blendv_pd, _mm256_blendv_ps, _mm256_castpd_si256, _mm256_castps_si256, _mm256_castsi256_pd, _mm256_castsi256_ps, _mm256_cmp_pd, _mm256_cmp_ps, _mm256_cmpeq_epi16, _mm256_cmpeq_epi32, _mm256_cmpeq_epi8, _mm256_cmpgt_epi16, _mm256_cmpgt_epi32, _mm256_cmpgt_epi8, _mm256_cvtepi16_epi32, _mm256_loadu_pd, _mm256_loadu_ps, _mm256_loadu_si256, _mm256_mul_epi32, _mm256_mul_pd, _mm256_mul_ps, _mm256_storeu_pd, _mm256_storeu_ps, _mm256_storeu_si256, _mm256_sub_epi16, _mm256_sub_epi32, _mm256_sub_epi8, _mm256_sub_pd, _mm256_sub_ps, _mm_cvtepi16_epi32, _mm_cvtepi8_epi16, _mm_loadl_epi64, _mm_loadu_si128, _mm_mullo_epi16, _CMP_EQ_OQ, _CMP_GT_OQ};
 use crate::backend::common::Backend;
-use crate::traits::{SimdAdd, SimdLanes, SimdLoad, SimdMask, SimdReg, SimdRows, SimdStore};
+use crate::traits::{SimdAdd, SimdLanes, SimdLoad, SimdMask, SimdMul, SimdReg, SimdRows, SimdStore, SimdSub};
 use crate::{OwnedVector, Vector};
 
 pub struct Avx2 {
@@ -305,6 +305,760 @@ impl SimdAdd<i8,i8,i8> for Avx2
             }
 
             if N % <Self as SimdLanes::<i8>>::LANES != 0 {
+                for j in i..N {
+                    rs[j] = l[j] + r[j];
+                }
+            }
+        }
+
+        rs
+    }
+}
+impl SimdAdd<i16,i16,i16> for Avx2
+    where Self: SimdReg<i16> +
+                SimdLanes<i16> +
+                SimdRows<i16> +
+                SimdMask<i16> {
+    type Backend = Avx2;
+    fn add<'a,const N: usize>(&self,l: &Vector<'a,i16,N,Self::Backend>,r: &Vector<'a,i16,N,Self::Backend>)
+                              -> OwnedVector<i16,N> {
+        let mut i = 0;
+
+        let mut rs = OwnedVector::from([0i16; N]);
+
+        unsafe {
+            let pa = l.as_ref().as_ptr();
+            let pb = r.as_ref().as_ptr();
+            let po = rs.as_mut().as_mut_ptr();
+
+            while i + <Self as SimdLanes::<i16>>::LANES * <Self as SimdRows::<i16>>::ROWS <= N {
+                for j in 0..<Self as SimdRows::<i16>>::ROWS {
+                    let ra = self.load(pa.add(i + j * <Self as SimdLanes::<i16>>::LANES));
+                    let rb = self.load(pb.add(i + j * <Self as SimdLanes::<i16>>::LANES));
+
+                    let rr = _mm256_add_epi16(ra,rb);
+
+                    self.store(po.add(i + j * <Self as SimdLanes::<i16>>::LANES),rr);
+
+                    i += <Self as SimdLanes::<i16>>::LANES * <Self as SimdRows::<i16>>::ROWS;
+                }
+            }
+
+            if N % (<Self as SimdLanes<i16>>::LANES * <Self as SimdRows::<i16>>::ROWS) != 0 {
+                while i + <Self as SimdLanes::<i16>>::LANES <= N {
+                    let ra = self.load(pa.add(i));
+                    let rb = self.load(pb.add(i));
+
+                    let rr = _mm256_add_epi16(ra,rb);
+
+                    self.store(po.add(i),rr);
+
+                    i += <Self as SimdLanes::<i16>>::LANES;
+                }
+            }
+
+            if N % <Self as SimdLanes::<i16>>::LANES != 0 {
+                for j in i..N {
+                    rs[j] = l[j] + r[j];
+                }
+            }
+        }
+
+        rs
+    }
+}
+impl SimdAdd<i32,i32,i32> for Avx2
+    where Self: SimdReg<i32> +
+                SimdLanes<i32> +
+                SimdRows<i32> +
+                SimdMask<i32> {
+    type Backend = Avx2;
+    fn add<'a,const N: usize>(&self,l: &Vector<'a,i32,N,Self::Backend>,r: &Vector<'a,i32,N,Self::Backend>)
+                              -> OwnedVector<i32,N> {
+        let mut i = 0;
+
+        let mut rs = OwnedVector::from([0i32; N]);
+
+        unsafe {
+            let pa = l.as_ref().as_ptr();
+            let pb = r.as_ref().as_ptr();
+            let po = rs.as_mut().as_mut_ptr();
+
+            while i + <Self as SimdLanes::<i32>>::LANES * <Self as SimdRows::<i32>>::ROWS <= N {
+                for j in 0..<Self as SimdRows::<i32>>::ROWS {
+                    let ra = self.load(pa.add(i + j * <Self as SimdLanes::<i32>>::LANES));
+                    let rb = self.load(pb.add(i + j * <Self as SimdLanes::<i32>>::LANES));
+
+                    let rr = _mm256_add_epi32(ra,rb);
+
+                    self.store(po.add(i + j * <Self as SimdLanes::<i32>>::LANES),rr);
+
+                    i += <Self as SimdLanes::<i32>>::LANES * <Self as SimdRows::<i32>>::ROWS;
+                }
+            }
+
+            if N % (<Self as SimdLanes<i32>>::LANES * <Self as SimdRows::<i32>>::ROWS) != 0 {
+                while i + <Self as SimdLanes::<i32>>::LANES <= N {
+                    let ra = self.load(pa.add(i));
+                    let rb = self.load(pb.add(i));
+
+                    let rr = _mm256_add_epi32(ra,rb);
+
+                    self.store(po.add(i),rr);
+
+                    i += <Self as SimdLanes::<i32>>::LANES;
+                }
+            }
+
+            if N % <Self as SimdLanes::<i32>>::LANES != 0 {
+                for j in i..N {
+                    rs[j] = l[j] + r[j];
+                }
+            }
+        }
+
+        rs
+    }
+}
+impl SimdAdd<f32,f32,f32> for Avx2
+    where Self: SimdReg<f32> +
+                SimdLanes<f32> +
+                SimdRows<f32> +
+                SimdMask<f32> {
+    type Backend = Avx2;
+    fn add<'a,const N: usize>(&self,l: &Vector<'a,f32,N,Self::Backend>,r: &Vector<'a,f32,N,Self::Backend>)
+                              -> OwnedVector<f32,N> {
+        let mut i = 0;
+
+        let mut rs = OwnedVector::from([0f32; N]);
+
+        unsafe {
+            let pa = l.as_ref().as_ptr();
+            let pb = r.as_ref().as_ptr();
+            let po = rs.as_mut().as_mut_ptr();
+
+            while i + <Self as SimdLanes::<f32>>::LANES * <Self as SimdRows::<f32>>::ROWS <= N {
+                for j in 0..<Self as SimdRows::<f32>>::ROWS {
+                    let ra = self.load(pa.add(i + j * <Self as SimdLanes::<f32>>::LANES));
+                    let rb = self.load(pb.add(i + j * <Self as SimdLanes::<f32>>::LANES));
+
+                    let rr = _mm256_add_ps(ra,rb);
+
+                    self.store(po.add(i + j * <Self as SimdLanes::<f32>>::LANES),rr);
+
+                    i += <Self as SimdLanes::<f32>>::LANES * <Self as SimdRows::<f32>>::ROWS;
+                }
+            }
+
+            if N % (<Self as SimdLanes<f32>>::LANES * <Self as SimdRows::<f32>>::ROWS) != 0 {
+                while i + <Self as SimdLanes::<f32>>::LANES <= N {
+                    let ra = self.load(pa.add(i));
+                    let rb = self.load(pb.add(i));
+
+                    let rr = _mm256_add_ps(ra,rb);
+
+                    self.store(po.add(i),rr);
+
+                    i += <Self as SimdLanes::<f32>>::LANES;
+                }
+            }
+
+            if N % <Self as SimdLanes::<f32>>::LANES != 0 {
+                for j in i..N {
+                    rs[j] = l[j] + r[j];
+                }
+            }
+        }
+
+        rs
+    }
+}
+impl SimdAdd<f64,f64,f64> for Avx2
+    where Self: SimdReg<f64> +
+                SimdLanes<f64> +
+                SimdRows<f64> +
+                SimdMask<f64> {
+    type Backend = Avx2;
+    fn add<'a,const N: usize>(&self,l: &Vector<'a,f64,N,Self::Backend>,r: &Vector<'a,f64,N,Self::Backend>)
+                              -> OwnedVector<f64,N> {
+        let mut i = 0;
+
+        let mut rs = OwnedVector::from([0f64; N]);
+
+        unsafe {
+            let pa = l.as_ref().as_ptr();
+            let pb = r.as_ref().as_ptr();
+            let po = rs.as_mut().as_mut_ptr();
+
+            while i + <Self as SimdLanes::<f64>>::LANES * <Self as SimdRows::<f64>>::ROWS <= N {
+                for j in 0..<Self as SimdRows::<f64>>::ROWS {
+                    let ra = self.load(pa.add(i + j * <Self as SimdLanes::<f64>>::LANES));
+                    let rb = self.load(pb.add(i + j * <Self as SimdLanes::<f64>>::LANES));
+
+                    let rr = _mm256_add_pd(ra,rb);
+
+                    self.store(po.add(i + j * <Self as SimdLanes::<f64>>::LANES),rr);
+
+                    i += <Self as SimdLanes::<f64>>::LANES * <Self as SimdRows::<f64>>::ROWS;
+                }
+            }
+
+            if N % (<Self as SimdLanes<f64>>::LANES * <Self as SimdRows::<f64>>::ROWS) != 0 {
+                while i + <Self as SimdLanes::<f64>>::LANES <= N {
+                    let ra = self.load(pa.add(i));
+                    let rb = self.load(pb.add(i));
+
+                    let rr = _mm256_add_pd(ra,rb);
+
+                    self.store(po.add(i),rr);
+
+                    i += <Self as SimdLanes::<f64>>::LANES;
+                }
+            }
+
+            if N % <Self as SimdLanes::<f64>>::LANES != 0 {
+                for j in i..N {
+                    rs[j] = l[j] + r[j];
+                }
+            }
+        }
+
+        rs
+    }
+}
+impl SimdSub<i8,i8,i8> for Avx2
+    where Self: SimdReg<i8> +
+                SimdLanes<i8> +
+                SimdRows<i8> +
+                SimdMask<i8> {
+    type Backend = Avx2;
+    fn sub<'a,const N: usize>(&self,l: &Vector<'a,i8,N,Self::Backend>,r: &Vector<'a,i8,N,Self::Backend>)
+                              -> OwnedVector<i8,N> {
+        let mut i = 0;
+
+        let mut rs = OwnedVector::from([0i8; N]);
+
+        unsafe {
+            let pa = l.as_ref().as_ptr();
+            let pb = r.as_ref().as_ptr();
+            let po = rs.as_mut().as_mut_ptr();
+
+            while i + <Self as SimdLanes::<i8>>::LANES * <Self as SimdRows::<i8>>::ROWS <= N {
+                for j in 0..<Self as SimdRows::<i8>>::ROWS {
+                    let ra = self.load(pa.add(i + j * <Self as SimdLanes::<i8>>::LANES));
+                    let rb = self.load(pb.add(i + j * <Self as SimdLanes::<i8>>::LANES));
+
+                    let rr = _mm256_sub_epi8(ra,rb);
+
+                    self.store(po.add(i + j * <Self as SimdLanes::<i8>>::LANES),rr);
+
+                    i += <Self as SimdLanes::<i8>>::LANES * <Self as SimdRows::<i8>>::ROWS;
+                }
+            }
+
+            if N % (<Self as SimdLanes<i8>>::LANES * <Self as SimdRows::<i8>>::ROWS) != 0 {
+                while i + <Self as SimdLanes::<i8>>::LANES <= N {
+                    let ra = self.load(pa.add(i));
+                    let rb = self.load(pb.add(i));
+
+                    let rr = _mm256_sub_epi8(ra,rb);
+
+                    self.store(po.add(i),rr);
+
+                    i += <Self as SimdLanes::<i8>>::LANES;
+                }
+            }
+
+            if N % <Self as SimdLanes::<i8>>::LANES != 0 {
+                for j in i..N {
+                    rs[j] = l[j] + r[j];
+                }
+            }
+        }
+
+        rs
+    }
+}
+impl SimdSub<i16,i16,i16> for Avx2
+    where Self: SimdReg<i16> +
+                SimdLanes<i16> +
+                SimdRows<i16> +
+                SimdMask<i16> {
+    type Backend = Avx2;
+    fn sub<'a,const N: usize>(&self,l: &Vector<'a,i16,N,Self::Backend>,r: &Vector<'a,i16,N,Self::Backend>)
+                              -> OwnedVector<i16,N> {
+        let mut i = 0;
+
+        let mut rs = OwnedVector::from([0i16; N]);
+
+        unsafe {
+            let pa = l.as_ref().as_ptr();
+            let pb = r.as_ref().as_ptr();
+            let po = rs.as_mut().as_mut_ptr();
+
+            while i + <Self as SimdLanes::<i16>>::LANES * <Self as SimdRows::<i16>>::ROWS <= N {
+                for j in 0..<Self as SimdRows::<i16>>::ROWS {
+                    let ra = self.load(pa.add(i + j * <Self as SimdLanes::<i16>>::LANES));
+                    let rb = self.load(pb.add(i + j * <Self as SimdLanes::<i16>>::LANES));
+
+                    let rr = _mm256_sub_epi16(ra,rb);
+
+                    self.store(po.add(i + j * <Self as SimdLanes::<i16>>::LANES),rr);
+
+                    i += <Self as SimdLanes::<i16>>::LANES * <Self as SimdRows::<i16>>::ROWS;
+                }
+            }
+
+            if N % (<Self as SimdLanes<i16>>::LANES * <Self as SimdRows::<i16>>::ROWS) != 0 {
+                while i + <Self as SimdLanes::<i16>>::LANES <= N {
+                    let ra = self.load(pa.add(i));
+                    let rb = self.load(pb.add(i));
+
+                    let rr = _mm256_sub_epi16(ra,rb);
+
+                    self.store(po.add(i),rr);
+
+                    i += <Self as SimdLanes::<i16>>::LANES;
+                }
+            }
+
+            if N % <Self as SimdLanes::<i16>>::LANES != 0 {
+                for j in i..N {
+                    rs[j] = l[j] + r[j];
+                }
+            }
+        }
+
+        rs
+    }
+}
+impl SimdSub<i32,i32,i32> for Avx2
+    where Self: SimdReg<i32> +
+                SimdLanes<i32> +
+                SimdRows<i32> +
+                SimdMask<i32> {
+    type Backend = Avx2;
+    fn sub<'a,const N: usize>(&self,l: &Vector<'a,i32,N,Self::Backend>,r: &Vector<'a,i32,N,Self::Backend>)
+                              -> OwnedVector<i32,N> {
+        let mut i = 0;
+
+        let mut rs = OwnedVector::from([0i32; N]);
+
+        unsafe {
+            let pa = l.as_ref().as_ptr();
+            let pb = r.as_ref().as_ptr();
+            let po = rs.as_mut().as_mut_ptr();
+
+            while i + <Self as SimdLanes::<i32>>::LANES * <Self as SimdRows::<i32>>::ROWS <= N {
+                for j in 0..<Self as SimdRows::<i32>>::ROWS {
+                    let ra = self.load(pa.add(i + j * <Self as SimdLanes::<i32>>::LANES));
+                    let rb = self.load(pb.add(i + j * <Self as SimdLanes::<i32>>::LANES));
+
+                    let rr = _mm256_sub_epi32(ra,rb);
+
+                    self.store(po.add(i + j * <Self as SimdLanes::<i32>>::LANES),rr);
+
+                    i += <Self as SimdLanes::<i32>>::LANES * <Self as SimdRows::<i32>>::ROWS;
+                }
+            }
+
+            if N % (<Self as SimdLanes<i32>>::LANES * <Self as SimdRows::<i32>>::ROWS) != 0 {
+                while i + <Self as SimdLanes::<i32>>::LANES <= N {
+                    let ra = self.load(pa.add(i));
+                    let rb = self.load(pb.add(i));
+
+                    let rr = _mm256_sub_epi32(ra,rb);
+
+                    self.store(po.add(i),rr);
+
+                    i += <Self as SimdLanes::<i32>>::LANES;
+                }
+            }
+
+            if N % <Self as SimdLanes::<i32>>::LANES != 0 {
+                for j in i..N {
+                    rs[j] = l[j] + r[j];
+                }
+            }
+        }
+
+        rs
+    }
+}
+impl SimdSub<f32,f32,f32> for Avx2
+    where Self: SimdReg<f32> +
+                SimdLanes<f32> +
+                SimdRows<f32> +
+                SimdMask<f32> {
+    type Backend = Avx2;
+    fn sub<'a,const N: usize>(&self,l: &Vector<'a,f32,N,Self::Backend>,r: &Vector<'a,f32,N,Self::Backend>)
+                              -> OwnedVector<f32,N> {
+        let mut i = 0;
+
+        let mut rs = OwnedVector::from([0f32; N]);
+
+        unsafe {
+            let pa = l.as_ref().as_ptr();
+            let pb = r.as_ref().as_ptr();
+            let po = rs.as_mut().as_mut_ptr();
+
+            while i + <Self as SimdLanes::<f32>>::LANES * <Self as SimdRows::<f32>>::ROWS <= N {
+                for j in 0..<Self as SimdRows::<f32>>::ROWS {
+                    let ra = self.load(pa.add(i + j * <Self as SimdLanes::<f32>>::LANES));
+                    let rb = self.load(pb.add(i + j * <Self as SimdLanes::<f32>>::LANES));
+
+                    let rr = _mm256_sub_ps(ra,rb);
+
+                    self.store(po.add(i + j * <Self as SimdLanes::<f32>>::LANES),rr);
+
+                    i += <Self as SimdLanes::<f32>>::LANES * <Self as SimdRows::<f32>>::ROWS;
+                }
+            }
+
+            if N % (<Self as SimdLanes<f32>>::LANES * <Self as SimdRows::<f32>>::ROWS) != 0 {
+                while i + <Self as SimdLanes::<f32>>::LANES <= N {
+                    let ra = self.load(pa.add(i));
+                    let rb = self.load(pb.add(i));
+
+                    let rr = _mm256_sub_ps(ra,rb);
+
+                    self.store(po.add(i),rr);
+
+                    i += <Self as SimdLanes::<f32>>::LANES;
+                }
+            }
+
+            if N % <Self as SimdLanes::<f32>>::LANES != 0 {
+                for j in i..N {
+                    rs[j] = l[j] + r[j];
+                }
+            }
+        }
+
+        rs
+    }
+}
+impl SimdSub<f64,f64,f64> for Avx2
+    where Self: SimdReg<f64> +
+                SimdLanes<f64> +
+                SimdRows<f64> +
+                SimdMask<f64> {
+    type Backend = Avx2;
+    fn sub<'a,const N: usize>(&self,l: &Vector<'a,f64,N,Self::Backend>,r: &Vector<'a,f64,N,Self::Backend>)
+                              -> OwnedVector<f64,N> {
+        let mut i = 0;
+
+        let mut rs = OwnedVector::from([0f64; N]);
+
+        unsafe {
+            let pa = l.as_ref().as_ptr();
+            let pb = r.as_ref().as_ptr();
+            let po = rs.as_mut().as_mut_ptr();
+
+            while i + <Self as SimdLanes::<f64>>::LANES * <Self as SimdRows::<f64>>::ROWS <= N {
+                for j in 0..<Self as SimdRows::<f64>>::ROWS {
+                    let ra = self.load(pa.add(i + j * <Self as SimdLanes::<f64>>::LANES));
+                    let rb = self.load(pb.add(i + j * <Self as SimdLanes::<f64>>::LANES));
+
+                    let rr = _mm256_sub_pd(ra,rb);
+
+                    self.store(po.add(i + j * <Self as SimdLanes::<f64>>::LANES),rr);
+
+                    i += <Self as SimdLanes::<f64>>::LANES * <Self as SimdRows::<f64>>::ROWS;
+                }
+            }
+
+            if N % (<Self as SimdLanes<f64>>::LANES * <Self as SimdRows::<f64>>::ROWS) != 0 {
+                while i + <Self as SimdLanes::<f64>>::LANES <= N {
+                    let ra = self.load(pa.add(i));
+                    let rb = self.load(pb.add(i));
+
+                    let rr = _mm256_sub_pd(ra,rb);
+
+                    self.store(po.add(i),rr);
+
+                    i += <Self as SimdLanes::<f64>>::LANES;
+                }
+            }
+
+            if N % <Self as SimdLanes::<f64>>::LANES != 0 {
+                for j in i..N {
+                    rs[j] = l[j] + r[j];
+                }
+            }
+        }
+
+        rs
+    }
+}
+impl SimdMul<i8,i8,i32> for Avx2
+    where Self: SimdReg<i8> +
+                SimdLanes<i32> +
+                SimdMask<i8> {
+    type Backend = Avx2;
+    fn mul<'a,const N: usize>(&self,l: &Vector<'a,i8,N,Self::Backend>,r: &Vector<'a,i8,N,Self::Backend>)
+                              -> OwnedVector<i32,N> {
+        let mut i = 0;
+
+        let mut rs = OwnedVector::from([0i32; N]);
+
+        unsafe {
+            let pa = l.as_ref().as_ptr();
+            let pb = r.as_ref().as_ptr();
+            let po = rs.as_mut().as_mut_ptr();
+
+            while i + <Self as SimdLanes::<i32>>::LANES <= N {
+                let a8 = _mm_loadl_epi64(pa.add(i) as *const __m128i);
+                let b8 = _mm_loadl_epi64(pb.add(i) as *const __m128i);
+
+                let a16 = _mm_cvtepi8_epi16(a8);
+                let b16 = _mm_cvtepi8_epi16(b8);
+                let prod16 = _mm_mullo_epi16(a16, b16);
+                let prod32 = _mm256_cvtepi16_epi32(prod16);
+
+                self.store(po.add(i),prod32);
+
+                i += <Self as SimdLanes::<i8>>::LANES;
+            }
+
+            if N % <Self as SimdLanes::<i32>>::LANES != 0 {
+                for j in i..N {
+                    rs[j] = l[j] as i32 + r[j] as i32;
+                }
+            }
+        }
+
+        rs
+    }
+}
+impl SimdMul<i8,i16,i32> for Avx2
+    where Self: SimdReg<i8> +
+                SimdLanes<i32> +
+                SimdMask<i8> {
+    type Backend = Avx2;
+    fn mul<'a,const N: usize>(&self,l: &Vector<'a,i8,N,Self::Backend>,r: &Vector<'a,i16,N,Self::Backend>)
+                              -> OwnedVector<i32,N> {
+        let mut i = 0;
+
+        let mut rs = OwnedVector::from([0i32; N]);
+
+        unsafe {
+            let pa = l.as_ref().as_ptr();
+            let pb = r.as_ref().as_ptr();
+            let po = rs.as_mut().as_mut_ptr();
+
+            while i + <Self as SimdLanes::<i32>>::LANES <= N {
+                let a8 = _mm_loadl_epi64(pa.add(i) as *const __m128i);
+
+                let a16 = _mm_cvtepi8_epi16(a8);
+                let b16 = _mm_loadu_si128(pb.add(i) as *const __m128i);
+
+                let prod16 = _mm_mullo_epi16(a16, b16);
+                let prod32 = _mm256_cvtepi16_epi32(prod16);
+
+                self.store(po.add(i),prod32);
+
+                i += <Self as SimdLanes::<i8>>::LANES;
+            }
+
+            if N % <Self as SimdLanes::<i32>>::LANES != 0 {
+                for j in i..N {
+                    rs[j] = l[j] as i32 + r[j] as i32;
+                }
+            }
+        }
+
+        rs
+    }
+}
+impl SimdMul<i16,i16,i32> for Avx2
+    where Self: SimdReg<i8> +
+                SimdLanes<i32> +
+                SimdMask<i8> {
+    type Backend = Avx2;
+    fn mul<'a,const N: usize>(&self,l: &Vector<'a,i16,N,Self::Backend>,r: &Vector<'a,i16,N,Self::Backend>)
+                              -> OwnedVector<i32,N> {
+        let mut i = 0;
+
+        let mut rs = OwnedVector::from([0i32; N]);
+
+        unsafe {
+            let pa = l.as_ref().as_ptr();
+            let pb = r.as_ref().as_ptr();
+            let po = rs.as_mut().as_mut_ptr();
+
+            while i + <Self as SimdLanes::<i32>>::LANES <= N {
+                let a16 = _mm_loadu_si128(pa.add(i) as *const __m128i);
+                let b16 = _mm_loadu_si128(pb.add(i) as *const __m128i);
+
+                let prod16 = _mm_mullo_epi16(a16, b16);
+                let prod32 = _mm256_cvtepi16_epi32(prod16);
+
+                self.store(po.add(i),prod32);
+
+                i += <Self as SimdLanes::<i8>>::LANES;
+            }
+
+            if N % <Self as SimdLanes::<i32>>::LANES != 0 {
+                for j in i..N {
+                    rs[j] = l[j] as i32 + r[j] as i32;
+                }
+            }
+        }
+
+        rs
+    }
+}
+impl SimdMul<i32,i32,i32> for Avx2
+    where Self: SimdReg<i32> +
+                SimdLanes<i32> +
+                SimdRows<i32> +
+                SimdMask<i32> {
+    type Backend = Avx2;
+    fn mul<'a,const N: usize>(&self,l: &Vector<'a,i32,N,Self::Backend>,r: &Vector<'a,i32,N,Self::Backend>)
+                              -> OwnedVector<i32,N> {
+        let mut i = 0;
+
+        let mut rs = OwnedVector::from([0i32; N]);
+
+        unsafe {
+            let pa = l.as_ref().as_ptr();
+            let pb = r.as_ref().as_ptr();
+            let po = rs.as_mut().as_mut_ptr();
+
+            while i + <Self as SimdLanes::<i32>>::LANES * <Self as SimdRows::<i32>>::ROWS <= N {
+                for j in 0..<Self as SimdRows::<i32>>::ROWS {
+                    let ra = self.load(pa.add(i + j * <Self as SimdLanes::<i32>>::LANES));
+                    let rb = self.load(pb.add(i + j * <Self as SimdLanes::<i32>>::LANES));
+
+                    let rr = _mm256_mul_epi32(ra,rb);
+
+                    self.store(po.add(i + j * <Self as SimdLanes::<i32>>::LANES),rr);
+
+                    i += <Self as SimdLanes::<i32>>::LANES * <Self as SimdRows::<i32>>::ROWS;
+                }
+            }
+
+            if N % (<Self as SimdLanes<i32>>::LANES * <Self as SimdRows::<i32>>::ROWS) != 0 {
+                while i + <Self as SimdLanes::<i32>>::LANES <= N {
+                    let ra = self.load(pa.add(i));
+                    let rb = self.load(pb.add(i));
+
+                    let rr = _mm256_mul_epi32(ra,rb);
+
+                    self.store(po.add(i),rr);
+
+                    i += <Self as SimdLanes::<i32>>::LANES;
+                }
+            }
+
+            if N % <Self as SimdLanes::<i32>>::LANES != 0 {
+                for j in i..N {
+                    rs[j] = l[j] + r[j];
+                }
+            }
+        }
+
+        rs
+    }
+}
+impl SimdMul<f32,f32,f32> for Avx2
+    where Self: SimdReg<f32> +
+                SimdLanes<f32> +
+                SimdRows<f32> +
+                SimdMask<f32> {
+    type Backend = Avx2;
+    fn mul<'a,const N: usize>(&self,l: &Vector<'a,f32,N,Self::Backend>,r: &Vector<'a,f32,N,Self::Backend>)
+                              -> OwnedVector<f32,N> {
+        let mut i = 0;
+
+        let mut rs = OwnedVector::from([0f32; N]);
+
+        unsafe {
+            let pa = l.as_ref().as_ptr();
+            let pb = r.as_ref().as_ptr();
+            let po = rs.as_mut().as_mut_ptr();
+
+            while i + <Self as SimdLanes::<f32>>::LANES * <Self as SimdRows::<f32>>::ROWS <= N {
+                for j in 0..<Self as SimdRows::<f32>>::ROWS {
+                    let ra = self.load(pa.add(i + j * <Self as SimdLanes::<f32>>::LANES));
+                    let rb = self.load(pb.add(i + j * <Self as SimdLanes::<f32>>::LANES));
+
+                    let rr = _mm256_mul_ps(ra,rb);
+
+                    self.store(po.add(i + j * <Self as SimdLanes::<f32>>::LANES),rr);
+
+                    i += <Self as SimdLanes::<f32>>::LANES * <Self as SimdRows::<f32>>::ROWS;
+                }
+            }
+
+            if N % (<Self as SimdLanes<f32>>::LANES * <Self as SimdRows::<f32>>::ROWS) != 0 {
+                while i + <Self as SimdLanes::<f32>>::LANES <= N {
+                    let ra = self.load(pa.add(i));
+                    let rb = self.load(pb.add(i));
+
+                    let rr = _mm256_mul_ps(ra,rb);
+
+                    self.store(po.add(i),rr);
+
+                    i += <Self as SimdLanes::<f32>>::LANES;
+                }
+            }
+
+            if N % <Self as SimdLanes::<f32>>::LANES != 0 {
+                for j in i..N {
+                    rs[j] = l[j] + r[j];
+                }
+            }
+        }
+
+        rs
+    }
+}
+impl SimdMul<f64,f64,f64> for Avx2
+    where Self: SimdReg<f64> +
+                SimdLanes<f64> +
+                SimdRows<f64> +
+                SimdMask<f64> {
+    type Backend = Avx2;
+    fn mul<'a,const N: usize>(&self,l: &Vector<'a,f64,N,Self::Backend>,r: &Vector<'a,f64,N,Self::Backend>)
+                              -> OwnedVector<f64,N> {
+        let mut i = 0;
+
+        let mut rs = OwnedVector::from([0f64; N]);
+
+        unsafe {
+            let pa = l.as_ref().as_ptr();
+            let pb = r.as_ref().as_ptr();
+            let po = rs.as_mut().as_mut_ptr();
+
+            while i + <Self as SimdLanes::<f64>>::LANES * <Self as SimdRows::<f64>>::ROWS <= N {
+                for j in 0..<Self as SimdRows::<f64>>::ROWS {
+                    let ra = self.load(pa.add(i + j * <Self as SimdLanes::<f64>>::LANES));
+                    let rb = self.load(pb.add(i + j * <Self as SimdLanes::<f64>>::LANES));
+
+                    let rr = _mm256_mul_pd(ra,rb);
+
+                    self.store(po.add(i + j * <Self as SimdLanes::<f64>>::LANES),rr);
+
+                    i += <Self as SimdLanes::<f64>>::LANES * <Self as SimdRows::<f64>>::ROWS;
+                }
+            }
+
+            if N % (<Self as SimdLanes<f64>>::LANES * <Self as SimdRows::<f64>>::ROWS) != 0 {
+                while i + <Self as SimdLanes::<f64>>::LANES <= N {
+                    let ra = self.load(pa.add(i));
+                    let rb = self.load(pb.add(i));
+
+                    let rr = _mm256_mul_pd(ra,rb);
+
+                    self.store(po.add(i),rr);
+
+                    i += <Self as SimdLanes::<f64>>::LANES;
+                }
+            }
+
+            if N % <Self as SimdLanes::<f64>>::LANES != 0 {
                 for j in i..N {
                     rs[j] = l[j] + r[j];
                 }
