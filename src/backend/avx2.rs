@@ -1,9 +1,9 @@
 //! Implementation of SIMD Operations Using AVX2
 
-use std::arch::x86_64::{__m128i, __m256, __m256d, __m256i, _mm256_add_epi16, _mm256_add_epi32, _mm256_add_epi8, _mm256_add_pd, _mm256_add_ps, _mm256_and_pd, _mm256_and_ps, _mm256_and_si256, _mm256_andnot_si256, _mm256_blendv_epi8, _mm256_blendv_pd, _mm256_blendv_ps, _mm256_castpd_si256, _mm256_castps_si256, _mm256_castsi256_pd, _mm256_castsi256_ps, _mm256_cmp_pd, _mm256_cmp_ps, _mm256_cmpeq_epi16, _mm256_cmpeq_epi32, _mm256_cmpeq_epi8, _mm256_cmpgt_epi16, _mm256_cmpgt_epi32, _mm256_cmpgt_epi8, _mm256_cvtepi16_epi32, _mm256_cvtepi16_epi8, _mm256_cvtepi32_epi16, _mm256_cvtepi8_epi32, _mm256_loadu_pd, _mm256_loadu_ps, _mm256_loadu_si256, _mm256_mul_epi32, _mm256_mul_pd, _mm256_mul_ps, _mm256_mullo_epi32, _mm256_or_si256, _mm256_set1_epi32, _mm256_set1_pd, _mm256_set1_ps, _mm256_sll_epi32, _mm256_sll_epi64, _mm256_slli_epi32, _mm256_srl_epi32, _mm256_srl_epi64, _mm256_storeu_pd, _mm256_storeu_ps, _mm256_storeu_si256, _mm256_sub_epi16, _mm256_sub_epi32, _mm256_sub_epi8, _mm256_sub_pd, _mm256_sub_ps, _mm256_xor_si256, _mm_cvtepi16_epi32, _mm_cvtepi8_epi16, _mm_loadl_epi64, _mm_loadu_si128, _mm_mullo_epi16, _mm_packus_epi16, _mm_set1_epi32, _mm_storel_epi64, _CMP_EQ_OQ, _CMP_GT_OQ};
+use std::arch::x86_64::{__m128i, __m256, __m256d, __m256i, _mm256_add_epi16, _mm256_add_epi32, _mm256_add_epi8, _mm256_add_pd, _mm256_add_ps, _mm256_and_pd, _mm256_and_ps, _mm256_and_si256, _mm256_andnot_si256, _mm256_blendv_epi8, _mm256_blendv_pd, _mm256_blendv_ps, _mm256_castpd_si256, _mm256_castps_si256, _mm256_castsi256_pd, _mm256_castsi256_ps, _mm256_cmp_pd, _mm256_cmp_ps, _mm256_cmpeq_epi16, _mm256_cmpeq_epi32, _mm256_cmpeq_epi8, _mm256_cmpgt_epi16, _mm256_cmpgt_epi32, _mm256_cmpgt_epi8, _mm256_cvtepi16_epi32, _mm256_cvtepi16_epi8, _mm256_cvtepi32_epi16, _mm256_cvtepi8_epi32, _mm256_loadu_pd, _mm256_loadu_ps, _mm256_loadu_si256, _mm256_mul_epi32, _mm256_mul_pd, _mm256_mul_ps, _mm256_mullo_epi32, _mm256_or_si256, _mm256_set1_epi32, _mm256_set1_pd, _mm256_set1_ps, _mm256_sll_epi32, _mm256_sll_epi64, _mm256_slli_epi32, _mm256_srl_epi32, _mm256_srl_epi64, _mm256_storeu_pd, _mm256_storeu_ps, _mm256_storeu_si256, _mm256_sub_epi16, _mm256_sub_epi32, _mm256_sub_epi8, _mm256_sub_pd, _mm256_sub_ps, _mm256_unpackhi_epi32, _mm256_unpackhi_ps, _mm256_unpacklo_epi32, _mm256_unpacklo_ps, _mm256_xor_si256, _mm_cvtepi16_epi32, _mm_cvtepi8_epi16, _mm_loadl_epi64, _mm_loadu_si128, _mm_mullo_epi16, _mm_packus_epi16, _mm_set1_epi32, _mm_storel_epi64, _CMP_EQ_OQ, _CMP_GT_OQ};
 use std::mem::transmute;
 use crate::backend::common::Backend;
-use crate::traits::{SimdAdd, SimdBitAnd, SimdBitNot, SimdBitOr, SimdBitXor, SimdLanes, SimdLoad, SimdMask, SimdMul, SimdReg, SimdRows, SimdScalarMul, SimdShiftLeft, SimdShiftRight, SimdStore, SimdSub};
+use crate::traits::{SimdAdd, SimdBitAnd, SimdBitNot, SimdBitOr, SimdBitXor, SimdLanes, SimdLoad, SimdMask, SimdMul, SimdReg, SimdRows, SimdScalarMul, SimdShiftLeft, SimdShiftRight, SimdStore, SimdSub, SimdTranspose};
 use crate::{OwnedVector, Vector};
 
 pub struct Avx2 {
@@ -3025,5 +3025,68 @@ impl SimdShiftRight<f64> for Avx2
         }
 
         rs
+    }
+}
+impl SimdTranspose<i8,1> for Avx2 {
+    type Backend = Avx2;
+    fn transpose<'a, const N: usize, const M: usize>(v: [Self::Reg; 1]) -> [Self::Reg; 1] {
+        v
+    }
+}
+impl SimdTranspose<i8,1> for Avx2 {
+    type Backend = Avx2;
+    fn transpose<'a, const N: usize, const M: usize>(v: [Self::Reg; 1]) -> [Self::Reg; 1] {
+        v
+    }
+}impl SimdTranspose<i16,1> for Avx2 {
+    type Backend = Avx2;
+    fn transpose<'a, const N: usize, const M: usize>(v: [Self::Reg; 1]) -> [Self::Reg; 1] {
+        v
+    }
+}
+impl SimdTranspose<i32,1> for Avx2 {
+    type Backend = Avx2;
+    fn transpose<'a, const N: usize, const M: usize>(v: [Self::Reg; 1]) -> [Self::Reg; 1] {
+        v
+    }
+}
+impl SimdTranspose<i32,2> for Avx2 {
+    type Backend = Avx2;
+    fn transpose<'a, const N: usize, const M: usize>(v: [Self::Reg; 2]) -> [Self::Reg; 2] {
+        let v0 = v[0];
+        let v1 = v[1];
+
+        unsafe {
+            let lo = _mm256_unpacklo_epi32(v0,v1);
+            let hi = _mm256_unpackhi_epi32(v0,v1);
+
+            [lo,hi]
+        }
+    }
+}
+impl SimdTranspose<f32,1> for Avx2 {
+    type Backend = Avx2;
+    fn transpose<'a, const N: usize, const M: usize>(v: [Self::Reg; 1]) -> [Self::Reg; 1] {
+        v
+    }
+}
+impl SimdTranspose<f32,2> for Avx2 {
+    type Backend = Avx2;
+    fn transpose<'a, const N: usize, const M: usize>(v: [Self::Reg; 2]) -> [Self::Reg; 2] {
+        let v0 = v[0];
+        let v1 = v[1];
+
+        unsafe {
+            let lo = _mm256_unpacklo_ps (v0,v1);
+            let hi = _mm256_unpackhi_ps (v0,v1);
+
+            [lo,hi]
+        }
+    }
+}
+impl SimdTranspose<f64,1> for Avx2 {
+    type Backend = Avx2;
+    fn transpose<'a, const N: usize, const M: usize>(v: [Self::Reg; 1]) -> [Self::Reg; 1] {
+        v
     }
 }

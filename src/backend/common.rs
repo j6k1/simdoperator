@@ -11,7 +11,6 @@ pub trait Backend/* : ArithmeticBackend +
                    HorizontalMaxBackend +
                    HorizontalMinBackend +
                    HorizontalOrBackend +
-                   TransposeBackend +
                    MaskBackend +
                    StoreBackend +
                    LoadBackend +
@@ -43,12 +42,6 @@ pub trait MaskBackend: SimdMask<f32> +
                        SimdMask<i8> +
                        SimdMask<i16> +
                        SimdMask<i32> {
-}
-pub trait TransposeBackend: SimdTranspose<f32> +
-                            SimdTranspose<f64> +
-                            SimdTranspose<i32> +
-                            SimdTranspose<i16> +
-                            SimdTranspose<i8> {
 }
 pub trait HorizontalHSumBackend: SimdHSum<f32> +
                                  SimdHSum<f64> +

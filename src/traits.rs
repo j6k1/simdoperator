@@ -83,9 +83,9 @@ pub trait SimdHAnd<S> {
     type Backend: Backend;
     fn hand<'a,const N: usize>(&self,v:&Vector<'a,S,N,Self::Backend>) -> S;
 }
-pub trait SimdTranspose<S> {
+pub trait SimdTranspose<S,const Rows: usize> where Self: SimdReg<S> {
     type Backend: Backend;
-    fn transpose<'a,const N: usize,const M: usize>(v:&Matrix<'a,S,N,M,Self::Backend>) -> OwnedMatrix<S,M,N>;
+    fn transpose<'a,const N: usize,const M: usize>(v:[Self::Reg; Rows]) -> [Self::Reg; Rows];
 }
 pub trait SimdLanes<S> {
     const LANES: usize;
