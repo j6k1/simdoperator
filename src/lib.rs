@@ -3,7 +3,7 @@
 use std::ops::{Add, BitAnd, BitOr, BitXor, Index, IndexMut, Mul, Not, Shl, Shr, Sub};
 use crate::error::TryFromSliceError;
 use crate::backend::common::{Backend};
-use crate::traits::{Dims, Dot, HAnd, HMax, HMin, HOr, HSum, Product, SimdAdd, SimdBitAnd, SimdBitNot, SimdBitOr, SimdBitXor, SimdDot, SimdHMax, SimdHMin, SimdHSum, SimdMatMul, SimdMatVec, SimdMul, SimdOuterProduct, SimdReg, SimdScalarMul, SimdShiftLeft, SimdShiftRight, SimdSub, SimdVMat};
+use crate::traits::{Dims, Dot, HMax, HMin, HSum, Product, SimdAdd, SimdBitAnd, SimdBitNot, SimdBitOr, SimdBitXor, SimdDot, SimdHMax, SimdHMin, SimdHSum, SimdMatMul, SimdMatVec, SimdMul, SimdOuterProduct, SimdReg, SimdScalarMul, SimdShiftLeft, SimdShiftRight, SimdSub, SimdVMat, Transpose};
 
 pub mod backend;
 pub mod traits;
@@ -40,8 +40,9 @@ impl<T,const N: usize,const M: usize> IndexMut<(usize,usize)> for OwnedMatrix<T,
     }
 }
 impl<'a,BE: Backend,T,const N: usize,const M: usize> Dims<N,M> for Matrix<'a,T,N,M,BE> {}
-impl<'a,BE: Backend,T,const N: usize,const M: usize> Dims<M,N> for MatrixTransposed<'a,T,N,M,BE> {}
+impl<'a,BE: Backend,T,const N: usize,const M: usize> Dims<N,M> for MatrixTransposed<'a,T,N,M,BE> {}
 impl<T,const N: usize,const M:usize> Dims<N,M> for OwnedMatrix<T,N,M> {}
+impl<T,const N: usize,const M: usize> Dims<N,M> for OwnedMatrixTransposed<T,N,M> {}
 impl<'a,BE: Backend,T,const N: usize,const M: usize> Matrix<'a,T,N,M,BE> {
     #[inline]
     pub fn row(&self,index:usize) -> Vector<'a,T,N,BE> {
@@ -128,9 +129,10 @@ impl<T,BE: Backend,const N: usize,const M: usize> Index<usize> for Matrix<'_,T,N
         &self.data[(index * M)..(index * M + M)]
     }
 }
-impl<'a,T,BE: Backend,const N: usize,const M: usize> Matrix<'a,T,N,M,BE> {
-    pub fn transpose(self) -> OwnedMatrixTransposed<T,M,N>
-        where T: Default + Clone + Copy {
+impl<'a,T,BE: Backend,const N: usize,const M: usize> Transpose<T,N,M> for Matrix<'a,T,N,M,BE>
+    where T: Default + Clone + Copy {
+    type Output = OwnedMatrixTransposed<T,N,M>;
+    fn transpose(self) -> OwnedMatrixTransposed<T,N,M> {
         let mut r = OwnedMatrixTransposed::default();
 
         const BLOCK:usize = 64;
@@ -206,9 +208,10 @@ impl<T,const N: usize,const M: usize> From<OwnedMatrix<T,N,M>> for Box<[T]> {
 pub struct OwnedMatrixTransposed<T,const N: usize,const M: usize> {
     data: Box<[T]>,
 }
-impl<T,const N: usize,const M: usize> OwnedMatrixTransposed<T,N,M> {
-    pub fn transpose(self) -> OwnedMatrix<T,M,N>
-        where T: Default + Clone + Copy {
+impl<T,const N: usize,const M: usize> Transpose<T,N,M> for OwnedMatrixTransposed<T,N,M>
+    where T: Default + Clone + Copy {
+    type Output = OwnedMatrix<T,N,M>;
+    fn transpose(self) -> OwnedMatrix<T,N,M> {
         let mut r = vec![T::default();N*M].into_boxed_slice();
 
         const BLOCK:usize = 64;
@@ -241,7 +244,6 @@ impl<T,const N: usize,const M: usize> IndexMut<(usize,usize)> for OwnedMatrixTra
         &mut self.data[(col * N) + row]
     }
 }
-impl<T,const N: usize,const M: usize> Dims<N,M> for OwnedMatrixTransposed<T,N,M> {}
 impl<T,const N: usize,const M: usize> Default for OwnedMatrixTransposed<T,N,M>
     where T: Default + Clone {
     fn default() -> Self {

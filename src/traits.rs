@@ -119,15 +119,9 @@ pub trait HMax<S> {
 pub trait HMin<S> {
     fn hmin(&self) -> S;
 }
-pub trait HOr<S> {
-    fn hor(&self) -> S;
-}
-pub trait HAnd<S> {
-    fn hand(&self) -> S;
-}
 pub trait Transpose<T,const N: usize, const M: usize> where Self: Dims<N,M> {
-    type Output: Dims<M,N>;
-    fn transpose(v:Self) -> Self::Output;
+    type Output: Dims<N,M>;
+    fn transpose(self) -> Self::Output;
 }
 pub trait Dims<const N: usize,const M: usize> {
 }
