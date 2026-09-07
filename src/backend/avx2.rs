@@ -1,9 +1,10 @@
 //! Implementation of SIMD Operations Using AVX2
 
-use std::arch::x86_64::{__m128i, __m256, __m256d, __m256i, _mm256_add_epi16, _mm256_add_epi32, _mm256_add_epi8, _mm256_add_pd, _mm256_add_ps, _mm256_and_pd, _mm256_and_ps, _mm256_and_si256, _mm256_andnot_si256, _mm256_blendv_epi8, _mm256_blendv_pd, _mm256_blendv_ps, _mm256_castpd256_pd128, _mm256_castpd_si256, _mm256_castps256_ps128, _mm256_castps_si256, _mm256_castsi256_pd, _mm256_castsi256_ps, _mm256_castsi256_si128, _mm256_cmp_pd, _mm256_cmp_ps, _mm256_cmpeq_epi16, _mm256_cmpeq_epi32, _mm256_cmpeq_epi8, _mm256_cmpgt_epi16, _mm256_cmpgt_epi32, _mm256_cmpgt_epi8, _mm256_cvtepi16_epi32, _mm256_cvtepi16_epi8, _mm256_cvtepi32_epi16, _mm256_cvtepi8_epi32, _mm256_extractf128_pd, _mm256_extractf128_ps, _mm256_extracti128_si256, _mm256_fmadd_pd, _mm256_fmadd_ps, _mm256_loadu_pd, _mm256_loadu_ps, _mm256_loadu_si256, _mm256_madd_epi16, _mm256_maddubs_epi16, _mm256_mul_epi32, _mm256_mul_pd, _mm256_mul_ps, _mm256_mullo_epi32, _mm256_or_si256, _mm256_set1_epi16, _mm256_set1_epi32, _mm256_set1_epi8, _mm256_set1_pd, _mm256_set1_ps, _mm256_sll_epi32, _mm256_sll_epi64, _mm256_slli_epi32, _mm256_srl_epi32, _mm256_srl_epi64, _mm256_storeu_pd, _mm256_storeu_ps, _mm256_storeu_si256, _mm256_sub_epi16, _mm256_sub_epi32, _mm256_sub_epi8, _mm256_sub_pd, _mm256_sub_ps, _mm256_unpackhi_epi32, _mm256_unpackhi_ps, _mm256_unpacklo_epi32, _mm256_unpacklo_ps, _mm256_xor_si256, _mm_add_epi32, _mm_add_pd, _mm_add_ps, _mm_add_sd, _mm_add_ss, _mm_cvtepi16_epi32, _mm_cvtepi8_epi16, _mm_cvtsd_f64, _mm_cvtsi128_si32, _mm_cvtss_f32, _mm_loadl_epi64, _mm_loadu_si128, _mm_movehl_ps, _mm_mullo_epi16, _mm_packus_epi16, _mm_set1_epi32, _mm_shuffle_ps, _mm_srli_si128, _mm_storel_epi64, _mm_unpackhi_pd, _CMP_EQ_OQ, _CMP_GT_OQ};
+use std::arch::x86_64::{__m128i, __m256, __m256d, __m256i, _mm256_add_epi16, _mm256_add_epi32, _mm256_add_epi8, _mm256_add_pd, _mm256_add_ps, _mm256_and_pd, _mm256_and_ps, _mm256_and_si256, _mm256_andnot_si256, _mm256_blendv_epi8, _mm256_blendv_pd, _mm256_blendv_ps, _mm256_castpd256_pd128, _mm256_castpd_si256, _mm256_castps256_ps128, _mm256_castps_si256, _mm256_castsi256_pd, _mm256_castsi256_ps, _mm256_castsi256_si128, _mm256_cmp_pd, _mm256_cmp_ps, _mm256_cmpeq_epi16, _mm256_cmpeq_epi32, _mm256_cmpeq_epi8, _mm256_cmpgt_epi16, _mm256_cmpgt_epi32, _mm256_cmpgt_epi8, _mm256_cvtepi16_epi32, _mm256_cvtepi16_epi8, _mm256_cvtepi32_epi16, _mm256_cvtepi8_epi32, _mm256_extractf128_pd, _mm256_extractf128_ps, _mm256_extracti128_si256, _mm256_fmadd_pd, _mm256_fmadd_ps, _mm256_loadu_pd, _mm256_loadu_ps, _mm256_loadu_si256, _mm256_madd_epi16, _mm256_maddubs_epi16, _mm256_mul_epi32, _mm256_mul_pd, _mm256_mul_ps, _mm256_mullo_epi32, _mm256_or_si256, _mm256_set1_epi16, _mm256_set1_epi32, _mm256_set1_epi8, _mm256_set1_pd, _mm256_set1_ps, _mm256_setzero_pd, _mm256_setzero_ps, _mm256_setzero_si256, _mm256_sll_epi32, _mm256_sll_epi64, _mm256_slli_epi32, _mm256_srl_epi32, _mm256_srl_epi64, _mm256_storeu_pd, _mm256_storeu_ps, _mm256_storeu_si256, _mm256_sub_epi16, _mm256_sub_epi32, _mm256_sub_epi8, _mm256_sub_pd, _mm256_sub_ps, _mm256_unpackhi_epi32, _mm256_unpackhi_ps, _mm256_unpacklo_epi32, _mm256_unpacklo_ps, _mm256_xor_si256, _mm_add_epi32, _mm_add_pd, _mm_add_ps, _mm_add_sd, _mm_add_ss, _mm_cvtepi16_epi32, _mm_cvtepi8_epi16, _mm_cvtsd_f64, _mm_cvtsi128_si32, _mm_cvtss_f32, _mm_loadl_epi64, _mm_loadu_si128, _mm_movehl_ps, _mm_mullo_epi16, _mm_packus_epi16, _mm_set1_epi32, _mm_shuffle_ps, _mm_srli_si128, _mm_storel_epi64, _mm_unpackhi_pd, _CMP_EQ_OQ, _CMP_GT_OQ};
 use std::mem::transmute;
+use std::ops::{AddAssign, Mul};
 use crate::backend::common::Backend;
-use crate::traits::{SimdAdd, SimdBitAnd, SimdBitNot, SimdBitOr, SimdBitXor, SimdHSum, SimdLanes, SimdLoad, SimdMask, SimdMul, SimdMulAdd, SimdReg, SimdRows, SimdScalarMul, SimdShiftLeft, SimdShiftRight, SimdStore, SimdSub, SimdTranspose};
+use crate::traits::{SimdAdd, SimdBitAnd, SimdBitNot, SimdBitOr, SimdBitXor, SimdDot, SimdHSum, SimdLanes, SimdLoad, SimdMask, SimdMul, SimdMulAdd, SimdReg, SimdRows, SimdScalarMul, SimdShiftLeft, SimdShiftRight, SimdStore, SimdSub, SimdTranspose, SimdZero};
 use crate::{OwnedVector, Vector};
 
 pub struct Avx2 {
@@ -3144,6 +3145,7 @@ impl SimdHSum<f64> for Avx2 {
     }
 }
 impl SimdMulAdd<i8,i8,i32> for Avx2 {
+    type Backend = Avx2;
     fn mul_add(&self, l: <Self as SimdReg<i8>>::Reg, r: <Self as SimdReg<i8>>::Reg,
                acc: <Self as SimdReg<i32>>::Reg) -> <Self as SimdReg<i32>>::Reg {
         unsafe {
@@ -3156,6 +3158,7 @@ impl SimdMulAdd<i8,i8,i32> for Avx2 {
     }
 }
 impl SimdMulAdd<i16,i16,i32> for Avx2 {
+    type Backend = Avx2;
     fn mul_add(&self, l: <Self as SimdReg<i16>>::Reg, r: <Self as SimdReg<i16>>::Reg,
                acc: <Self as SimdReg<i32>>::Reg) -> <Self as SimdReg<i32>>::Reg {
         unsafe {
@@ -3165,6 +3168,7 @@ impl SimdMulAdd<i16,i16,i32> for Avx2 {
     }
 }
 impl SimdMulAdd<i32,i32,i32> for Avx2 {
+    type Backend = Avx2;
     fn mul_add(&self, l: <Self as SimdReg<i32>>::Reg, r: <Self as SimdReg<i32>>::Reg,
                acc: <Self as SimdReg<i32>>::Reg) -> <Self as SimdReg<i32>>::Reg {
         unsafe {
@@ -3174,6 +3178,7 @@ impl SimdMulAdd<i32,i32,i32> for Avx2 {
     }
 }
 impl SimdMulAdd<f32,f32,f32> for Avx2 {
+    type Backend = Avx2;
     fn mul_add(&self, l: <Self as SimdReg<f32>>::Reg, r: <Self as SimdReg<f32>>::Reg,
                acc: <Self as SimdReg<f32>>::Reg) -> <Self as SimdReg<f32>>::Reg {
         unsafe {
@@ -3182,9 +3187,88 @@ impl SimdMulAdd<f32,f32,f32> for Avx2 {
     }
 }
 impl SimdMulAdd<f64,f64,f64> for Avx2 {
+    type Backend = Avx2;
     fn mul_add(&self, l: <Self as SimdReg<f64>>::Reg, r: <Self as SimdReg<f64>>::Reg, acc: <Self as SimdReg<f64>>::Reg) -> <Self as SimdReg<f64>>::Reg {
         unsafe {
             _mm256_fmadd_pd(acc,l,r)
+        }
+    }
+}
+impl SimdZero<i8> for Avx2 where Self: SimdReg<i8> {
+    fn zero() -> <Self as SimdReg<i8>>::Reg {
+        unsafe {
+            _mm256_setzero_si256()
+        }
+    }
+}
+impl SimdZero<i16> for Avx2 where Self: SimdReg<i16> {
+    fn zero() -> <Self as SimdReg<i16>>::Reg {
+        unsafe {
+            _mm256_setzero_si256()
+        }
+    }
+}
+impl SimdZero<i32> for Avx2 where Self: SimdReg<i32> {
+    fn zero() -> <Self as SimdReg<i32>>::Reg {
+        unsafe {
+            _mm256_setzero_si256()
+        }
+    }
+}
+impl SimdZero<f32> for Avx2 where Self: SimdReg<f32> {
+    fn zero() -> <Self as SimdReg<f32>>::Reg {
+        unsafe {
+            _mm256_setzero_ps()
+        }
+    }
+}
+impl SimdZero<f64> for Avx2 where Self: SimdReg<f64> {
+    fn zero() -> <Self as SimdReg<f64>>::Reg {
+        unsafe {
+            _mm256_setzero_pd()
+        }
+    }
+}
+impl<SL,SR,SO> SimdDot<SL,SR,SO> for Avx2
+    where Self: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> + SimdHSum<SO> +
+                SimdLoad<SL> + SimdLoad<SR> + SimdZero<SO> +
+                SimdLanes<SL> + SimdLanes<SR> + SimdLanes<SO> +
+                SimdMulAdd<SL,SR,SO>,
+          SL: Mul<SR,Output = SO> + Clone + Copy,
+          SR: Clone + Copy,
+          SO: AddAssign {
+    type Backend = Avx2;
+    fn dot<'a, const N: usize>(&self, l: &Vector<'a, SL, N, Self::Backend>, r: &Vector<'a, SR, N, Self::Backend>) -> SO {
+        let mut acc = Self::zero();
+
+        let mut i = 0;
+        let mut pa = l.as_ref().as_ptr();
+        let mut pb = r.as_ref().as_ptr();
+
+        unsafe {
+            while i + <Self as SimdLanes<SL>>::LANES <= N {
+                let lr = self.load(pa);
+                let rr = self.load(pb);
+
+                acc = self.mul_add(lr,rr,acc);
+
+                pa = pa.add(<Self as SimdLanes<SL>>::LANES);
+                pb = pb.add(<Self as SimdLanes<SR>>::LANES);
+
+                i += <Self as SimdLanes<SL>>::LANES;
+            }
+
+            let mut sum = <Self as SimdHSum<SO>>::hsum::<N>(self,acc);
+
+            if N % <Self as SimdLanes<SL>>::LANES != 0 {
+                for _ in i..N {
+                    sum += *pa * *pb;
+                    pa = pa.add(1);
+                    pb = pb.add(1);
+                }
+            }
+
+            sum
         }
     }
 }
