@@ -104,6 +104,9 @@ pub trait SimdMask<S>: SimdReg<S> {
     fn mask_zero(&self,m:Self::Mask,a:Self::Reg) -> Self::Reg;
     fn tail_mask(&self,index: usize, total: usize) -> Self::Mask;
 }
+pub trait SimdMulAdd<SL,SR,SO>: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> {
+    fn mul_add(&self,l:<Self as SimdReg<SL>>::Reg,r:<Self as SimdReg<SR>>::Reg,acc:<Self as SimdReg<SO>>::Reg) -> <Self as SimdReg<SO>>::Reg;
+}
 pub trait Dot<R,O> {
     fn dot(&self,r:R) -> O;
 }

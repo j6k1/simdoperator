@@ -1,9 +1,10 @@
 //! Common Backend Implementation
 
-use crate::traits::{SimdAdd, SimdBitAnd, SimdBitNot, SimdBitOr, SimdBitXor, SimdDot, SimdHSum, SimdMatMul, SimdMatVec, SimdHMax, SimdMul, SimdShiftLeft, SimdShiftRight, SimdSub, SimdVMat, SimdHMin, SimdMask, SimdScalarMul, SimdOuterProduct, SimdLoad, SimdStore, SimdReg};
+use crate::traits::{SimdAdd, SimdBitAnd, SimdBitNot, SimdBitOr, SimdBitXor, SimdDot, SimdHSum, SimdMatMul, SimdMatVec, SimdHMax, SimdMul, SimdShiftLeft, SimdShiftRight, SimdSub, SimdVMat, SimdHMin, SimdMask, SimdScalarMul, SimdOuterProduct, SimdLoad, SimdStore, SimdReg, SimdMulAdd};
 
 pub trait Backend/* : ArithmeticBackend +
                    ScalarMulBackend +
+                   MulAddBackend +
                    BitOperationsBackend +
                    BitShiftBackend +
                    ProductBackend +
@@ -116,6 +117,13 @@ pub trait BitOperationsBackend: SimdBitOr<i8> +
                                 SimdBitNot<f32> +
                                 SimdBitNot<f64> {
 
+}
+pub trait MulAddBackend: SimdMulAdd<f32,f32,f32> +
+                          SimdMulAdd<f64,f64,f64> +
+                          SimdMulAdd<i32,i32,i32> +
+                          SimdMulAdd<i8,i8,i32> +
+                          SimdMulAdd<i8,i16,i32> +
+                          SimdMulAdd<i16,i16,i32> {
 }
 pub trait ScalarMulBackend: SimdScalarMul<i8,i8,i32> +
                             SimdScalarMul<i8,i16,i32> +
