@@ -4,7 +4,7 @@ use std::arch::x86_64::{__m128i, __m256, __m256d, __m256i, _mm256_add_epi16, _mm
 use std::mem::transmute;
 use std::ops::{AddAssign, Mul};
 use crate::backend::common::Backend;
-use crate::traits::{SimdAdd, SimdBitAnd, SimdBitNot, SimdBitOr, SimdBitXor, SimdDot, SimdHSum, SimdLanes, SimdLoad, SimdMask, SimdMul, SimdMulAdd, SimdReg, SimdRows, SimdScalarMul, SimdShiftLeft, SimdShiftRight, SimdStore, SimdSub, SimdTranspose, SimdZero};
+use crate::traits::{SimdAdd, SimdBitAnd, SimdBitNot, SimdBitOr, SimdBitXor, SimdCols, SimdDot, SimdHSum, SimdLanes, SimdLoad, SimdMask, SimdMul, SimdMulAdd, SimdReg, SimdRows, SimdScalarMul, SimdShiftLeft, SimdShiftRight, SimdStore, SimdSub, SimdTranspose, SimdZero};
 use crate::{OwnedVector, Vector};
 
 pub struct Avx2 {
@@ -35,21 +35,42 @@ impl SimdLanes<i64> for Avx2 {
 }
 impl SimdRows<i8> for Avx2 {
     const ROWS: usize = 1;
+    const ROWS_GEMV: usize = 16;
 }
 impl SimdRows<i16> for Avx2 {
     const ROWS: usize = 1;
+    const ROWS_GEMV: usize = 16;
 }
 impl SimdRows<i32> for Avx2 {
     const ROWS: usize = 2;
+    const ROWS_GEMV: usize = 8;
 }
 impl SimdRows<i64> for Avx2 {
     const ROWS: usize = 1;
+    const ROWS_GEMV: usize = 4;
 }
 impl SimdRows<f32> for Avx2 {
     const ROWS: usize = 2;
+    const ROWS_GEMV: usize = 8;
 }
 impl SimdRows<f64> for Avx2 {
     const ROWS: usize = 1;
+    const ROWS_GEMV: usize = 4;
+}
+impl SimdCols<i8> for Avx2 {
+    const COLS: usize = 8;
+}
+impl SimdCols<i16> for Avx2 {
+    const COLS: usize = 8;
+}
+impl SimdCols<i32> for Avx2 {
+    const COLS: usize = 8;
+}
+impl SimdCols<f32> for Avx2 {
+    const COLS: usize = 4;
+}
+impl SimdCols<f64> for Avx2 {
+    const COLS: usize = 2;
 }
 impl SimdReg<i8> for Avx2 {
     type Reg = __m256i;
