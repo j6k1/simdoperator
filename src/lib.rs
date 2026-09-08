@@ -137,13 +137,15 @@ impl<'a,T,BE: Backend,const N: usize,const M: usize> Transpose<T,N,M> for Matrix
 
         const BLOCK:usize = 64;
 
-        for (row,col) in (0..(N / BLOCK * BLOCK)).zip((0..(M / BLOCK * BLOCK)).step_by(BLOCK)) {
-            for x in 0..BLOCK {
-                for y in 0..BLOCK {
-                    if row + x >= N || col + y >= M {
-                        continue;
+        for row in (0..((N + BLOCK - 1) / BLOCK * BLOCK)).step_by(BLOCK) {
+            for col in (0..((M + BLOCK - 1) / BLOCK * BLOCK)).step_by(BLOCK) {
+                for x in 0..BLOCK {
+                    for y in 0..BLOCK {
+                        if row + y >= N || col + x >= M {
+                            continue;
+                        }
+                        r[(row + x, col + y)] = self.data[((row + x)) * M + col + y];
                     }
-                    r[(row + x, col + y)] = self.data[((row + x)) * M + col + y];
                 }
             }
         }
@@ -216,13 +218,15 @@ impl<T,const N: usize,const M: usize> Transpose<T,N,M> for OwnedMatrixTransposed
 
         const BLOCK:usize = 64;
 
-        for (row,col) in (0..(N / BLOCK * BLOCK)).zip((0..(M / BLOCK * BLOCK)).step_by(BLOCK)) {
-            for x in 0..BLOCK {
+        for col in (0..((M + BLOCK - 1) / BLOCK * BLOCK)).step_by(BLOCK) {
+            for row in (0..((N + BLOCK - 1) / BLOCK * BLOCK)).step_by(BLOCK) {
                 for y in 0..BLOCK {
-                    if row + x >= N || col + y >= M {
-                        continue;
+                    for x in 0..BLOCK {
+                        if row + x >= N || col + y >= M {
+                            continue;
+                        }
+                        r[(row + x) * M + col + y] = self[(row + x, col + y)];
                     }
-                    r[(row + x) * M + col + y] = self[(row + x, col + y)];
                 }
             }
         }
