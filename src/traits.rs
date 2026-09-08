@@ -53,15 +53,24 @@ pub trait SimdOuterProduct<SL,SR,SO> {
 }
 pub trait SimdVMat<SL,SR,SO> {
     type Backend: Backend;
-    fn vmat<'a,const N: usize,const M: usize>(&self,l:&Vector<'a,SL,N,Self::Backend>,r:&Matrix<'a,SR,M,N,Self::Backend>) -> OwnedVector<SO,M>;
+    fn vmat<'a,const M: usize,const K: usize>(&self,
+                                              l:&Vector<'a,SL,K,Self::Backend>,
+                                              r:&Matrix<'a,SR,M,K,Self::Backend>,
+                                              acc:&mut OwnedVector<SO,M>);
 }
 pub trait SimdMatVec<SL,SR,SO> {
     type Backend: Backend;
-    fn matvec<'a,const N: usize,const M: usize>(&self,l:&Matrix<'a,SL,N,M,Self::Backend>,r:&Vector<'a,SR,N,Self::Backend>) -> OwnedVector<SO,M>;
+    fn matvec<'a,const N: usize,const K: usize>(&self,
+                                                l:&Matrix<'a,SL,N,K,Self::Backend>,
+                                                r:&Vector<'a,SR,K,Self::Backend>,
+                                                acc:&mut OwnedVector<SO,N>);
 }
 pub trait SimdMatMul<SL,SR,SO> {
     type Backend: Backend;
-    fn matmul<'a,const N: usize,const M: usize,const K: usize>(&self,l:&Matrix<'a,SL,N,M,Self::Backend>,r:&Matrix<'a,SR,K,N,Self::Backend>) -> OwnedMatrix<SO,K,M>;
+    fn matmul<'a,const N: usize,const M: usize,const K: usize>(&self,
+                                                               l:&Matrix<'a,SL,N,K,Self::Backend>,
+                                                               r:&Matrix<'a,SR,K,M,Self::Backend>,
+                                                               acc:&mut OwnedMatrix<SO,N,M>);
 }
 pub trait SimdHSum<S>: SimdReg<S> {
     type Backend: Backend;

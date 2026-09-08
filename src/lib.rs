@@ -20,6 +20,13 @@ pub struct Matrix<'a,T,const N: usize,const M: usize,BE: Backend> {
 pub struct OwnedVector<T,const N: usize> {
     data: [T; N]
 }
+impl<T,const N: usize> Default for OwnedVector<T,N> where T: Default + Clone + Copy {
+    fn default() -> Self {
+        Self {
+            data: [T::default();N].into()
+        }
+    }
+}
 pub struct OwnedMatrix<T,const N: usize,const M: usize> {
     data: Box<[T]>
 }
@@ -119,7 +126,7 @@ impl<'a,T,BE: Backend,const N: usize,const M: usize> Transpose<T,N,M> for Matrix
                         if row + y >= N || col + x >= M {
                             continue;
                         }
-                        r[(col + y,row + x)] = self.data[((row + x)) * M + col + y];
+                        r[(col + y,row + x)] = self.data[(row + x) * M + col + y];
                     }
                 }
             }
@@ -333,21 +340,38 @@ impl<'a,BE,SL,SR,SO,const N: usize,const M: usize> Product<&'a Vector<'a,SR,M,BE
         self.backend.outer_product(self,r)
     }
 }
-impl<'a,BE,SL,SR,SO,const N: usize,const M: usize> Product<&'a Matrix<'a,SR,M,N,BE>,OwnedVector<SO,M>>
-    for &'a Vector<'a,SL,N,BE> where BE: Backend + SimdVMat<SL,SR,SO,Backend = BE> {
-    fn product(&self,r:&'a Matrix<'a,SR,M,N,BE>) -> OwnedVector<SO,M> {
-        self.backend.vmat(self,r)
+impl<'a,BE,SL,SR,SO,const M: usize,const K: usize> Product<&'a Matrix<'a,SR,M,K,BE>,OwnedVector<SO,M>>
+    for &'a Vector<'a,SL,K,BE>
+    where BE: Backend + SimdVMat<SL,SR,SO,Backend = BE>,
+          SO: Default + Copy + Clone {
+    fn product(&self,r:&'a Matrix<'a,SR,M,K,BE>) -> OwnedVector<SO,M> {
+        let mut o = OwnedVector::<SO,M>::default();
+
+        self.backend.vmat(self,r,&mut o);
+
+        o
     }
 }
-impl<'a,BE,SL,SR,SO,const N: usize,const M: usize> Product<&'a Vector<'a,SR,N,BE>,OwnedVector<SO,M>>
-    for &'a Matrix<'a,SL,N,M,BE> where BE: Backend + SimdMatVec<SL,SR,SO,Backend = BE> {
-    fn product(&self, r: &'a Vector<'a,SR,N,BE>) -> OwnedVector<SO,M> {
-        self.backend.matvec(self, r)
+impl<'a,BE,SL,SR,SO,const N: usize,const K: usize> Product<&'a Vector<'a,SR,K,BE>,OwnedVector<SO,N>>
+    for &'a Matrix<'a,SL,N,K,BE>
+        where BE: Backend + SimdMatVec<SL,SR,SO,Backend = BE>,
+              SO: Default + Copy + Clone {
+    fn product(&self, r: &'a Vector<'a,SR,K,BE>) -> OwnedVector<SO,N> {
+        let mut o = OwnedVector::<SO,N>::default();
+
+        self.backend.matvec(self, r, &mut o);
+
+        o
     }
 }
-impl<'a,BE,SL,SR,SO,const N: usize,const M: usize,const K: usize> Product<&'a Matrix<'a,SR,K,N,BE>,OwnedMatrix<SO,K,M>>
-    for &'a Matrix<'a,SL,N,M,BE> where BE: Backend + SimdMatMul<SL,SR,SO,Backend = BE> {
-    fn product(&self, r: &'a Matrix<'a,SR,K,N,BE>) -> OwnedMatrix<SO,K,M> {
-        self.backend.matmul(self, r)
+impl<'a,BE,SL,SR,SO,const N: usize,const M: usize,const K: usize> Product<&'a Matrix<'a,SR,K,M,BE>,OwnedMatrix<SO,N,M>>
+    for &'a Matrix<'a,SL,N,K,BE>
+    where BE: Backend + SimdMatMul<SL,SR,SO,Backend = BE>,
+          SO: Default + Copy + Clone {
+    fn product(&self, r: &'a Matrix<'a,SR,K,M,BE>) -> OwnedMatrix<SO,N,M> {
+        let mut o = OwnedMatrix::<SO,N,M>::default();
+        self.backend.matmul(self, r, &mut o);
+
+        o
     }
 }
