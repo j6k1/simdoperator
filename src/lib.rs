@@ -17,15 +17,18 @@ pub struct Matrix<'a,T,const N: usize,const M: usize,BE: Backend> {
     data: &'a [T],
     backend: BE
 }
-pub struct MatrixTransposed<'a,T,const N: usize,const M: usize,BE: Backend> {
-    data: &'a [T],
-    backend: BE
-}
 pub struct OwnedVector<T,const N: usize> {
     data: [T; N]
 }
 pub struct OwnedMatrix<T,const N: usize,const M: usize> {
     data: Box<[T]>
+}
+impl<T,const N: usize,const M: usize> Default for OwnedMatrix<T,N,M> where T: Default + Clone {
+    fn default() -> Self {
+        Self {
+            data: vec![T::default();N*M].into_boxed_slice()
+        }
+    }
 }
 impl<T,const N: usize,const M: usize> Index<(usize,usize)> for OwnedMatrix<T,N,M> {
     type Output = T;
@@ -40,9 +43,7 @@ impl<T,const N: usize,const M: usize> IndexMut<(usize,usize)> for OwnedMatrix<T,
     }
 }
 impl<'a,BE: Backend,T,const N: usize,const M: usize> Dims<N,M> for Matrix<'a,T,N,M,BE> {}
-impl<'a,BE: Backend,T,const N: usize,const M: usize> Dims<N,M> for MatrixTransposed<'a,T,N,M,BE> {}
 impl<T,const N: usize,const M:usize> Dims<N,M> for OwnedMatrix<T,N,M> {}
-impl<T,const N: usize,const M: usize> Dims<N,M> for OwnedMatrixTransposed<T,N,M> {}
 impl<'a,BE: Backend,T,const N: usize,const M: usize> Matrix<'a,T,N,M,BE> {
     #[inline]
     pub fn row(&self,index:usize) -> Vector<'a,T,N,BE> {
@@ -63,32 +64,6 @@ impl<'a,BE: Backend,T,const N: usize,const M: usize> TryFrom<&'a [T]> for Matrix
             Err(TryFromSliceError)
         } else {
             Ok(Matrix {
-                data: value,
-                backend: BE::new()
-            })
-        }
-    }
-}
-impl<'a,BE: Backend,T,const N: usize,const M: usize> MatrixTransposed<'a,T,N,M,BE> {
-    #[inline]
-    pub fn col(&self,index:usize) -> Vector<'a,T,N,BE> {
-        let view = &self.data[index * N..(index + 1) * N];
-
-        Vector {
-            data: view.try_into().unwrap(),
-            backend: BE::new()
-        }
-    }
-}
-impl<'a,BE: Backend,T,const N: usize,const M: usize> TryFrom<&'a [T]> for MatrixTransposed<'a,T,M,N,BE> {
-    type Error = TryFromSliceError;
-
-    #[inline]
-    fn try_from(value: &'a [T]) -> Result<Self,Self::Error> {
-        if value.len() != N * M {
-            Err(TryFromSliceError)
-        } else {
-            Ok(MatrixTransposed {
                 data: value,
                 backend: BE::new()
             })
@@ -131,9 +106,9 @@ impl<T,BE: Backend,const N: usize,const M: usize> Index<usize> for Matrix<'_,T,N
 }
 impl<'a,T,BE: Backend,const N: usize,const M: usize> Transpose<T,N,M> for Matrix<'a,T,N,M,BE>
     where T: Default + Clone + Copy {
-    type Output = OwnedMatrixTransposed<T,N,M>;
-    fn transpose(self) -> OwnedMatrixTransposed<T,N,M> {
-        let mut r = OwnedMatrixTransposed::default();
+    type Output = OwnedMatrix<T,M,N>;
+    fn transpose(self) -> OwnedMatrix<T,M,N> {
+        let mut r = OwnedMatrix::<T,M,N>::default();
 
         const BLOCK:usize = 64;
 
@@ -144,7 +119,7 @@ impl<'a,T,BE: Backend,const N: usize,const M: usize> Transpose<T,N,M> for Matrix
                         if row + y >= N || col + x >= M {
                             continue;
                         }
-                        r[(row + x, col + y)] = self.data[((row + x)) * M + col + y];
+                        r[(col + y,row + x)] = self.data[((row + x)) * M + col + y];
                     }
                 }
             }
@@ -205,55 +180,6 @@ impl<T,const N: usize> IndexMut<usize> for OwnedVector<T,N> {
 impl<T,const N: usize,const M: usize> From<OwnedMatrix<T,N,M>> for Box<[T]> {
     fn from(value: OwnedMatrix<T,N,M>) -> Self {
         value.data
-    }
-}
-pub struct OwnedMatrixTransposed<T,const N: usize,const M: usize> {
-    data: Box<[T]>,
-}
-impl<T,const N: usize,const M: usize> Transpose<T,N,M> for OwnedMatrixTransposed<T,N,M>
-    where T: Default + Clone + Copy {
-    type Output = OwnedMatrix<T,N,M>;
-    fn transpose(self) -> OwnedMatrix<T,N,M> {
-        let mut r = vec![T::default();N*M].into_boxed_slice();
-
-        const BLOCK:usize = 64;
-
-        for col in (0..((M + BLOCK - 1) / BLOCK * BLOCK)).step_by(BLOCK) {
-            for row in (0..((N + BLOCK - 1) / BLOCK * BLOCK)).step_by(BLOCK) {
-                for y in 0..BLOCK {
-                    for x in 0..BLOCK {
-                        if row + x >= N || col + y >= M {
-                            continue;
-                        }
-                        r[(row + x) * M + col + y] = self[(row + x, col + y)];
-                    }
-                }
-            }
-        }
-
-        OwnedMatrix {
-            data: r,
-        }
-    }
-}
-impl<T,const N: usize,const M: usize> Index<(usize,usize)> for OwnedMatrixTransposed<T,N,M> {
-    type Output = T;
-
-    fn index(&self, (row,col): (usize, usize)) -> &Self::Output {
-        &self.data[(col * N) + row]
-    }
-}
-impl<T,const N: usize,const M: usize> IndexMut<(usize,usize)> for OwnedMatrixTransposed<T,N,M> {
-    fn index_mut(&mut self, (row,col): (usize, usize)) -> &mut Self::Output {
-        &mut self.data[(col * N) + row]
-    }
-}
-impl<T,const N: usize,const M: usize> Default for OwnedMatrixTransposed<T,N,M>
-    where T: Default + Clone {
-    fn default() -> Self {
-        OwnedMatrixTransposed {
-            data: vec![T::default();N*M].into_boxed_slice()
-        }
     }
 }
 impl<'a,BE,T,const N: usize> Add<&'a Vector<'a,T,N,BE>> for &'a Vector<'a,T,N,BE>
@@ -407,21 +333,21 @@ impl<'a,BE,SL,SR,SO,const N: usize,const M: usize> Product<&'a Vector<'a,SR,M,BE
         self.backend.outer_product(self,r)
     }
 }
-impl<'a,BE,SL,SR,SO,const N: usize,const M: usize> Product<&'a MatrixTransposed<'a,SR,N,M,BE>,OwnedVector<SO,M>>
+impl<'a,BE,SL,SR,SO,const N: usize,const M: usize> Product<&'a Matrix<'a,SR,M,N,BE>,OwnedVector<SO,M>>
     for &'a Vector<'a,SL,N,BE> where BE: Backend + SimdVMat<SL,SR,SO,Backend = BE> {
-    fn product(&self,r:&'a MatrixTransposed<'a,SR,N,M,BE>) -> OwnedVector<SO,M> {
+    fn product(&self,r:&'a Matrix<'a,SR,M,N,BE>) -> OwnedVector<SO,M> {
         self.backend.vmat(self,r)
     }
 }
 impl<'a,BE,SL,SR,SO,const N: usize,const M: usize> Product<&'a Vector<'a,SR,N,BE>,OwnedVector<SO,M>>
-    for &'a MatrixTransposed<'a,SL,N,M,BE> where BE: Backend + SimdMatVec<SL,SR,SO,Backend = BE> {
+    for &'a Matrix<'a,SL,N,M,BE> where BE: Backend + SimdMatVec<SL,SR,SO,Backend = BE> {
     fn product(&self, r: &'a Vector<'a,SR,N,BE>) -> OwnedVector<SO,M> {
         self.backend.matvec(self, r)
     }
 }
-impl<'a,BE,SL,SR,SO,const N: usize,const M: usize,const K: usize> Product<&'a Matrix<'a,SR,N,K,BE>,OwnedMatrix<SO,M,K>>
-    for &'a Matrix<'a,SL,M,N,BE> where BE: Backend + SimdMatMul<SL,SR,SO,Backend = BE> {
-    fn product(&self, r: &'a Matrix<'a,SR,N,K,BE>) -> OwnedMatrix<SO,M,K> {
+impl<'a,BE,SL,SR,SO,const N: usize,const M: usize,const K: usize> Product<&'a Matrix<'a,SR,K,N,BE>,OwnedMatrix<SO,K,M>>
+    for &'a Matrix<'a,SL,N,M,BE> where BE: Backend + SimdMatMul<SL,SR,SO,Backend = BE> {
+    fn product(&self, r: &'a Matrix<'a,SR,K,N,BE>) -> OwnedMatrix<SO,K,M> {
         self.backend.matmul(self, r)
     }
 }

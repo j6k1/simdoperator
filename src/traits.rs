@@ -1,6 +1,6 @@
 //! Trait and data type features for abstracting SIMD operations
 
-use crate::{Matrix, MatrixTransposed, OwnedMatrix, OwnedVector, Vector};
+use crate::{Matrix, OwnedMatrix, OwnedVector, Vector};
 use crate::backend::common::Backend;
 
 pub trait SimdAdd<SL,SR,SO> {
@@ -53,15 +53,15 @@ pub trait SimdOuterProduct<SL,SR,SO> {
 }
 pub trait SimdVMat<SL,SR,SO> {
     type Backend: Backend;
-    fn vmat<'a,const N: usize,const M: usize>(&self,l:&Vector<'a,SL,N,Self::Backend>,r:&MatrixTransposed<'a,SR,N,M,Self::Backend>) -> OwnedVector<SO,M>;
+    fn vmat<'a,const N: usize,const M: usize>(&self,l:&Vector<'a,SL,N,Self::Backend>,r:&Matrix<'a,SR,M,N,Self::Backend>) -> OwnedVector<SO,M>;
 }
 pub trait SimdMatVec<SL,SR,SO> {
     type Backend: Backend;
-    fn matvec<'a,const N: usize,const M: usize>(&self,l:&MatrixTransposed<'a,SL,N,M,Self::Backend>,r:&Vector<'a,SR,N,Self::Backend>) -> OwnedVector<SO,M>;
+    fn matvec<'a,const N: usize,const M: usize>(&self,l:&Matrix<'a,SL,N,M,Self::Backend>,r:&Vector<'a,SR,N,Self::Backend>) -> OwnedVector<SO,M>;
 }
 pub trait SimdMatMul<SL,SR,SO> {
     type Backend: Backend;
-    fn matmul<'a,const N: usize,const M: usize,const K: usize>(&self,l:&Matrix<'a,SL,M,N,Self::Backend>,r:&Matrix<'a,SR,N,K,Self::Backend>) -> OwnedMatrix<SO,M,K>;
+    fn matmul<'a,const N: usize,const M: usize,const K: usize>(&self,l:&Matrix<'a,SL,N,M,Self::Backend>,r:&Matrix<'a,SR,K,N,Self::Backend>) -> OwnedMatrix<SO,K,M>;
 }
 pub trait SimdHSum<S>: SimdReg<S> {
     type Backend: Backend;
@@ -127,7 +127,7 @@ pub trait HMin<S> {
     fn hmin(&self) -> S;
 }
 pub trait Transpose<T,const N: usize, const M: usize> where Self: Dims<N,M> {
-    type Output: Dims<N,M>;
+    type Output: Dims<M,N>;
     fn transpose(self) -> Self::Output;
 }
 pub trait Dims<const N: usize,const M: usize> {
