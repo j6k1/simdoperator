@@ -13,79 +13,6 @@ pub struct Vector<'a,T,const N: usize,BE: Backend> {
     data: &'a [T; N],
     backend: BE
 }
-pub struct Matrix<'a,T,const N: usize,const M: usize,BE: Backend> {
-    data: &'a [T],
-    backend: BE
-}
-pub struct ColumnMajorMatrix<'a,T,const N: usize,const M: usize,BE: Backend> {
-    data: &'a [T],
-    backend: BE
-}
-pub struct OwnedVector<T,const N: usize> {
-    data: [T; N]
-}
-impl<T,const N: usize> Default for OwnedVector<T,N> where T: Default + Clone + Copy {
-    fn default() -> Self {
-        Self {
-            data: [T::default();N].into()
-        }
-    }
-}
-pub struct OwnedMatrix<T,const N: usize,const M: usize> {
-    data: Box<[T]>
-}
-impl<T,const N: usize,const M: usize> Default for OwnedMatrix<T,N,M> where T: Default + Clone {
-    fn default() -> Self {
-        Self {
-            data: vec![T::default();N*M].into_boxed_slice()
-        }
-    }
-}
-impl<T,const N: usize,const M: usize> Index<(usize,usize)> for OwnedMatrix<T,N,M> {
-    type Output = T;
-
-    fn index(&self, (row,col): (usize, usize)) -> &Self::Output {
-        &self.data[(row * M) + col]
-    }
-}
-impl<T,const N: usize,const M: usize> IndexMut<(usize,usize)> for OwnedMatrix<T,N,M> {
-    fn index_mut(&mut self, (row,col): (usize, usize)) -> &mut Self::Output {
-        &mut self.data[(row * M) + col]
-    }
-}
-impl<T,const N: usize,const M: usize> From<OwnedMatrix<T,N,M>> for Box<[T]> {
-    fn from(value: OwnedMatrix<T,N,M>) -> Self {
-        value.data
-    }
-}
-impl<'a,BE: Backend,T,const N: usize,const M: usize> Dims<N,M> for Matrix<'a,T,N,M,BE> {}
-impl<T,const N: usize,const M:usize> Dims<N,M> for OwnedMatrix<T,N,M> {}
-impl<'a,BE: Backend,T,const N: usize,const M: usize> Matrix<'a,T,N,M,BE> {
-    #[inline]
-    pub fn row(&self,index:usize) -> Vector<'a,T,N,BE> {
-        let view = &self.data[index * M..(index + 1) * M];
-
-        Vector {
-            data: view.try_into().unwrap(),
-            backend: BE::new()
-        }
-    }
-}
-impl<'a,BE: Backend,T,const N: usize,const M: usize> TryFrom<&'a [T]> for Matrix<'a,T,M,N,BE> {
-    type Error = TryFromSliceError;
-
-    #[inline]
-    fn try_from(value: &'a [T]) -> Result<Self,Self::Error> {
-        if value.len() != N * M {
-            Err(TryFromSliceError)
-        } else {
-            Ok(Matrix {
-                data: value,
-                backend: BE::new()
-            })
-        }
-    }
-}
 impl<'a,BE: Backend,T,const N: usize> TryFrom<&'a [T]> for Vector<'a,T,N,BE> {
     type Error = TryFromSliceError;
 
@@ -111,6 +38,83 @@ impl<T,BE: Backend,const N: usize> Index<usize> for Vector<'_,T,N,BE> {
 impl<T,BE: Backend,const N: usize> AsRef<[T;N]> for Vector<'_,T,N,BE> {
     fn as_ref(&self) -> &[T;N] {
         &self.data
+    }
+}
+impl<'a,BE: Backend,T,const N: usize> From<&'a OwnedVector<T,N>> for Vector<'a,T,N,BE> {
+    fn from(value: &'a OwnedVector<T,N>) -> Self {
+        Vector {
+            data: &value.data,
+            backend: BE::new()
+        }
+    }
+}
+pub struct OwnedVector<T,const N: usize> {
+    data: [T; N]
+}
+impl<T,const N: usize> From<OwnedVector<T,N>> for [T;N] {
+    fn from(value: OwnedVector<T,N>) -> Self {
+        value.data
+    }
+}
+impl<T,const N: usize> From<[T;N]> for OwnedVector<T,N> {
+    fn from(value: [T;N]) -> Self {
+        OwnedVector {
+            data: value
+        }
+    }
+}
+impl<T,const N: usize> AsMut<[T;N]> for OwnedVector<T,N> {
+    fn as_mut(&mut self) -> &mut [T;N] {
+        &mut self.data
+    }
+}
+impl<T,const N: usize> Default for OwnedVector<T,N> where T: Default + Clone + Copy {
+    fn default() -> Self {
+        Self {
+            data: [T::default();N].into()
+        }
+    }
+}
+impl<T,const N: usize> Index<usize> for OwnedVector<T,N> {
+    type Output = T;
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.data[index]
+    }
+}
+impl<T,const N: usize> IndexMut<usize> for OwnedVector<T,N> {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.data[index]
+    }
+}
+pub struct Matrix<'a,T,const N: usize,const M: usize,BE: Backend> {
+    data: &'a [T],
+    backend: BE
+}
+impl<'a,BE: Backend,T,const N: usize,const M: usize> Dims<N,M> for Matrix<'a,T,N,M,BE> {}
+impl<'a,BE: Backend,T,const N: usize,const M: usize> Matrix<'a,T,N,M,BE> {
+    #[inline]
+    pub fn row(&self,index:usize) -> Vector<'a,T,N,BE> {
+        let view = &self.data[index * M..(index + 1) * M];
+
+        Vector {
+            data: view.try_into().unwrap(),
+            backend: BE::new()
+        }
+    }
+}
+impl<'a,BE: Backend,T,const N: usize,const M: usize> TryFrom<&'a [T]> for Matrix<'a,T,M,N,BE> {
+    type Error = TryFromSliceError;
+
+    #[inline]
+    fn try_from(value: &'a [T]) -> Result<Self,Self::Error> {
+        if value.len() != N * M {
+            Err(TryFromSliceError)
+        } else {
+            Ok(Matrix {
+                data: value,
+                backend: BE::new()
+            })
+        }
     }
 }
 impl<T,BE: Backend,const N: usize,const M: usize> Index<usize> for Matrix<'_,T,N,M,BE> {
@@ -144,46 +148,6 @@ impl<'a,T,BE: Backend,const N: usize,const M: usize> Transpose<T,N,M> for Matrix
         r
     }
 }
-impl<'a,BE: Backend,T,const N: usize,const M: usize> From<&'a OwnedMatrix<T,N,M>> for Matrix<'a,T,N,M,BE> {
-    fn from(value: &'a OwnedMatrix<T,N,M>) -> Self {
-        Matrix {
-            data: &value.data,
-            backend: BE::new()
-        }
-    }
-}
-impl<'a,BE: Backend,T,const N: usize,const M: usize> ColumnMajorMatrix<'a,T,N,M,BE> {
-    #[inline]
-    pub fn col(&self,index:usize) -> Vector<'a,T,N,BE> {
-        let view = &self.data[index * N..(index + 1) * N];
-
-        Vector {
-            data: view.try_into().unwrap(),
-            backend: BE::new()
-        }
-    }
-}
-impl<'a,BE: Backend,T,const N: usize,const M: usize> TryFrom<&'a [T]> for ColumnMajorMatrix<'a,T,M,N,BE> {
-    type Error = TryFromSliceError;
-
-    #[inline]
-    fn try_from(value: &'a [T]) -> Result<Self,Self::Error> {
-        if value.len() != N * M {
-            Err(TryFromSliceError)
-        } else {
-            Ok(ColumnMajorMatrix {
-                data: value,
-                backend: BE::new()
-            })
-        }
-    }
-}
-impl<T,const N: usize,const M: usize> From<OwnedColumnMajorMatrix<T,N,M>> for Box<[T]> {
-    fn from(value: OwnedColumnMajorMatrix<T,N,M>) -> Self {
-        value.data
-    }
-}
-impl<'a,BE: Backend,T,const N: usize,const M: usize> Dims<N,M> for ColumnMajorMatrix<'a,T,N,M,BE> {}
 impl<'a,T,BE: Backend,const N: usize,const M: usize> ToColumnMajor<T,N,M> for Matrix<'a,T,N,M,BE>
     where T: Default + Clone + Copy {
     type Output = OwnedColumnMajorMatrix<T,N,M>;
@@ -208,8 +172,95 @@ impl<'a,T,BE: Backend,const N: usize,const M: usize> ToColumnMajor<T,N,M> for Ma
         OwnedColumnMajorMatrix { data: r }
     }
 }
+impl<'a,BE: Backend,T,const N: usize,const M: usize> From<&'a OwnedMatrix<T,N,M>> for Matrix<'a,T,N,M,BE> {
+    fn from(value: &'a OwnedMatrix<T,N,M>) -> Self {
+        Matrix {
+            data: &value.data,
+            backend: BE::new()
+        }
+    }
+}
+pub struct OwnedMatrix<T,const N: usize,const M: usize> {
+    data: Box<[T]>
+}
+impl<T,const N: usize,const M: usize> Default for OwnedMatrix<T,N,M> where T: Default + Clone {
+    fn default() -> Self {
+        Self {
+            data: vec![T::default();N*M].into_boxed_slice()
+        }
+    }
+}
+impl<T,const N: usize,const M: usize> Index<(usize,usize)> for OwnedMatrix<T,N,M> {
+    type Output = T;
+
+    fn index(&self, (row,col): (usize, usize)) -> &Self::Output {
+        &self.data[(row * M) + col]
+    }
+}
+impl<T,const N: usize,const M: usize> IndexMut<(usize,usize)> for OwnedMatrix<T,N,M> {
+    fn index_mut(&mut self, (row,col): (usize, usize)) -> &mut Self::Output {
+        &mut self.data[(row * M) + col]
+    }
+}
+impl<T,const N: usize,const M: usize> From<OwnedMatrix<T,N,M>> for Box<[T]> {
+    fn from(value: OwnedMatrix<T,N,M>) -> Self {
+        value.data
+    }
+}
+impl<T,const N: usize,const M: usize> From<Box<[T]>> for OwnedMatrix<T,N,M> {
+    fn from(value: Box<[T]>) -> Self {
+        OwnedMatrix { data: value }
+    }
+}
+impl<T,const N: usize,const M: usize> AsMut<[T]> for OwnedMatrix<T,N,M> {
+    fn as_mut(&mut self) -> &mut [T] {
+        &mut self.data
+    }
+}
+impl<T,const N: usize,const M:usize> Dims<N,M> for OwnedMatrix<T,N,M> {}
+impl<'a,BE: Backend,T,const N: usize,const M: usize> ColumnMajorMatrix<'a,T,N,M,BE> {
+    #[inline]
+    pub fn col(&self,index:usize) -> Vector<'a,T,N,BE> {
+        let view = &self.data[index * N..(index + 1) * N];
+
+        Vector {
+            data: view.try_into().unwrap(),
+            backend: BE::new()
+        }
+    }
+}
+pub struct ColumnMajorMatrix<'a,T,const N: usize,const M: usize,BE: Backend> {
+    data: &'a [T],
+    backend: BE
+}
+impl<'a,BE: Backend,T,const N: usize,const M: usize> Dims<N,M> for ColumnMajorMatrix<'a,T,N,M,BE> {}
+impl<'a,BE: Backend,T,const N: usize,const M: usize> TryFrom<&'a [T]> for ColumnMajorMatrix<'a,T,M,N,BE> {
+    type Error = TryFromSliceError;
+
+    #[inline]
+    fn try_from(value: &'a [T]) -> Result<Self,Self::Error> {
+        if value.len() != N * M {
+            Err(TryFromSliceError)
+        } else {
+            Ok(ColumnMajorMatrix {
+                data: value,
+                backend: BE::new()
+            })
+        }
+    }
+}
 pub struct OwnedColumnMajorMatrix<T,const M: usize,const N: usize> {
     data: Box<[T]>
+}
+impl<T,const N: usize,const M: usize> From<OwnedColumnMajorMatrix<T,N,M>> for Box<[T]> {
+    fn from(value: OwnedColumnMajorMatrix<T,N,M>) -> Self {
+        value.data
+    }
+}
+impl<T,const N: usize,const M: usize> From<Box<[T]>> for OwnedColumnMajorMatrix<T,M,N> {
+    fn from(value: Box<[T]>) -> Self {
+        OwnedColumnMajorMatrix { data: value }
+    }
 }
 impl<T,const N: usize,const M: usize> Dims<N,M> for OwnedColumnMajorMatrix<T,N,M> {}
 impl<'a,BE: Backend,T,const N: usize,const M: usize> From<&'a OwnedColumnMajorMatrix<T,N,M>> for ColumnMajorMatrix<'a,T,N,M,BE> {
@@ -225,49 +276,8 @@ impl<'a,BE: Backend,T,const N: usize,const M: usize> From<&'a ColumnMajorMatrix<
     where T: Clone + Copy {
     fn from(value: &'a ColumnMajorMatrix<'a,T,N,M,BE>) -> Self {
         OwnedColumnMajorMatrix {
-            data: value.data.clone().to_vec().into_boxed_slice()
+            data: value.data.to_vec().into_boxed_slice()
         }
-    }
-}
-impl<'a,BE: Backend,T,const N: usize> From<&'a OwnedVector<T,N>> for Vector<'a,T,N,BE> {
-    fn from(value: &'a OwnedVector<T,N>) -> Self {
-        Vector {
-            data: &value.data,
-            backend: BE::new()
-        }
-    }
-}
-impl<T,const N: usize> From<OwnedVector<T,N>> for [T;N] {
-    fn from(value: OwnedVector<T,N>) -> Self {
-        value.data
-    }
-}
-impl<T,const N: usize> From<[T;N]> for OwnedVector<T,N> {
-    fn from(value: [T;N]) -> Self {
-        OwnedVector {
-            data: value
-        }
-    }
-}
-impl<T,const N: usize> AsMut<[T;N]> for OwnedVector<T,N> {
-    fn as_mut(&mut self) -> &mut [T;N] {
-        &mut self.data
-    }
-}
-impl<T,const N: usize,const M: usize> AsMut<[T]> for OwnedMatrix<T,N,M> {
-    fn as_mut(&mut self) -> &mut [T] {
-        &mut self.data
-    }
-}
-impl<T,const N: usize> Index<usize> for OwnedVector<T,N> {
-    type Output = T;
-    fn index(&self, index: usize) -> &Self::Output {
-        &self.data[index]
-    }
-}
-impl<T,const N: usize> IndexMut<usize> for OwnedVector<T,N> {
-    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        &mut self.data[index]
     }
 }
 impl<'a,BE,T,const N: usize> Add<&'a Vector<'a,T,N,BE>> for &'a Vector<'a,T,N,BE>
