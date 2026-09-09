@@ -3,7 +3,7 @@
 use std::ops::{Add, BitAnd, BitOr, BitXor, Index, IndexMut, Mul, Not, Shl, Shr, Sub};
 use crate::error::TryFromSliceError;
 use crate::backend::common::{Backend};
-use crate::traits::{Dims, Dot, HMax, HMin, HSum, Product, SimdAdd, SimdBitAnd, SimdBitNot, SimdBitOr, SimdBitXor, SimdDot, SimdHMax, SimdHMin, SimdHSum, SimdMatMul, SimdMatVec, SimdMul, SimdOuterProduct, SimdReg, SimdScalarMul, SimdShiftLeft, SimdShiftRight, SimdSub, SimdVMat, Transpose};
+use crate::traits::{Dims, Dot, HMax, HMin, HSum, Product, SimdAdd, SimdBitAnd, SimdBitNot, SimdBitOr, SimdBitXor, SimdDot, SimdHMax, SimdHMin, SimdHSum, SimdMatMul, SimdMatVec, SimdMul, SimdOuterProduct, SimdReg, SimdScalarMul, SimdShiftLeft, SimdShiftRight, SimdSub, SimdVMat, ToColumnMajor, Transpose};
 
 pub mod backend;
 pub mod traits;
@@ -14,6 +14,10 @@ pub struct Vector<'a,T,const N: usize,BE: Backend> {
     backend: BE
 }
 pub struct Matrix<'a,T,const N: usize,const M: usize,BE: Backend> {
+    data: &'a [T],
+    backend: BE
+}
+pub struct ColumnMajorMatrix<'a,T,const N: usize,const M: usize,BE: Backend> {
     data: &'a [T],
     backend: BE
 }
@@ -47,6 +51,11 @@ impl<T,const N: usize,const M: usize> Index<(usize,usize)> for OwnedMatrix<T,N,M
 impl<T,const N: usize,const M: usize> IndexMut<(usize,usize)> for OwnedMatrix<T,N,M> {
     fn index_mut(&mut self, (row,col): (usize, usize)) -> &mut Self::Output {
         &mut self.data[(row * M) + col]
+    }
+}
+impl<T,const N: usize,const M: usize> From<OwnedMatrix<T,N,M>> for Box<[T]> {
+    fn from(value: OwnedMatrix<T,N,M>) -> Self {
+        value.data
     }
 }
 impl<'a,BE: Backend,T,const N: usize,const M: usize> Dims<N,M> for Matrix<'a,T,N,M,BE> {}
@@ -143,6 +152,83 @@ impl<'a,BE: Backend,T,const N: usize,const M: usize> From<&'a OwnedMatrix<T,N,M>
         }
     }
 }
+impl<'a,BE: Backend,T,const N: usize,const M: usize> ColumnMajorMatrix<'a,T,N,M,BE> {
+    #[inline]
+    pub fn col(&self,index:usize) -> Vector<'a,T,N,BE> {
+        let view = &self.data[index * N..(index + 1) * N];
+
+        Vector {
+            data: view.try_into().unwrap(),
+            backend: BE::new()
+        }
+    }
+}
+impl<'a,BE: Backend,T,const N: usize,const M: usize> TryFrom<&'a [T]> for ColumnMajorMatrix<'a,T,M,N,BE> {
+    type Error = TryFromSliceError;
+
+    #[inline]
+    fn try_from(value: &'a [T]) -> Result<Self,Self::Error> {
+        if value.len() != N * M {
+            Err(TryFromSliceError)
+        } else {
+            Ok(ColumnMajorMatrix {
+                data: value,
+                backend: BE::new()
+            })
+        }
+    }
+}
+impl<T,const N: usize,const M: usize> From<OwnedColumnMajorMatrix<T,N,M>> for Box<[T]> {
+    fn from(value: OwnedColumnMajorMatrix<T,N,M>) -> Self {
+        value.data
+    }
+}
+impl<'a,BE: Backend,T,const N: usize,const M: usize> Dims<N,M> for ColumnMajorMatrix<'a,T,N,M,BE> {}
+impl<'a,T,BE: Backend,const N: usize,const M: usize> ToColumnMajor<T,N,M> for Matrix<'a,T,N,M,BE>
+    where T: Default + Clone + Copy {
+    type Output = OwnedColumnMajorMatrix<T,N,M>;
+    fn to_column_major(self) -> OwnedColumnMajorMatrix<T,N,M> {
+        let mut r = vec![T::default();N * M].into_boxed_slice();
+
+        const BLOCK:usize = 64;
+
+        for row in (0..((N + BLOCK - 1) / BLOCK * BLOCK)).step_by(BLOCK) {
+            for col in (0..((M + BLOCK - 1) / BLOCK * BLOCK)).step_by(BLOCK) {
+                for x in 0..BLOCK {
+                    for y in 0..BLOCK {
+                        if row + y >= N || col + x >= M {
+                            continue;
+                        }
+                        r[(col + y) * N + (row + x)] = self.data[(row + x) * M + col + y];
+                    }
+                }
+            }
+        }
+
+        OwnedColumnMajorMatrix { data: r }
+    }
+}
+pub struct OwnedColumnMajorMatrix<T,const M: usize,const N: usize> {
+    data: Box<[T]>
+}
+impl<T,const N: usize,const M: usize> Dims<N,M> for OwnedColumnMajorMatrix<T,N,M> {}
+impl<'a,BE: Backend,T,const N: usize,const M: usize> From<&'a OwnedColumnMajorMatrix<T,N,M>> for ColumnMajorMatrix<'a,T,N,M,BE> {
+    fn from(value: &'a OwnedColumnMajorMatrix<T,N,M>) -> Self {
+        ColumnMajorMatrix {
+            data: &value.data,
+            backend: BE::new()
+        }
+    }
+}
+impl<'a,BE: Backend,T,const N: usize,const M: usize> From<&'a ColumnMajorMatrix<'a,T,N,M,BE>>
+    for OwnedColumnMajorMatrix<T,M,N>
+    where T: Clone + Copy {
+    fn from(value: &'a ColumnMajorMatrix<'a,T,N,M,BE>) -> Self {
+        OwnedColumnMajorMatrix {
+            data: value.data.clone().to_vec().into_boxed_slice()
+        }
+    }
+}
 impl<'a,BE: Backend,T,const N: usize> From<&'a OwnedVector<T,N>> for Vector<'a,T,N,BE> {
     fn from(value: &'a OwnedVector<T,N>) -> Self {
         Vector {
@@ -182,11 +268,6 @@ impl<T,const N: usize> Index<usize> for OwnedVector<T,N> {
 impl<T,const N: usize> IndexMut<usize> for OwnedVector<T,N> {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         &mut self.data[index]
-    }
-}
-impl<T,const N: usize,const M: usize> From<OwnedMatrix<T,N,M>> for Box<[T]> {
-    fn from(value: OwnedMatrix<T,N,M>) -> Self {
-        value.data
     }
 }
 impl<'a,BE,T,const N: usize> Add<&'a Vector<'a,T,N,BE>> for &'a Vector<'a,T,N,BE>
@@ -340,11 +421,11 @@ impl<'a,BE,SL,SR,SO,const N: usize,const M: usize> Product<&'a Vector<'a,SR,M,BE
         self.backend.outer_product(self,r)
     }
 }
-impl<'a,BE,SL,SR,SO,const M: usize,const K: usize> Product<&'a Matrix<'a,SR,M,K,BE>,OwnedVector<SO,M>>
+impl<'a,BE,SL,SR,SO,const M: usize,const K: usize> Product<&'a ColumnMajorMatrix<'a,SR,M,K,BE>,OwnedVector<SO,M>>
     for &'a Vector<'a,SL,K,BE>
     where BE: Backend + SimdVMat<SL,SR,SO,Backend = BE>,
           SO: Default + Copy + Clone {
-    fn product(&self,r:&'a Matrix<'a,SR,M,K,BE>) -> OwnedVector<SO,M> {
+    fn product(&self,r:&'a ColumnMajorMatrix<'a,SR,M,K,BE>) -> OwnedVector<SO,M> {
         let mut o = OwnedVector::<SO,M>::default();
 
         self.backend.vmat(self,r,&mut o);
@@ -364,11 +445,11 @@ impl<'a,BE,SL,SR,SO,const N: usize,const K: usize> Product<&'a Vector<'a,SR,K,BE
         o
     }
 }
-impl<'a,BE,SL,SR,SO,const N: usize,const M: usize,const K: usize> Product<&'a Matrix<'a,SR,K,M,BE>,OwnedMatrix<SO,N,M>>
+impl<'a,BE,SL,SR,SO,const N: usize,const M: usize,const K: usize> Product<&'a ColumnMajorMatrix<'a,SR,K,M,BE>,OwnedMatrix<SO,N,M>>
     for &'a Matrix<'a,SL,N,K,BE>
     where BE: Backend + SimdMatMul<SL,SR,SO,Backend = BE>,
           SO: Default + Copy + Clone {
-    fn product(&self, r: &'a Matrix<'a,SR,K,M,BE>) -> OwnedMatrix<SO,N,M> {
+    fn product(&self, r: &'a ColumnMajorMatrix<'a,SR,K,M,BE>) -> OwnedMatrix<SO,N,M> {
         let mut o = OwnedMatrix::<SO,N,M>::default();
         self.backend.matmul(self, r, &mut o);
 

@@ -1,6 +1,6 @@
 //! Trait and data type features for abstracting SIMD operations
 
-use crate::{Matrix, OwnedMatrix, OwnedVector, Vector};
+use crate::{ColumnMajorMatrix, Matrix, OwnedMatrix, OwnedVector, Vector};
 use crate::backend::common::Backend;
 
 pub trait SimdAdd<SL,SR,SO> {
@@ -55,7 +55,7 @@ pub trait SimdVMat<SL,SR,SO> {
     type Backend: Backend;
     fn vmat<'a,const M: usize,const K: usize>(&self,
                                               l:&Vector<'a,SL,K,Self::Backend>,
-                                              r:&Matrix<'a,SR,M,K,Self::Backend>,
+                                              r:&ColumnMajorMatrix<'a,SR,M,K,Self::Backend>,
                                               acc:&mut OwnedVector<SO,M>);
 }
 pub trait SimdMatVec<SL,SR,SO> {
@@ -69,7 +69,7 @@ pub trait SimdMatMul<SL,SR,SO> {
     type Backend: Backend;
     fn matmul<'a,const N: usize,const M: usize,const K: usize>(&self,
                                                                l:&Matrix<'a,SL,N,K,Self::Backend>,
-                                                               r:&Matrix<'a,SR,K,M,Self::Backend>,
+                                                               r:&ColumnMajorMatrix<'a,SR,K,M,Self::Backend>,
                                                                acc:&mut OwnedMatrix<SO,N,M>);
 }
 pub trait SimdHSum<S>: SimdReg<S> {
@@ -142,6 +142,10 @@ pub trait HMin<S> {
 pub trait Transpose<T,const N: usize, const M: usize> where Self: Dims<N,M> {
     type Output: Dims<M,N>;
     fn transpose(self) -> Self::Output;
+}
+pub trait ToColumnMajor<T,const N: usize, const M: usize> where Self: Dims<N,M> {
+    type Output: Dims<N,M>;
+    fn to_column_major(self) -> Self::Output;
 }
 pub trait Dims<const N: usize,const M: usize> {
 }
