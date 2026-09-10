@@ -1,16 +1,17 @@
 //! Implementation of SIMD Operations Using AVX2
 
 use std::arch::x86_64::{__m128i, __m256, __m256d, __m256i, _mm256_add_epi16, _mm256_add_epi32, _mm256_add_epi8, _mm256_add_pd, _mm256_add_ps, _mm256_and_pd, _mm256_and_ps, _mm256_and_si256, _mm256_andnot_si256, _mm256_blendv_epi8, _mm256_blendv_pd, _mm256_blendv_ps, _mm256_castpd256_pd128, _mm256_castpd_si256, _mm256_castps256_ps128, _mm256_castps_si256, _mm256_castsi256_pd, _mm256_castsi256_ps, _mm256_castsi256_si128, _mm256_cmp_pd, _mm256_cmp_ps, _mm256_cmpeq_epi16, _mm256_cmpeq_epi32, _mm256_cmpeq_epi8, _mm256_cmpgt_epi16, _mm256_cmpgt_epi32, _mm256_cmpgt_epi8, _mm256_cvtepi16_epi32, _mm256_cvtepi16_epi8, _mm256_cvtepi32_epi16, _mm256_cvtepi8_epi32, _mm256_extractf128_pd, _mm256_extractf128_ps, _mm256_extracti128_si256, _mm256_fmadd_pd, _mm256_fmadd_ps, _mm256_loadu_pd, _mm256_loadu_ps, _mm256_loadu_si256, _mm256_madd_epi16, _mm256_maddubs_epi16, _mm256_mul_epi32, _mm256_mul_pd, _mm256_mul_ps, _mm256_mullo_epi32, _mm256_or_si256, _mm256_set1_epi16, _mm256_set1_epi32, _mm256_set1_epi8, _mm256_set1_pd, _mm256_set1_ps, _mm256_setzero_pd, _mm256_setzero_ps, _mm256_setzero_si256, _mm256_sll_epi32, _mm256_sll_epi64, _mm256_slli_epi32, _mm256_srl_epi32, _mm256_srl_epi64, _mm256_storeu_pd, _mm256_storeu_ps, _mm256_storeu_si256, _mm256_sub_epi16, _mm256_sub_epi32, _mm256_sub_epi8, _mm256_sub_pd, _mm256_sub_ps, _mm256_unpackhi_epi32, _mm256_unpackhi_ps, _mm256_unpacklo_epi32, _mm256_unpacklo_ps, _mm256_xor_si256, _mm_add_epi32, _mm_add_pd, _mm_add_ps, _mm_add_sd, _mm_add_ss, _mm_cvtepi16_epi32, _mm_cvtepi8_epi16, _mm_cvtsd_f64, _mm_cvtsi128_si32, _mm_cvtss_f32, _mm_loadl_epi64, _mm_loadu_si128, _mm_movehl_ps, _mm_mullo_epi16, _mm_packus_epi16, _mm_set1_epi32, _mm_shuffle_ps, _mm_srli_si128, _mm_storel_epi64, _mm_unpackhi_pd, _CMP_EQ_OQ, _CMP_GT_OQ};
-use std::mem::transmute;
+use std::mem::{transmute, MaybeUninit};
 use std::ops::{AddAssign, Mul};
 use crate::backend::common::Backend;
-use crate::traits::{SimdAdd, SimdBitAnd, SimdBitNot, SimdBitOr, SimdBitXor, SimdCols, SimdDot, SimdHSum, SimdLanes, SimdLoad, SimdMask, SimdMul, SimdMulAdd, SimdReg, SimdRows, SimdScalarMul, SimdShiftLeft, SimdShiftRight, SimdStore, SimdSub, SimdTranspose, SimdZero};
-use crate::{OwnedVector, Vector};
+use crate::traits::{SimdAdd, SimdBitAnd, SimdBitNot, SimdBitOr, SimdBitXor, SimdCols, SimdDot, SimdHSum, SimdLanes, SimdLoad, SimdMask, SimdMatMul, SimdMul, SimdMulAdd, SimdPartialDot, SimdReg, SimdRows, SimdScalarMul, SimdShiftLeft, SimdShiftRight, SimdStore, SimdSub, SimdTranspose, SimdZero};
+use crate::{ColumnMajorMatrix, Matrix, OwnedMatrix, OwnedVector, Vector};
 
 pub struct Avx2 {
 
 }
 impl Backend for Avx2 {
+    #[inline(always)]
     fn new() -> Self {
         Avx2 {}
     }
@@ -103,77 +104,93 @@ impl SimdReg<f64> for Avx2 {
     type Bits = i64;
 }
 impl SimdLoad<i8> for Avx2 {
+    #[inline(always)]
     unsafe fn load(&self, ptr: *const i8) -> Self::Reg {
         _mm256_loadu_si256(ptr as *const __m256i)
     }
 }
 impl SimdLoad<i16> for Avx2 {
+    #[inline(always)]
     unsafe fn load(&self, ptr: *const i16) -> Self::Reg {
         _mm256_loadu_si256(ptr as *const __m256i)
     }
 }
 impl SimdLoad<i32> for Avx2 {
+    #[inline(always)]
     unsafe fn load(&self, ptr: *const i32) -> Self::Reg {
         _mm256_loadu_si256(ptr as *const __m256i)
     }
 }
 impl SimdLoad<i64> for Avx2 {
+    #[inline(always)]
     unsafe fn load(&self, ptr: *const i64) -> Self::Reg {
         _mm256_loadu_si256(ptr as *const __m256i)
     }
 }
 impl SimdLoad<f32> for Avx2 {
+    #[inline(always)]
     unsafe fn load(&self, ptr: *const f32) -> Self::Reg {
         _mm256_loadu_ps(ptr)
     }
 }
 impl SimdLoad<f64> for Avx2 {
+    #[inline(always)]
     unsafe fn load(&self, ptr: *const f64) -> Self::Reg {
         _mm256_loadu_pd(ptr)
     }
 }
 impl SimdStore<i8> for Avx2 {
+    #[inline(always)]
     unsafe fn store(&self, ptr: *mut i8, a: Self::Reg) {
         _mm256_storeu_si256(ptr as *mut __m256i, a);
     }
 }
 impl SimdStore<i16> for Avx2 {
+    #[inline(always)]
     unsafe fn store(&self, ptr: *mut i16, a: Self::Reg) {
         _mm256_storeu_si256(ptr as *mut __m256i, a);
     }
 }
 impl SimdStore<i32> for Avx2 {
+    #[inline(always)]
     unsafe fn store(&self, ptr: *mut i32, a: Self::Reg) {
         _mm256_storeu_si256(ptr as *mut __m256i, a);
     }
 }
 impl SimdStore<f32> for Avx2 {
+    #[inline(always)]
     unsafe fn store(&self, ptr: *mut f32, a: Self::Reg) {
         _mm256_storeu_ps(ptr, a);
     }
 }
 impl SimdStore<f64> for Avx2 {
+    #[inline(always)]
     unsafe fn store(&self, ptr: *mut f64, a: Self::Reg) {
         _mm256_storeu_pd(ptr, a);
     }
 }
 impl SimdMask<i8> for Avx2 where Self: SimdReg<i8> {
+    #[inline(always)]
     fn cmp_gt(&self, a:Self::Reg,b:Self::Reg) -> Self::Mask {
         unsafe { _mm256_cmpgt_epi8(a,b) }
     }
 
+    #[inline(always)]
     fn cmp_eq(&self, a:Self::Reg,b:Self::Reg) -> Self::Mask {
         unsafe { _mm256_cmpeq_epi8(a,b) }
     }
 
+    #[inline(always)]
     fn mask_zero(&self, mask: Self::Mask, a: Self::Reg) -> Self::Reg {
         unsafe { _mm256_and_si256(a, mask) }
     }
 
+    #[inline(always)]
     fn select(&self, mask: Self::Mask, a: Self::Reg, b: Self::Reg) -> Self::Reg {
         unsafe { _mm256_blendv_epi8(mask,a,b) }
     }
 
+    #[inline(always)]
     fn tail_mask(&self, index: usize, total: usize) -> Self::Mask {
         let mut arr = [0u32; 8];
 
@@ -187,22 +204,27 @@ impl SimdMask<i8> for Avx2 where Self: SimdReg<i8> {
     }
 }
 impl SimdMask<i16> for Avx2 where Self: SimdReg<i16> {
+    #[inline(always)]
     fn cmp_gt(&self, a:Self::Reg,b:Self::Reg) -> Self::Mask {
         unsafe { _mm256_cmpgt_epi16(a,b) }
     }
 
+    #[inline(always)]
     fn cmp_eq(&self, a:Self::Reg,b:Self::Reg) -> Self::Mask {
         unsafe { _mm256_cmpeq_epi16(a,b) }
     }
 
+    #[inline(always)]
     fn mask_zero(&self, mask: Self::Mask, a: Self::Reg) -> Self::Reg {
         unsafe { _mm256_and_si256(a, mask) }
     }
 
+    #[inline(always)]
     fn select(&self, mask: Self::Mask, a: Self::Reg, b: Self::Reg) -> Self::Reg {
         unsafe { _mm256_blendv_epi8(mask,a,b) }
     }
 
+    #[inline(always)]
     fn tail_mask(&self, index: usize, total: usize) -> Self::Mask {
         let mut arr = [0u32; 8];
 
@@ -216,22 +238,27 @@ impl SimdMask<i16> for Avx2 where Self: SimdReg<i16> {
     }
 }
 impl SimdMask<i32> for Avx2 where Self: SimdReg<i32> {
+    #[inline(always)]
     fn cmp_gt(&self, a:Self::Reg,b:Self::Reg) -> Self::Mask {
         unsafe { _mm256_cmpgt_epi32(a,b) }
     }
 
+    #[inline(always)]
     fn cmp_eq(&self, a:Self::Reg,b:Self::Reg) -> Self::Mask {
         unsafe { _mm256_cmpeq_epi32(a,b) }
     }
 
+    #[inline(always)]
     fn mask_zero(&self, mask: Self::Mask, a: Self::Reg) -> Self::Reg {
         unsafe { _mm256_and_si256(a, mask) }
     }
 
+    #[inline(always)]
     fn select(&self, mask: Self::Mask, a: Self::Reg, b: Self::Reg) -> Self::Reg {
         unsafe { _mm256_blendv_epi8(mask,a,b) }
     }
 
+    #[inline(always)]
     fn tail_mask(&self, index: usize, total: usize) -> Self::Mask {
         let mut arr = [0u32; 8];
 
@@ -245,22 +272,27 @@ impl SimdMask<i32> for Avx2 where Self: SimdReg<i32> {
     }
 }
 impl SimdMask<f32> for Avx2 where Self: SimdReg<f32> {
+    #[inline(always)]
     fn cmp_gt(&self, a:Self::Reg,b:Self::Reg) -> Self::Mask {
         unsafe { _mm256_castps_si256(_mm256_cmp_ps(a,b, _CMP_GT_OQ)) }
     }
 
+    #[inline(always)]
     fn cmp_eq(&self, a:Self::Reg,b:Self::Reg) -> Self::Mask {
         unsafe { _mm256_castps_si256(_mm256_cmp_ps(a,b, _CMP_EQ_OQ)) }
     }
 
+    #[inline(always)]
     fn mask_zero(&self, mask: Self::Mask, a: Self::Reg) -> Self::Reg {
         unsafe { _mm256_and_ps(a,_mm256_castsi256_ps(mask)) }
     }
 
+    #[inline(always)]
     fn select(&self, mask: Self::Mask, a: Self::Reg, b: Self::Reg) -> Self::Reg {
         unsafe { _mm256_blendv_ps(b, a, _mm256_castsi256_ps(mask)) }
     }
 
+    #[inline(always)]
     fn tail_mask(&self, index: usize, total: usize) -> Self::Mask {
         let mut arr = [0u32; 8];
 
@@ -274,22 +306,27 @@ impl SimdMask<f32> for Avx2 where Self: SimdReg<f32> {
     }
 }
 impl SimdMask<f64> for Avx2 where Self: SimdReg<f64> {
+    #[inline(always)]
     fn cmp_gt(&self, a:Self::Reg,b:Self::Reg) -> Self::Mask {
         unsafe { _mm256_castpd_si256(_mm256_cmp_pd(a,b, _CMP_GT_OQ)) }
     }
 
+    #[inline(always)]
     fn cmp_eq(&self, a:Self::Reg,b:Self::Reg) -> Self::Mask {
         unsafe { _mm256_castpd_si256(_mm256_cmp_pd(a,b, _CMP_EQ_OQ)) }
     }
 
+    #[inline(always)]
     fn mask_zero(&self, mask: Self::Mask, a: Self::Reg) -> Self::Reg {
         unsafe { _mm256_and_pd(a,_mm256_castsi256_pd(mask)) }
     }
 
+    #[inline(always)]
     fn select(&self, mask: Self::Mask, a: Self::Reg, b: Self::Reg) -> Self::Reg {
         unsafe { _mm256_blendv_pd(b, a, _mm256_castsi256_pd(mask)) }
     }
 
+    #[inline(always)]
     fn tail_mask(&self, index: usize, total: usize) -> Self::Mask {
         let mut arr = [0u32; 8];
 
@@ -308,6 +345,7 @@ impl SimdAdd<i8,i8,i8> for Avx2
                 SimdRows<i8> +
                 SimdMask<i8> {
     type Backend = Avx2;
+    #[inline]
     fn add<'a,const N: usize>(&self,l: &Vector<'a,i8,N,Self::Backend>,r: &Vector<'a,i8,N,Self::Backend>)
         -> OwnedVector<i8,N> {
         let mut i = 0;
@@ -361,6 +399,7 @@ impl SimdAdd<i16,i16,i16> for Avx2
                 SimdRows<i16> +
                 SimdMask<i16> {
     type Backend = Avx2;
+    #[inline]
     fn add<'a,const N: usize>(&self,l: &Vector<'a,i16,N,Self::Backend>,r: &Vector<'a,i16,N,Self::Backend>)
                               -> OwnedVector<i16,N> {
         let mut i = 0;
@@ -414,6 +453,7 @@ impl SimdAdd<i32,i32,i32> for Avx2
                 SimdRows<i32> +
                 SimdMask<i32> {
     type Backend = Avx2;
+    #[inline]
     fn add<'a,const N: usize>(&self,l: &Vector<'a,i32,N,Self::Backend>,r: &Vector<'a,i32,N,Self::Backend>)
                               -> OwnedVector<i32,N> {
         let mut i = 0;
@@ -467,6 +507,7 @@ impl SimdAdd<f32,f32,f32> for Avx2
                 SimdRows<f32> +
                 SimdMask<f32> {
     type Backend = Avx2;
+    #[inline]
     fn add<'a,const N: usize>(&self,l: &Vector<'a,f32,N,Self::Backend>,r: &Vector<'a,f32,N,Self::Backend>)
                               -> OwnedVector<f32,N> {
         let mut i = 0;
@@ -520,6 +561,7 @@ impl SimdAdd<f64,f64,f64> for Avx2
                 SimdRows<f64> +
                 SimdMask<f64> {
     type Backend = Avx2;
+    #[inline]
     fn add<'a,const N: usize>(&self,l: &Vector<'a,f64,N,Self::Backend>,r: &Vector<'a,f64,N,Self::Backend>)
                               -> OwnedVector<f64,N> {
         let mut i = 0;
@@ -573,6 +615,7 @@ impl SimdSub<i8,i8,i8> for Avx2
                 SimdRows<i8> +
                 SimdMask<i8> {
     type Backend = Avx2;
+    #[inline]
     fn sub<'a,const N: usize>(&self,l: &Vector<'a,i8,N,Self::Backend>,r: &Vector<'a,i8,N,Self::Backend>)
                               -> OwnedVector<i8,N> {
         let mut i = 0;
@@ -626,6 +669,7 @@ impl SimdSub<i16,i16,i16> for Avx2
                 SimdRows<i16> +
                 SimdMask<i16> {
     type Backend = Avx2;
+    #[inline]
     fn sub<'a,const N: usize>(&self,l: &Vector<'a,i16,N,Self::Backend>,r: &Vector<'a,i16,N,Self::Backend>)
                               -> OwnedVector<i16,N> {
         let mut i = 0;
@@ -679,6 +723,7 @@ impl SimdSub<i32,i32,i32> for Avx2
                 SimdRows<i32> +
                 SimdMask<i32> {
     type Backend = Avx2;
+    #[inline]
     fn sub<'a,const N: usize>(&self,l: &Vector<'a,i32,N,Self::Backend>,r: &Vector<'a,i32,N,Self::Backend>)
                               -> OwnedVector<i32,N> {
         let mut i = 0;
@@ -732,6 +777,7 @@ impl SimdSub<f32,f32,f32> for Avx2
                 SimdRows<f32> +
                 SimdMask<f32> {
     type Backend = Avx2;
+    #[inline]
     fn sub<'a,const N: usize>(&self,l: &Vector<'a,f32,N,Self::Backend>,r: &Vector<'a,f32,N,Self::Backend>)
                               -> OwnedVector<f32,N> {
         let mut i = 0;
@@ -785,6 +831,7 @@ impl SimdSub<f64,f64,f64> for Avx2
                 SimdRows<f64> +
                 SimdMask<f64> {
     type Backend = Avx2;
+    #[inline]
     fn sub<'a,const N: usize>(&self,l: &Vector<'a,f64,N,Self::Backend>,r: &Vector<'a,f64,N,Self::Backend>)
                               -> OwnedVector<f64,N> {
         let mut i = 0;
@@ -837,6 +884,7 @@ impl SimdMul<i8,i8,i32> for Avx2
                 SimdLanes<i32> +
                 SimdMask<i8> {
     type Backend = Avx2;
+    #[inline]
     fn mul<'a,const N: usize>(&self,l: &Vector<'a,i8,N,Self::Backend>,r: &Vector<'a,i8,N,Self::Backend>)
                               -> OwnedVector<i32,N> {
         let mut i = 0;
@@ -877,6 +925,7 @@ impl SimdMul<i8,i16,i32> for Avx2
                 SimdLanes<i32> +
                 SimdMask<i8> {
     type Backend = Avx2;
+    #[inline]
     fn mul<'a,const N: usize>(&self,l: &Vector<'a,i8,N,Self::Backend>,r: &Vector<'a,i16,N,Self::Backend>)
                               -> OwnedVector<i32,N> {
         let mut i = 0;
@@ -917,6 +966,7 @@ impl SimdMul<i16,i16,i32> for Avx2
                 SimdLanes<i32> +
                 SimdMask<i8> {
     type Backend = Avx2;
+    #[inline]
     fn mul<'a,const N: usize>(&self,l: &Vector<'a,i16,N,Self::Backend>,r: &Vector<'a,i16,N,Self::Backend>)
                               -> OwnedVector<i32,N> {
         let mut i = 0;
@@ -956,6 +1006,7 @@ impl SimdMul<i32,i32,i32> for Avx2
                 SimdRows<i32> +
                 SimdMask<i32> {
     type Backend = Avx2;
+    #[inline]
     fn mul<'a,const N: usize>(&self,l: &Vector<'a,i32,N,Self::Backend>,r: &Vector<'a,i32,N,Self::Backend>)
                               -> OwnedVector<i32,N> {
         let mut i = 0;
@@ -1009,6 +1060,7 @@ impl SimdMul<f32,f32,f32> for Avx2
                 SimdRows<f32> +
                 SimdMask<f32> {
     type Backend = Avx2;
+    #[inline]
     fn mul<'a,const N: usize>(&self,l: &Vector<'a,f32,N,Self::Backend>,r: &Vector<'a,f32,N,Self::Backend>)
                               -> OwnedVector<f32,N> {
         let mut i = 0;
@@ -1062,6 +1114,7 @@ impl SimdMul<f64,f64,f64> for Avx2
                 SimdRows<f64> +
                 SimdMask<f64> {
     type Backend = Avx2;
+    #[inline]
     fn mul<'a,const N: usize>(&self,l: &Vector<'a,f64,N,Self::Backend>,r: &Vector<'a,f64,N,Self::Backend>)
                               -> OwnedVector<f64,N> {
         let mut i = 0;
@@ -1115,6 +1168,7 @@ impl SimdScalarMul<i32,i32,i32> for Avx2
                 SimdRows<i32> +
                 SimdMask<i32> {
     type Backend = Avx2;
+    #[inline]
     fn scalarmul<'a, const N: usize>(&self, l:i32,r: &Vector<'a, i32, N, Self::Backend>) -> OwnedVector<i32, N> {
         let mut i = 0;
 
@@ -1165,6 +1219,7 @@ impl SimdScalarMul<i8,i8,i32> for Avx2
                 SimdRows<i32> +
                 SimdMask<i32> {
     type Backend = Avx2;
+    #[inline]
     fn scalarmul<'a, const N: usize>(&self, l:i8,r: &Vector<'a, i8, N, Self::Backend>) -> OwnedVector<i32, N> {
         let mut i = 0;
 
@@ -1223,6 +1278,7 @@ impl SimdScalarMul<i8,i16,i32> for Avx2
                 SimdRows<i32> +
                 SimdMask<i32> {
     type Backend = Avx2;
+    #[inline]
     fn scalarmul<'a, const N: usize>(&self, l:i8,r: &Vector<'a, i16, N, Self::Backend>) -> OwnedVector<i32, N> {
         let mut i = 0;
 
@@ -1281,6 +1337,7 @@ impl SimdScalarMul<i16,i16,i32> for Avx2
                 SimdRows<i32> +
                 SimdMask<i32> {
     type Backend = Avx2;
+    #[inline]
     fn scalarmul<'a, const N: usize>(&self, l:i16,r: &Vector<'a, i16, N, Self::Backend>) -> OwnedVector<i32, N> {
         let mut i = 0;
 
@@ -1339,6 +1396,7 @@ impl SimdScalarMul<f32,f32,f32> for Avx2
                 SimdRows<f32> +
                 SimdMask<f32> {
     type Backend = Avx2;
+    #[inline]
     fn scalarmul<'a, const N: usize>(&self, l:f32,r: &Vector<'a, f32, N, Self::Backend>) -> OwnedVector<f32, N> {
         let mut i = 0;
 
@@ -1389,6 +1447,7 @@ impl SimdScalarMul<f64,f64,f64> for Avx2
                 SimdRows<f64> +
                 SimdMask<f64> {
     type Backend = Avx2;
+    #[inline]
     fn scalarmul<'a, const N: usize>(&self, l:f64,r: &Vector<'a, f64, N, Self::Backend>) -> OwnedVector<f64, N> {
         let mut i = 0;
 
@@ -1439,6 +1498,7 @@ impl SimdBitAnd<i8> for Avx2
                 SimdRows<i8> +
                 SimdMask<i8> {
     type Backend = Avx2;
+    #[inline]
     fn bitand<'a,const N: usize>(&self,l: &Vector<'a,i8,N,Self::Backend>,r: &Vector<'a,i8,N,Self::Backend>)
                               -> OwnedVector<i8,N> {
         let mut i = 0;
@@ -1492,6 +1552,7 @@ impl SimdBitAnd<i16> for Avx2
                 SimdRows<i16> +
                 SimdMask<i16> {
     type Backend = Avx2;
+    #[inline]
     fn bitand<'a,const N: usize>(&self,l: &Vector<'a,i16,N,Self::Backend>,r: &Vector<'a,i16,N,Self::Backend>)
                                  -> OwnedVector<i16,N> {
         let mut i = 0;
@@ -1545,6 +1606,7 @@ impl SimdBitAnd<i32> for Avx2
                 SimdRows<i32> +
                 SimdMask<i32> {
     type Backend = Avx2;
+    #[inline]
     fn bitand<'a,const N: usize>(&self,l: &Vector<'a,i32,N,Self::Backend>,r: &Vector<'a,i32,N,Self::Backend>)
                                  -> OwnedVector<i32,N> {
         let mut i = 0;
@@ -1598,6 +1660,7 @@ impl SimdBitAnd<f32> for Avx2
                 SimdRows<f32> +
                 SimdMask<f32> {
     type Backend = Avx2;
+    #[inline]
     fn bitand<'a,const N: usize>(&self,l: &Vector<'a,f32,N,Self::Backend>,r: &Vector<'a,i32,N,Self::Backend>)
                                  -> OwnedVector<f32,N> {
         let mut i = 0;
@@ -1653,6 +1716,7 @@ impl SimdBitAnd<f64> for Avx2
                 SimdRows<f64> +
                 SimdMask<f64> {
     type Backend = Avx2;
+    #[inline]
     fn bitand<'a,const N: usize>(&self,l: &Vector<'a,f64,N,Self::Backend>,r: &Vector<'a,i64,N,Self::Backend>)
         -> OwnedVector<f64,N> {
         let mut i = 0;
@@ -1708,6 +1772,7 @@ impl SimdBitOr<i8> for Avx2
                 SimdRows<i8> +
                 SimdMask<i8> {
     type Backend = Avx2;
+    #[inline]
     fn bitor<'a,const N: usize>(&self,l: &Vector<'a,i8,N,Self::Backend>,r: &Vector<'a,i8,N,Self::Backend>)
                                  -> OwnedVector<i8,N> {
         let mut i = 0;
@@ -1761,6 +1826,7 @@ impl SimdBitOr<i16> for Avx2
                 SimdRows<i16> +
                 SimdMask<i16> {
     type Backend = Avx2;
+    #[inline]
     fn bitor<'a,const N: usize>(&self,l: &Vector<'a,i16,N,Self::Backend>,r: &Vector<'a,i16,N,Self::Backend>)
                                  -> OwnedVector<i16,N> {
         let mut i = 0;
@@ -1814,6 +1880,7 @@ impl SimdBitOr<i32> for Avx2
                 SimdRows<i32> +
                 SimdMask<i32> {
     type Backend = Avx2;
+    #[inline]
     fn bitor<'a,const N: usize>(&self,l: &Vector<'a,i32,N,Self::Backend>,r: &Vector<'a,i32,N,Self::Backend>)
                                  -> OwnedVector<i32,N> {
         let mut i = 0;
@@ -1868,6 +1935,7 @@ impl SimdBitOr<f32> for Avx2
                 SimdMask<f32> {
     type Backend = Avx2;
 
+    #[inline]
     fn bitor<'a,const N: usize>(&self,l: &Vector<'a,f32,N,Self::Backend>,r: &Vector<'a,i32,N,Self::Backend>)
                                  -> OwnedVector<f32,N> {
         let mut i = 0;
@@ -1923,6 +1991,7 @@ impl SimdBitOr<f64> for Avx2
                 SimdRows<f64> +
                 SimdMask<f64> {
     type Backend = Avx2;
+    #[inline]
     fn bitor<'a,const N: usize>(&self,l: &Vector<'a,f64,N,Self::Backend>,r: &Vector<'a,i64,N,Self::Backend>)
                                  -> OwnedVector<f64,N> {
         let mut i = 0;
@@ -1978,6 +2047,7 @@ impl SimdBitXor<i8> for Avx2
                 SimdRows<i8> +
                 SimdMask<i8> {
     type Backend = Avx2;
+    #[inline]
     fn bitxor<'a,const N: usize>(&self,l: &Vector<'a,i8,N,Self::Backend>,r: &Vector<'a,i8,N,Self::Backend>)
                                  -> OwnedVector<i8,N> {
         let mut i = 0;
@@ -2031,6 +2101,7 @@ impl SimdBitXor<i16> for Avx2
                 SimdRows<i16> +
                 SimdMask<i16> {
     type Backend = Avx2;
+    #[inline]
     fn bitxor<'a,const N: usize>(&self,l: &Vector<'a,i16,N,Self::Backend>,r: &Vector<'a,i16,N,Self::Backend>)
                                  -> OwnedVector<i16,N> {
         let mut i = 0;
@@ -2084,6 +2155,7 @@ impl SimdBitXor<i32> for Avx2
                 SimdRows<i32> +
                 SimdMask<i32> {
     type Backend = Avx2;
+    #[inline]
     fn bitxor<'a,const N: usize>(&self,l: &Vector<'a,i32,N,Self::Backend>,r: &Vector<'a,i32,N,Self::Backend>)
                                  -> OwnedVector<i32,N> {
         let mut i = 0;
@@ -2138,6 +2210,7 @@ impl SimdBitXor<f32> for Avx2
                 SimdMask<f32> {
     type Backend = Avx2;
 
+    #[inline]
     fn bitxor<'a,const N: usize>(&self,l: &Vector<'a,f32,N,Self::Backend>,r: &Vector<'a,i32,N,Self::Backend>)
                                  -> OwnedVector<f32,N> {
         let mut i = 0;
@@ -2193,6 +2266,7 @@ impl SimdBitXor<f64> for Avx2
                 SimdRows<f64> +
                 SimdMask<f64> {
     type Backend = Avx2;
+    #[inline]
     fn bitxor<'a,const N: usize>(&self,l: &Vector<'a,f64,N,Self::Backend>,r: &Vector<'a,i64,N,Self::Backend>)
                                  -> OwnedVector<f64,N> {
         let mut i = 0;
@@ -2248,6 +2322,7 @@ impl SimdBitNot<i8> for Avx2
                 SimdRows<i8> +
                 SimdMask<i8> {
     type Backend = Avx2;
+    #[inline]
     fn bitnot<'a,const N: usize>(&self,v: &Vector<'a,i8,N,Self::Backend>)
                                  -> OwnedVector<i8,N> {
         let mut i = 0;
@@ -2300,6 +2375,7 @@ impl SimdBitNot<i16> for Avx2
                 SimdRows<i16> +
                 SimdMask<i16> {
     type Backend = Avx2;
+    #[inline]
     fn bitnot<'a,const N: usize>(&self,v: &Vector<'a,i16,N,Self::Backend>)
                                  -> OwnedVector<i16,N> {
         let mut i = 0;
@@ -2352,6 +2428,7 @@ impl SimdBitNot<i32> for Avx2
                 SimdRows<i32> +
                 SimdMask<i32> {
     type Backend = Avx2;
+    #[inline]
     fn bitnot<'a,const N: usize>(&self,v: &Vector<'a,i32,N,Self::Backend>)
                                  -> OwnedVector<i32,N> {
         let mut i = 0;
@@ -2405,6 +2482,7 @@ impl SimdBitNot<f32> for Avx2
                 SimdMask<f32> {
     type Backend = Avx2;
 
+    #[inline]
     fn bitnot<'a,const N: usize>(&self,v: &Vector<'a,f32,N,Self::Backend>)
                                  -> OwnedVector<f32,N> {
         let mut i = 0;
@@ -2459,6 +2537,7 @@ impl SimdBitNot<f64> for Avx2
                 SimdRows<f64> +
                 SimdMask<f64> {
     type Backend = Avx2;
+    #[inline]
     fn bitnot<'a,const N: usize>(&self,v: &Vector<'a,f64,N,Self::Backend>)
                                  -> OwnedVector<f64,N> {
         let mut i = 0;
@@ -2513,6 +2592,7 @@ impl SimdShiftLeft<i8> for Avx2
                 SimdRows<i8> +
                 SimdMask<i8> {
     type Backend = Avx2;
+    #[inline]
     fn shl<'a,const N: usize>(&self,v: &Vector<'a,i8,N,Self::Backend>,w:usize)
         -> OwnedVector<i8,N> {
         let mut i = 0;
@@ -2571,6 +2651,7 @@ impl SimdShiftLeft<i16> for Avx2
                 SimdRows<i16> +
                 SimdMask<i16> {
     type Backend = Avx2;
+    #[inline]
     fn shl<'a,const N: usize>(&self,v: &Vector<'a,i16,N,Self::Backend>,w:usize)
         -> OwnedVector<i16,N> {
         let mut i = 0;
@@ -2626,6 +2707,7 @@ impl SimdShiftLeft<i32> for Avx2
                 SimdRows<i32> +
                 SimdMask<i32> {
     type Backend = Avx2;
+    #[inline]
     fn shl<'a,const N: usize>(&self,v: &Vector<'a,i32,N,Self::Backend>,w:usize)
                               -> OwnedVector<i32,N> {
         let mut i = 0;
@@ -2676,6 +2758,7 @@ impl SimdShiftLeft<f32> for Avx2
                 SimdRows<f32> +
                 SimdMask<f32> {
     type Backend = Avx2;
+    #[inline]
     fn shl<'a,const N: usize>(&self,v: &Vector<'a,f32,N,Self::Backend>,w:usize)
                               -> OwnedVector<f32,N> {
         let mut i = 0;
@@ -2730,6 +2813,7 @@ impl SimdShiftLeft<f64> for Avx2
                 SimdRows<f64> +
                 SimdMask<f64> {
     type Backend = Avx2;
+    #[inline]
     fn shl<'a,const N: usize>(&self,v: &Vector<'a,f64,N,Self::Backend>,w:usize)
         -> OwnedVector<f64,N> {
         let mut i = 0;
@@ -2784,6 +2868,7 @@ impl SimdShiftRight<i8> for Avx2
                 SimdRows<i8> +
                 SimdMask<i8> {
     type Backend = Avx2;
+    #[inline]
     fn shr<'a,const N: usize>(&self,v: &Vector<'a,i8,N,Self::Backend>,w:usize)
                               -> OwnedVector<i8,N> {
         let mut i = 0;
@@ -2842,6 +2927,7 @@ impl SimdShiftRight<i16> for Avx2
                 SimdRows<i16> +
                 SimdMask<i16> {
     type Backend = Avx2;
+    #[inline]
     fn shr<'a,const N: usize>(&self,v: &Vector<'a,i16,N,Self::Backend>,w:usize)
                               -> OwnedVector<i16,N> {
         let mut i = 0;
@@ -2897,6 +2983,7 @@ impl SimdShiftRight<i32> for Avx2
                 SimdRows<i32> +
                 SimdMask<i32> {
     type Backend = Avx2;
+    #[inline]
     fn shr<'a,const N: usize>(&self,v: &Vector<'a,i32,N,Self::Backend>,w:usize)
                               -> OwnedVector<i32,N> {
         let mut i = 0;
@@ -2947,6 +3034,7 @@ impl SimdShiftRight<f32> for Avx2
                 SimdRows<f32> +
                 SimdMask<f32> {
     type Backend = Avx2;
+    #[inline]
     fn shr<'a,const N: usize>(&self,v: &Vector<'a,f32,N,Self::Backend>,w:usize)
                               -> OwnedVector<f32,N> {
         let mut i = 0;
@@ -3001,6 +3089,7 @@ impl SimdShiftRight<f64> for Avx2
                 SimdRows<f64> +
                 SimdMask<f64> {
     type Backend = Avx2;
+    #[inline]
     fn shr<'a,const N: usize>(&self,v: &Vector<'a,f64,N,Self::Backend>,w:usize)
                               -> OwnedVector<f64,N> {
         let mut i = 0;
@@ -3051,24 +3140,28 @@ impl SimdShiftRight<f64> for Avx2
 }
 impl SimdTranspose<i8,1> for Avx2 {
     type Backend = Avx2;
+    #[inline(always)]
     fn transpose<'a, const N: usize, const M: usize>(v: [Self::Reg; 1]) -> [Self::Reg; 1] {
         v
     }
 }
 impl SimdTranspose<i16,1> for Avx2 {
     type Backend = Avx2;
+    #[inline(always)]
     fn transpose<'a, const N: usize, const M: usize>(v: [Self::Reg; 1]) -> [Self::Reg; 1] {
         v
     }
 }
 impl SimdTranspose<i32,1> for Avx2 {
     type Backend = Avx2;
+    #[inline(always)]
     fn transpose<'a, const N: usize, const M: usize>(v: [Self::Reg; 1]) -> [Self::Reg; 1] {
         v
     }
 }
 impl SimdTranspose<i32,2> for Avx2 {
     type Backend = Avx2;
+    #[inline]
     fn transpose<'a, const N: usize, const M: usize>(v: [Self::Reg; 2]) -> [Self::Reg; 2] {
         let v0 = v[0];
         let v1 = v[1];
@@ -3083,12 +3176,14 @@ impl SimdTranspose<i32,2> for Avx2 {
 }
 impl SimdTranspose<f32,1> for Avx2 {
     type Backend = Avx2;
+    #[inline(always)]
     fn transpose<'a, const N: usize, const M: usize>(v: [Self::Reg; 1]) -> [Self::Reg; 1] {
         v
     }
 }
 impl SimdTranspose<f32,2> for Avx2 {
     type Backend = Avx2;
+    #[inline]
     fn transpose<'a, const N: usize, const M: usize>(v: [Self::Reg; 2]) -> [Self::Reg; 2] {
         let v0 = v[0];
         let v1 = v[1];
@@ -3103,6 +3198,7 @@ impl SimdTranspose<f32,2> for Avx2 {
 }
 impl SimdTranspose<f64,1> for Avx2 {
     type Backend = Avx2;
+    #[inline(always)]
     fn transpose<'a, const N: usize, const M: usize>(v: [Self::Reg; 1]) -> [Self::Reg; 1] {
         v
     }
@@ -3110,7 +3206,8 @@ impl SimdTranspose<f64,1> for Avx2 {
 impl SimdHSum<i32> for Avx2 {
     type Backend = Avx2;
 
-    fn hsum<'a, const N: usize>(&self, v: Self::Reg) -> i32 {
+    #[inline]
+    fn hsum(&self, v: Self::Reg) -> i32 {
         unsafe {
             let lo128 = _mm256_castsi256_si128(v);
             let hi128 = _mm256_extracti128_si256(v,1);
@@ -3131,7 +3228,8 @@ impl SimdHSum<i32> for Avx2 {
 impl SimdHSum<f32> for Avx2 {
     type Backend = Avx2;
 
-    fn hsum<'a, const N: usize>(&self, v: Self::Reg) -> f32 {
+    #[inline]
+    fn hsum(&self, v: Self::Reg) -> f32 {
         unsafe {
             let lo128 = _mm256_castps256_ps128(v);
             let hi128 = _mm256_extractf128_ps(v,1);
@@ -3151,7 +3249,8 @@ impl SimdHSum<f32> for Avx2 {
 impl SimdHSum<f64> for Avx2 {
     type Backend = Avx2;
 
-    fn hsum<'a, const N: usize>(&self, v: Self::Reg) -> f64 {
+    #[inline]
+    fn hsum(&self, v: Self::Reg) -> f64 {
         unsafe {
             let lo128 = _mm256_castpd256_pd128(v);
             let hi128 = _mm256_extractf128_pd(v,1);
@@ -3167,6 +3266,7 @@ impl SimdHSum<f64> for Avx2 {
 }
 impl SimdMulAdd<i8,i8,i32> for Avx2 {
     type Backend = Avx2;
+    #[inline(always)]
     fn mul_add(&self, l: <Self as SimdReg<i8>>::Reg, r: <Self as SimdReg<i8>>::Reg,
                acc: <Self as SimdReg<i32>>::Reg) -> <Self as SimdReg<i32>>::Reg {
         unsafe {
@@ -3180,6 +3280,7 @@ impl SimdMulAdd<i8,i8,i32> for Avx2 {
 }
 impl SimdMulAdd<i16,i16,i32> for Avx2 {
     type Backend = Avx2;
+    #[inline(always)]
     fn mul_add(&self, l: <Self as SimdReg<i16>>::Reg, r: <Self as SimdReg<i16>>::Reg,
                acc: <Self as SimdReg<i32>>::Reg) -> <Self as SimdReg<i32>>::Reg {
         unsafe {
@@ -3190,6 +3291,7 @@ impl SimdMulAdd<i16,i16,i32> for Avx2 {
 }
 impl SimdMulAdd<i32,i32,i32> for Avx2 {
     type Backend = Avx2;
+    #[inline(always)]
     fn mul_add(&self, l: <Self as SimdReg<i32>>::Reg, r: <Self as SimdReg<i32>>::Reg,
                acc: <Self as SimdReg<i32>>::Reg) -> <Self as SimdReg<i32>>::Reg {
         unsafe {
@@ -3200,6 +3302,7 @@ impl SimdMulAdd<i32,i32,i32> for Avx2 {
 }
 impl SimdMulAdd<f32,f32,f32> for Avx2 {
     type Backend = Avx2;
+    #[inline(always)]
     fn mul_add(&self, l: <Self as SimdReg<f32>>::Reg, r: <Self as SimdReg<f32>>::Reg,
                acc: <Self as SimdReg<f32>>::Reg) -> <Self as SimdReg<f32>>::Reg {
         unsafe {
@@ -3209,10 +3312,21 @@ impl SimdMulAdd<f32,f32,f32> for Avx2 {
 }
 impl SimdMulAdd<f64,f64,f64> for Avx2 {
     type Backend = Avx2;
+    #[inline(always)]
     fn mul_add(&self, l: <Self as SimdReg<f64>>::Reg, r: <Self as SimdReg<f64>>::Reg, acc: <Self as SimdReg<f64>>::Reg) -> <Self as SimdReg<f64>>::Reg {
         unsafe {
             _mm256_fmadd_pd(acc,l,r)
         }
+    }
+}
+impl<SL,SR,SO> SimdPartialDot<SL,SR,SO> for Avx2
+    where Self: SimdMulAdd<SL,SR,SO> {
+    type Backend = Avx2;
+    #[inline(always)]
+    fn partial_dot(&self, l: <Self as SimdReg<SL>>::Reg, r: <Self as SimdReg<SR>>::Reg,
+                   acc: <Self as SimdReg<SO>>::Reg)
+        -> <Self as SimdReg<SO>>::Reg {
+        self.mul_add(l, r, acc)
     }
 }
 impl SimdZero<i8> for Avx2 where Self: SimdReg<i8> {
@@ -3279,7 +3393,7 @@ impl<SL,SR,SO> SimdDot<SL,SR,SO> for Avx2
                 i += <Self as SimdLanes<SL>>::LANES;
             }
 
-            let mut sum = <Self as SimdHSum<SO>>::hsum::<N>(self,acc);
+            let mut sum = <Self as SimdHSum<SO>>::hsum(self,acc);
 
             if N % <Self as SimdLanes<SL>>::LANES != 0 {
                 for _ in i..N {
@@ -3290,6 +3404,56 @@ impl<SL,SR,SO> SimdDot<SL,SR,SO> for Avx2
             }
 
             sum
+        }
+    }
+}
+impl<SL,SR,SO> SimdMatMul<SL,SR,SO> for Avx2
+    where Self: SimdPartialDot<SL,SR,SO> +
+                SimdRows<SL> + SimdZero<SL> + SimdReg<SL> + SimdLoad<SL> +
+                SimdCols<SR> + SimdZero<SR> + SimdReg<SR> + SimdLoad<SR> +
+                SimdZero<SO> + SimdHSum<SO> +
+                SimdLanes<SR>,
+                <Self as SimdReg<SL>>::Reg: Clone + Copy,
+                <Self as SimdReg<SR>>::Reg: Clone + Copy,
+                <Self as SimdReg<SO>>::Reg: Clone + Copy {
+    type Backend = Avx2;
+
+    fn matmul<'a, const N: usize, const M: usize, const K: usize>(&self, l: &Matrix<'a, SL, N, K, Self::Backend>, r: &ColumnMajorMatrix<'a, SR, K, M, Self::Backend>, acc: &mut OwnedMatrix<SO, N, M>) {
+        todo!()
+    }
+
+    fn matmul_tile<'a, const N: usize, const M: usize, const K: usize, const Rows: usize, const Cols: usize>(
+        &self,
+        l: &Matrix<'a, SL, N, K, Self::Backend>,
+        r: &ColumnMajorMatrix<'a, SR, K, M, Self::Backend>,
+        i: usize, j: usize, acc: &mut OwnedMatrix<SO, N, M>) {
+        let mut acc_tile = [[<Self as SimdZero<SO>>::zero();Cols];Rows];
+
+        unsafe {
+            for k in (0..K).step_by(<Self as SimdLanes<SR>>::LANES) {
+                let mut rr: [<Self as SimdReg<SL>>::Reg; Rows] = std::mem::MaybeUninit::uninit().assume_init();
+                for r in 0..Rows {
+                    rr[r] = self.load(l.row(i + r).as_ref().as_ptr().add(k));
+                }
+
+                let mut cr:[<Self as SimdReg<SR>>::Reg;Cols] = std::mem::MaybeUninit::uninit().assume_init();;
+
+                for c in 0..Cols {
+                    cr[c] = self.load(r.col(j + c).as_ref().as_ptr().add(k))
+                }
+
+                for r in 0..Rows {
+                    for c in 0..Cols {
+                        acc_tile[r][c] = self.partial_dot(rr[r],cr[c],acc_tile[r][c]);
+                    }
+                }
+            }
+
+            for r in 0..Rows {
+                for c in 0..Cols {
+                    acc[(i+r,j+c)] = <Self as SimdHSum<SO>>::hsum(self,acc_tile[r][c]);
+                }
+            }
         }
     }
 }

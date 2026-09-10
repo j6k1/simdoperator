@@ -71,18 +71,24 @@ pub trait SimdMatMul<SL,SR,SO> {
                                                                l:&Matrix<'a,SL,N,K,Self::Backend>,
                                                                r:&ColumnMajorMatrix<'a,SR,K,M,Self::Backend>,
                                                                acc:&mut OwnedMatrix<SO,N,M>);
+    fn matmul_tile<'a,const N: usize,const M: usize,const K: usize,const Rows: usize, const Cols: usize>(
+        &self,
+        l:&Matrix<'a,SL,N,K,Self::Backend>,
+        r:&ColumnMajorMatrix<'a,SR,K,M,Self::Backend>,
+        i:usize, j:usize,
+        acc:&mut OwnedMatrix<SO,N,M>);
 }
 pub trait SimdHSum<S>: SimdReg<S> {
     type Backend: Backend;
-    fn hsum<'a,const N: usize>(&self,v:Self::Reg) -> S;
+    fn hsum(&self,v:Self::Reg) -> S;
 }
 pub trait SimdHMax<S>: SimdReg<S> {
     type Backend: Backend;
-    fn hmax<'a,const N: usize>(&self,v:Self::Reg) -> S;
+    fn hmax(&self,v:Self::Reg) -> S;
 }
 pub trait SimdHMin<S>: SimdReg<S> {
     type Backend: Backend;
-    fn hmin<'a,const N: usize>(&self,v:Self::Reg) -> S;
+    fn hmin(&self,v:Self::Reg) -> S;
 }
 pub trait SimdTranspose<S,const Rows: usize> where Self: SimdReg<S> {
     type Backend: Backend;
@@ -120,6 +126,10 @@ pub trait SimdMask<S>: SimdReg<S> {
 pub trait SimdMulAdd<SL,SR,SO>: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> {
     type Backend: Backend;
     fn mul_add(&self,l:<Self as SimdReg<SL>>::Reg,r:<Self as SimdReg<SR>>::Reg,acc:<Self as SimdReg<SO>>::Reg) -> <Self as SimdReg<SO>>::Reg;
+}
+pub trait SimdPartialDot<SL,SR,SO>: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> {
+    type Backend: Backend;
+    fn partial_dot(&self,l:<Self as SimdReg<SL>>::Reg,r:<Self as SimdReg<SR>>::Reg,acc:<Self as SimdReg<SO>>::Reg) -> <Self as SimdReg<SO>>::Reg;
 }
 pub trait SimdZero<S>: SimdReg<S> {
     fn zero() -> <Self as SimdReg<S>>::Reg;
