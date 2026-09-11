@@ -1,2 +1,2 @@
 pub mod common;
-mod avx2;
+pub mod avx2;

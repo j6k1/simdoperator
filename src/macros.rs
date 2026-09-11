@@ -1,7 +1,7 @@
 #[macro_export]
 macro_rules! matmul_tile {
     ($func_name:ident,$ROWS:expr,$COLS:expr,$SL:ty,$SR:ty,$SO:ty) => {
-        fn $func_name <'a,const N: usize,const M: usize,const K: usize,const Rows: usize,const Cols: usize>(
+        fn $func_name <'a,const N: usize,const M: usize,const K: usize,const ROWS: usize,const COLS: usize>(
             &self,
             l:&Matrix<'a,$SL,N,K,Self::Backend>,
             r:&ColumnMajorMatrix<'a,$SR,K,M,Self::Backend>,
@@ -9,16 +9,16 @@ macro_rules! matmul_tile {
             j:usize,
             acc:&mut MatrixMut<'a,$SO,N,M>
         ) {
-            let mut acc_tile = [[<Self as SimdZero<$SO>>::zero();Cols];Rows];
+            let mut acc_tile = [[<Self as SimdZero<$SO>>::zero();COLS];ROWS];
 
             unsafe {
                 for k in (0..K).step_by(<Self as SimdLanes<$SR>>::LANES) {
-                    let mut rr: [<Self as SimdReg<$SL>>::Reg; Rows] = std::mem::MaybeUninit::uninit().assume_init();
+                    let mut rr: [<Self as SimdReg<$SL>>::Reg; ROWS] = std::mem::MaybeUninit::uninit().assume_init();
                     for r in 0..$ROWS {
                         rr[r] = <Self as SimdLoad<$SL>>::load(self,l.row(i + r).as_ref().as_ptr().add(k));
                     }
 
-                    let mut cr:[<Self as SimdReg<$SR>>::Reg; Cols] = std::mem::MaybeUninit::uninit().assume_init();
+                    let mut cr:[<Self as SimdReg<$SR>>::Reg; COLS] = std::mem::MaybeUninit::uninit().assume_init();
 
                     for c in 0..$COLS {
                         cr[c] = <Self as SimdLoad<$SR>>::load(self,r.col(j + c).as_ref().as_ptr().add(k));
@@ -57,27 +57,27 @@ macro_rules! derive_matmul {
             fn matmul<'a, const N: usize, const M: usize, const K: usize>(&self, l: &Matrix<'a, $SL, N, K, Self::Backend>, r: &ColumnMajorMatrix<'a, $SR, K, M, Self::Backend>, acc: &mut MatrixMut<'a,$SO, N, M>) {
                 for i in (0..N).step_by(<Self as SimdRows<$SL>>::ROWS) {
                     for j in (0..M).step_by(<Self as SimdCols<$SR>>::COLS) {
-                        self.matmul_tile::<'a,N,M,K,{ <Self as SimdRows<$SL>>::ROWS }, { <Self as SimdCols<$SR>>::COLS }>(
+                        self.matmul_tile::<N,M,K,{ <Self as SimdRows<$SL>>::ROWS }, { <Self as SimdCols<$SR>>::COLS }>(
                             l, r, i, j, acc
                         );
                     }
                 }
 
                 for i in (0..N).step_by(<Self as SimdRows<$SL>>::ROWS) {
-                    self.matmul_tile_tail_rows::<'a,N,M,K,{ <Self as SimdRows<$SL>>::ROWS }, { <Self as SimdCols<$SR>>::COLS }>(
+                    self.matmul_tile_tail_rows::<N,M,K,{ <Self as SimdRows<$SL>>::ROWS }, { <Self as SimdCols<$SR>>::COLS }>(
                         l, r, i, M / <Self as SimdCols<$SR>>::COLS * <Self as SimdCols<$SR>>::COLS,
                         acc
                     );
                 }
 
                 for j in (0..M).step_by(<Self as SimdCols<$SR>>::COLS) {
-                    self.matmul_tile_tail_cols::<'a,N,M,K,{ <Self as SimdRows<$SL>>::ROWS },{ <Self as SimdCols<$SR>>::COLS }>(
+                    self.matmul_tile_tail_cols::<N,M,K,{ <Self as SimdRows<$SL>>::ROWS },{ <Self as SimdCols<$SR>>::COLS }>(
                         l, r, N / <Self as SimdRows<$SL>>::ROWS * <Self as SimdRows<$SL>>::ROWS, j,
                         acc
                     );
                 }
 
-                self.matmul_tile_tail_rows_cols::<'a,N,M,K,{ <Self as SimdRows<$SL>>::ROWS }, { <Self as SimdCols<$SR>>::COLS }>(
+                self.matmul_tile_tail_rows_cols::<N,M,K,{ <Self as SimdRows<$SL>>::ROWS }, { <Self as SimdCols<$SR>>::COLS }>(
                     l,r,N / <Self as SimdRows<$SL>>::ROWS * <Self as SimdRows<$SL>>::ROWS,
                     M / <Self as SimdCols<$SR>>::COLS * <Self as SimdCols<$SR>>::COLS,
                     acc

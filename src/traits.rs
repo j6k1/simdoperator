@@ -73,7 +73,7 @@ pub trait SimdMatMul<SL,SR,SO> {
                                                                l:&Matrix<'a,SL,N,K,Self::Backend>,
                                                                r:&ColumnMajorMatrix<'a,SR,K,M,Self::Backend>,
                                                                o:&mut MatrixMut<'a,SO,N,M>);
-    fn matmul_tile<'a,const N: usize,const M: usize,const K: usize,const Rows: usize,const Cols: usize>(
+    fn matmul_tile<'a,const N: usize,const M: usize,const K: usize,const ROWS: usize,const COLS: usize>(
         &self,
         l:&Matrix<'a,SL,N,K,Self::Backend>,
         r:&ColumnMajorMatrix<'a,SR,K,M,Self::Backend>,
@@ -81,7 +81,7 @@ pub trait SimdMatMul<SL,SR,SO> {
         j:usize,
         acc:&mut MatrixMut<'a,SO,N,M>
     );
-    fn matmul_tile_tail_rows<'a,const N: usize,const M: usize,const K: usize,const Rows: usize,const Cols: usize>(
+    fn matmul_tile_tail_rows<'a,const N: usize,const M: usize,const K: usize,const ROWS: usize,const COLS: usize>(
         &self,
         l:&Matrix<'a,SL,N,K,Self::Backend>,
         r:&ColumnMajorMatrix<'a,SR,K,M,Self::Backend>,
@@ -90,7 +90,7 @@ pub trait SimdMatMul<SL,SR,SO> {
         acc:&mut MatrixMut<'a,SO,N,M>
     );
 
-    fn matmul_tile_tail_cols<'a,const N: usize,const M: usize,const K: usize,const Rows: usize,const Cols: usize>(
+    fn matmul_tile_tail_cols<'a,const N: usize,const M: usize,const K: usize,const ROWS: usize,const COLS: usize>(
         &self,
         l:&Matrix<'a,SL,N,K,Self::Backend>,
         r:&ColumnMajorMatrix<'a,SR,K,M,Self::Backend>,
@@ -98,7 +98,7 @@ pub trait SimdMatMul<SL,SR,SO> {
         j:usize,
         acc:&mut MatrixMut<'a,SO,N,M>
     );
-    fn matmul_tile_tail_rows_cols<'a,const N: usize,const M: usize,const K: usize,const Rows: usize,const Cols: usize>(
+    fn matmul_tile_tail_rows_cols<'a,const N: usize,const M: usize,const K: usize,const ROWS: usize,const COLS: usize>(
         &self,
         l:&Matrix<'a,SL,N,K,Self::Backend>,
         r:&ColumnMajorMatrix<'a,SR,K,M,Self::Backend>,
@@ -119,9 +119,9 @@ pub trait SimdHMin<S>: SimdReg<S> {
     type Backend: Backend;
     fn hmin(&self,v:Self::Reg) -> S;
 }
-pub trait SimdTranspose<S,const Rows: usize> where Self: SimdReg<S> {
+pub trait SimdTranspose<S,const ROWS: usize> where Self: SimdReg<S> {
     type Backend: Backend;
-    fn transpose<'a,const N: usize,const M: usize>(v:[Self::Reg; Rows]) -> [Self::Reg; Rows];
+    fn transpose<'a,const N: usize,const M: usize>(v:[Self::Reg; ROWS]) -> [Self::Reg; ROWS];
 }
 pub trait SimdLanes<S> {
     const LANES: usize;

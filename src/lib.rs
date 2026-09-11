@@ -3,7 +3,7 @@
 use std::ops::{Add, BitAnd, BitOr, BitXor, Index, IndexMut, Mul, Not, Shl, Shr, Sub};
 use crate::error::TryFromSliceError;
 use crate::backend::common::{Backend};
-use crate::traits::{Dims, Dot, HMax, HMin, HSum, Product, SimdAdd, SimdBitAnd, SimdBitNot, SimdBitOr, SimdBitXor, SimdDot, SimdHMax, SimdHMin, SimdHSum, SimdMatMul, SimdMatVec, SimdMul, SimdOuterProduct, SimdReg, SimdScalarMul, SimdShiftLeft, SimdShiftRight, SimdSub, SimdVMat, ToColumnMajor, Transpose};
+use crate::traits::{Dims, Dot, Product, SimdAdd, SimdBitAnd, SimdBitNot, SimdBitOr, SimdBitXor, SimdDot, SimdMatMul, SimdMatVec, SimdMul, SimdOuterProduct, SimdReg, SimdScalarMul, SimdShiftLeft, SimdShiftRight, SimdSub, SimdVMat, ToColumnMajor, Transpose};
 
 pub mod backend;
 pub mod traits;

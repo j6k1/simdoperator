@@ -13,14 +13,15 @@ impl fmt::Display for TryFromSliceError {
     }
 }
 impl error::Error for TryFromSliceError {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        None
+    }
     fn description(&self) -> &str {
         match self {
             TryFromSliceError => "Could not convert slice to SIMD vector",
         }
     }
-    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
-        None
-    }
+
 }
 impl From<std::array::TryFromSliceError> for TryFromSliceError {
     fn from(_: std::array::TryFromSliceError) -> TryFromSliceError {
