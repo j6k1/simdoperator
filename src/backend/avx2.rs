@@ -2,10 +2,10 @@
 
 use std::arch::x86_64::{__m128i, __m256, __m256d, __m256i, _mm256_add_epi16, _mm256_add_epi32, _mm256_add_epi8, _mm256_add_pd, _mm256_add_ps, _mm256_and_pd, _mm256_and_ps, _mm256_and_si256, _mm256_andnot_si256, _mm256_blendv_epi8, _mm256_blendv_pd, _mm256_blendv_ps, _mm256_castpd256_pd128, _mm256_castpd_si256, _mm256_castps256_ps128, _mm256_castps_si256, _mm256_castsi256_pd, _mm256_castsi256_ps, _mm256_castsi256_si128, _mm256_cmp_pd, _mm256_cmp_ps, _mm256_cmpeq_epi16, _mm256_cmpeq_epi32, _mm256_cmpeq_epi8, _mm256_cmpgt_epi16, _mm256_cmpgt_epi32, _mm256_cmpgt_epi8, _mm256_cvtepi16_epi32, _mm256_cvtepi16_epi8, _mm256_cvtepi32_epi16, _mm256_cvtepi8_epi32, _mm256_extractf128_pd, _mm256_extractf128_ps, _mm256_extracti128_si256, _mm256_fmadd_pd, _mm256_fmadd_ps, _mm256_loadu_pd, _mm256_loadu_ps, _mm256_loadu_si256, _mm256_madd_epi16, _mm256_maddubs_epi16, _mm256_mul_epi32, _mm256_mul_pd, _mm256_mul_ps, _mm256_mullo_epi32, _mm256_or_si256, _mm256_set1_epi16, _mm256_set1_epi32, _mm256_set1_epi8, _mm256_set1_pd, _mm256_set1_ps, _mm256_setzero_pd, _mm256_setzero_ps, _mm256_setzero_si256, _mm256_sll_epi32, _mm256_sll_epi64, _mm256_slli_epi32, _mm256_srl_epi32, _mm256_srl_epi64, _mm256_storeu_pd, _mm256_storeu_ps, _mm256_storeu_si256, _mm256_sub_epi16, _mm256_sub_epi32, _mm256_sub_epi8, _mm256_sub_pd, _mm256_sub_ps, _mm256_unpackhi_epi32, _mm256_unpackhi_ps, _mm256_unpacklo_epi32, _mm256_unpacklo_ps, _mm256_xor_si256, _mm_add_epi32, _mm_add_pd, _mm_add_ps, _mm_add_sd, _mm_add_ss, _mm_cvtepi16_epi32, _mm_cvtepi8_epi16, _mm_cvtsd_f64, _mm_cvtsi128_si32, _mm_cvtss_f32, _mm_loadl_epi64, _mm_loadu_si128, _mm_movehl_ps, _mm_mullo_epi16, _mm_packus_epi16, _mm_set1_epi32, _mm_shuffle_ps, _mm_srli_si128, _mm_storel_epi64, _mm_unpackhi_pd, _CMP_EQ_OQ, _CMP_GT_OQ};
 use std::mem::{transmute, MaybeUninit};
-use std::ops::{AddAssign, Mul};
+use std::ops::{Add, AddAssign, Mul};
 use crate::backend::common::Backend;
-use crate::traits::{SimdAdd, SimdBitAnd, SimdBitNot, SimdBitOr, SimdBitXor, SimdCols, SimdDot, SimdHSum, SimdLanes, SimdLoad, SimdMask, SimdMatMul, SimdMul, SimdMulAdd, SimdPartialDot, SimdReg, SimdRows, SimdScalarMul, SimdShiftLeft, SimdShiftRight, SimdStore, SimdSub, SimdTranspose, SimdZero};
-use crate::{derive_matmul, matmul_tile, ColumnMajorMatrix, Matrix, OwnedMatrix, OwnedVector, Vector};
+use crate::traits::{SimdAdd, SimdBitAnd, SimdBitNot, SimdBitOr, SimdBitXor, SimdCols, SimdDot, SimdHSum, SimdLanes, SimdLoad, SimdMask, SimdMatMul, SimdMatVec, SimdMul, SimdMulAdd, SimdOuterProduct, SimdPartialDot, SimdReg, SimdRows, SimdScalarMul, SimdShiftLeft, SimdShiftRight, SimdStore, SimdSub, SimdTranspose, SimdVMat, SimdZero};
+use crate::{derive_matmul, matmul_tile, ColumnMajorMatrix, Matrix, MatrixMut, OwnedMatrix, OwnedVector, Vector};
 use crate::macros::*;
 pub struct Avx2 {
 
@@ -3407,4 +3407,65 @@ impl<SL,SR,SO> SimdDot<SL,SR,SO> for Avx2
         }
     }
 }
+impl<SL,SR,SO> SimdMatVec<SL,SR,SO> for Avx2
+    where Self: SimdZero<SO> +
+                SimdHSum<SO> +
+                SimdLanes<SR> +
+                SimdLoad<SL> +
+                SimdLoad<SR> +
+                SimdPartialDot<SL,SR,SO>,
+                SL: Add<SR,Output = SO> + Clone + Copy,
+                SR: Clone + Copy,
+                SO: AddAssign {
+    type Backend = Avx2;
+
+    fn matvec<'a, const N: usize, const K: usize>(&self, l: &Matrix<'a, SL, N, K, Self::Backend>, r: &Vector<'a, SR, K, Self::Backend>, o: &mut OwnedVector<SO, N>) {
+        unsafe {
+            for i in 0..N {
+                let mut acc = <Self as SimdZero<SO>>::zero();
+
+                for k in (0..K).step_by(<Self as SimdLanes<SR>>::LANES) {
+                    let lr = self.load(l.row(i).as_ref().as_ptr().add(k));
+                    let rr = self.load(r.as_ref().as_ptr().add(k));
+
+                    acc = self.partial_dot(lr,rr,acc);
+                }
+
+                let mut acc = <Self as SimdHSum<SO>>::hsum(self,acc);
+
+                if N % <Self as SimdLanes<SR>>::LANES != 0 {
+                    for k in (N / <Self as SimdLanes<SR>>::LANES * <Self as SimdLanes<SR>>::LANES)..N {
+                        acc += l[i][k] + r[k];
+                    }
+                }
+
+                o[i] = acc;
+            }
+        }
+    }
+}
 derive_matmul! { Avx2,i8,i8,i32 }
+impl<SL,SR,SO> SimdOuterProduct<SL,SR,SO> for Avx2
+    where Self: SimdMatMul<SL,SR,SO,Backend=Avx2> {
+    type Backend = Avx2;
+
+    fn outer_product<'a, const N: usize, const M: usize>(&self, l: &Vector<'a, SL, N, Self::Backend>,
+                                                         r: &Vector<'a, SR, M, Self::Backend>,
+                                                         o: &mut OwnedMatrix<SO, N, M>) {
+        let mut o = o.into();
+        let l = Matrix::from(l);
+        let r = ColumnMajorMatrix::from(r);
+
+        <Self as SimdMatMul<SL,SR,SO>>::matmul::<N,M,1>(self,&l,&r,&mut o)
+    }
+}
+impl<SL,SR,SO> SimdVMat<SL,SR,SO> for Avx2
+    where Self: SimdMatMul<SL,SR,SO,Backend=Avx2> {
+    type Backend = Avx2;
+
+    fn vmat<'a, const M: usize, const K: usize>(&self, l: &Vector<'a, SL, K, Self::Backend>, r: &ColumnMajorMatrix<'a, SR, K, M, Self::Backend>, o: &mut OwnedVector<SO, M>) {
+        let l = l.as_hmatrix();
+        let mut o = o.into();
+        <Self as SimdMatMul<SL,SR,SO>>::matmul::<1,M,K>(self,&l,&r,&mut o)
+    }
+}

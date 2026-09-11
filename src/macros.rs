@@ -7,7 +7,7 @@ macro_rules! matmul_tile {
             r:&ColumnMajorMatrix<'a,$SR,K,M,Self::Backend>,
             i:usize,
             j:usize,
-            acc:&mut OwnedMatrix<$SO,N,M>
+            acc:&mut MatrixMut<'a,$SO,N,M>
         ) {
             let mut acc_tile = [[<Self as SimdZero<$SO>>::zero();Cols];Rows];
 
@@ -54,7 +54,7 @@ macro_rules! derive_matmul {
                         <Self as SimdReg<$SO>>::Reg: Clone + Copy {
             type Backend = $BE;
 
-            fn matmul<'a, const N: usize, const M: usize, const K: usize>(&self, l: &Matrix<'a, $SL, N, K, Self::Backend>, r: &ColumnMajorMatrix<'a, $SR, K, M, Self::Backend>, acc: &mut OwnedMatrix<$SO, N, M>) {
+            fn matmul<'a, const N: usize, const M: usize, const K: usize>(&self, l: &Matrix<'a, $SL, N, K, Self::Backend>, r: &ColumnMajorMatrix<'a, $SR, K, M, Self::Backend>, acc: &mut MatrixMut<'a,$SO, N, M>) {
                 for i in (0..N).step_by(<Self as SimdRows<$SL>>::ROWS) {
                     for j in (0..M).step_by(<Self as SimdCols<$SR>>::COLS) {
                         self.matmul_tile::<'a,N,M,K,{ <Self as SimdRows<$SL>>::ROWS }, { <Self as SimdCols<$SR>>::COLS }>(

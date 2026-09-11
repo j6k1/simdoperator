@@ -1,6 +1,6 @@
 //! Trait and data type features for abstracting SIMD operations
 
-use crate::{ColumnMajorMatrix, Matrix, OwnedMatrix, OwnedVector, Vector};
+use crate::{ColumnMajorMatrix, Matrix, MatrixMut, OwnedMatrix, OwnedVector, Vector};
 use crate::backend::common::Backend;
 
 pub trait SimdAdd<SL,SR,SO> {
@@ -49,35 +49,37 @@ pub trait SimdDot<SL,SR,SO> {
 }
 pub trait SimdOuterProduct<SL,SR,SO> {
     type Backend: Backend;
-    fn outer_product<'a,const N: usize,const M: usize>(&self,l:&Vector<'a,SL,N,Self::Backend>,r:&Vector<'a,SR,M,Self::Backend>) -> OwnedMatrix<SO,N,M>;
+    fn outer_product<'a,const N: usize,const M: usize>(&self,l:&Vector<'a,SL,N,Self::Backend>,
+                                                       r:&Vector<'a,SR,M,Self::Backend>,
+                                                       o:&mut OwnedMatrix<SO,N,M>);
 }
 pub trait SimdVMat<SL,SR,SO> {
     type Backend: Backend;
     fn vmat<'a,const M: usize,const K: usize>(&self,
                                               l:&Vector<'a,SL,K,Self::Backend>,
-                                              r:&ColumnMajorMatrix<'a,SR,M,K,Self::Backend>,
-                                              acc:&mut OwnedVector<SO,M>);
+                                              r:&ColumnMajorMatrix<'a,SR,K,M,Self::Backend>,
+                                              o:&mut OwnedVector<SO,M>);
 }
 pub trait SimdMatVec<SL,SR,SO> {
     type Backend: Backend;
     fn matvec<'a,const N: usize,const K: usize>(&self,
                                                 l:&Matrix<'a,SL,N,K,Self::Backend>,
                                                 r:&Vector<'a,SR,K,Self::Backend>,
-                                                acc:&mut OwnedVector<SO,N>);
+                                                o:&mut OwnedVector<SO,N>);
 }
 pub trait SimdMatMul<SL,SR,SO> {
     type Backend: Backend;
     fn matmul<'a,const N: usize,const M: usize,const K: usize>(&self,
                                                                l:&Matrix<'a,SL,N,K,Self::Backend>,
                                                                r:&ColumnMajorMatrix<'a,SR,K,M,Self::Backend>,
-                                                               acc:&mut OwnedMatrix<SO,N,M>);
+                                                               o:&mut MatrixMut<'a,SO,N,M>);
     fn matmul_tile<'a,const N: usize,const M: usize,const K: usize,const Rows: usize,const Cols: usize>(
         &self,
         l:&Matrix<'a,SL,N,K,Self::Backend>,
         r:&ColumnMajorMatrix<'a,SR,K,M,Self::Backend>,
         i:usize,
         j:usize,
-        acc:&mut OwnedMatrix<SO,N,M>
+        acc:&mut MatrixMut<'a,SO,N,M>
     );
     fn matmul_tile_tail_rows<'a,const N: usize,const M: usize,const K: usize,const Rows: usize,const Cols: usize>(
         &self,
@@ -85,7 +87,7 @@ pub trait SimdMatMul<SL,SR,SO> {
         r:&ColumnMajorMatrix<'a,SR,K,M,Self::Backend>,
         i:usize,
         j:usize,
-        acc:&mut OwnedMatrix<SO,N,M>
+        acc:&mut MatrixMut<'a,SO,N,M>
     );
 
     fn matmul_tile_tail_cols<'a,const N: usize,const M: usize,const K: usize,const Rows: usize,const Cols: usize>(
@@ -94,7 +96,7 @@ pub trait SimdMatMul<SL,SR,SO> {
         r:&ColumnMajorMatrix<'a,SR,K,M,Self::Backend>,
         i:usize,
         j:usize,
-        acc:&mut OwnedMatrix<SO,N,M>
+        acc:&mut MatrixMut<'a,SO,N,M>
     );
     fn matmul_tile_tail_rows_cols<'a,const N: usize,const M: usize,const K: usize,const Rows: usize,const Cols: usize>(
         &self,
@@ -102,7 +104,7 @@ pub trait SimdMatMul<SL,SR,SO> {
         r:&ColumnMajorMatrix<'a,SR,K,M,Self::Backend>,
         i:usize,
         j:usize,
-        acc:&mut OwnedMatrix<SO,N,M>
+        acc:&mut MatrixMut<'a,SO,N,M>
     );
 }
 pub trait SimdHSum<S>: SimdReg<S> {

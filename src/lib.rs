@@ -50,6 +50,21 @@ impl<'a,BE: Backend,T,const N: usize> From<&'a OwnedVector<T,N>> for Vector<'a,T
         }
     }
 }
+impl<'a,BE: Backend,T,const N: usize> Vector<'a,T,N,BE> {
+    pub fn as_vmatrix(&self) -> Matrix<'a,T,N,1,BE> {
+        Matrix {
+            data: self.data,
+            backend: BE::new()
+        }
+    }
+
+    pub fn as_hmatrix(&self) -> Matrix<'a,T,1,N,BE> {
+        Matrix {
+            data: self.data,
+            backend: BE::new()
+        }
+    }
+}
 pub struct OwnedVector<T,const N: usize> {
     data: [T; N]
 }
@@ -182,6 +197,44 @@ impl<'a,BE: Backend,T,const N: usize,const M: usize> From<&'a OwnedMatrix<T,N,M>
         }
     }
 }
+impl<'a,BE: Backend,T,const N: usize> From<&'a Vector<'a,T,N,BE>> for Matrix<'a,T,N,1,BE> {
+    fn from(value: &'a Vector<'a, T, N, BE>) -> Self {
+        Matrix {
+            data: value.data,
+            backend: BE::new()
+        }
+    }
+}
+pub struct MatrixMut<'a,T,const N: usize,const M: usize> {
+    data: &'a mut [T]
+}
+impl<'a,T,const N: usize,const M: usize> Dims<N,M> for MatrixMut<'a,T,N,M> {}
+impl<'a,T,const N: usize,const M: usize> Index<(usize,usize)> for MatrixMut<'a,T,N,M> {
+    type Output = T;
+
+    fn index(&self, (row,col): (usize,usize)) -> &Self::Output {
+        &self.data[(row * M) + col]
+    }
+}
+impl<'a,T,const N: usize,const M: usize> IndexMut<(usize,usize)> for MatrixMut<'a,T,N,M> {
+    fn index_mut(&mut self, (row,col): (usize,usize)) -> &mut Self::Output {
+        &mut self.data[(row * M) + col]
+    }
+}
+impl<'a,T,const N: usize,const M: usize> From<&'a mut OwnedMatrix<T,N,M>> for MatrixMut<'a,T,N,M> {
+    fn from(value: &'a mut OwnedMatrix<T, N, M>) -> Self {
+        MatrixMut {
+            data: &mut value.data
+        }
+    }
+}
+impl<'a,T,const M: usize> From<&'a mut OwnedVector<T,M>> for MatrixMut<'a,T,1,M> {
+    fn from(value: &'a mut OwnedVector<T, M>) -> Self {
+        MatrixMut {
+            data: &mut value.data
+        }
+    }
+}
 pub struct OwnedMatrix<T,const N: usize,const M: usize> {
     data: Box<[T]>
 }
@@ -248,6 +301,14 @@ impl<'a,BE: Backend,T,const N: usize,const M: usize> TryFrom<&'a [T]> for Column
                 data: value,
                 backend: BE::new()
             })
+        }
+    }
+}
+impl<'a,BE: Backend,T,const M: usize> From<&'a Vector<'a,T,M,BE>> for ColumnMajorMatrix<'a,T,1,M,BE> {
+    fn from(value: &'a Vector<'a, T, M, BE>) -> Self {
+        ColumnMajorMatrix {
+            data: value.data,
+            backend: BE::new()
         }
     }
 }
@@ -428,16 +489,21 @@ impl<'a,BE,SL,SR,SO,const N: usize> Dot<&'a Vector<'a,SR,N,BE>,SO> for &'a Vecto
     }
 }
 impl<'a,BE,SL,SR,SO,const N: usize,const M: usize> Product<&'a Vector<'a,SR,M,BE>,OwnedMatrix<SO,N,M>>
-    for &'a Vector<'a,SL,N,BE> where BE: Backend + SimdOuterProduct<SL,SR,SO,Backend = BE> {
+    for &'a Vector<'a,SL,N,BE>
+    where BE: Backend + SimdOuterProduct<SL,SR,SO,Backend = BE>,
+          SO: Default + Copy + Clone {
     fn product(&self,r:&'a Vector<'a,SR,M,BE>) -> OwnedMatrix<SO,N,M> {
-        self.backend.outer_product(self,r)
+        let mut o = OwnedMatrix::<SO,N,M>::default();
+        self.backend.outer_product(self,r,&mut o);
+
+        o
     }
 }
-impl<'a,BE,SL,SR,SO,const M: usize,const K: usize> Product<&'a ColumnMajorMatrix<'a,SR,M,K,BE>,OwnedVector<SO,M>>
+impl<'a,BE,SL,SR,SO,const M: usize,const K: usize> Product<&'a ColumnMajorMatrix<'a,SR,K,M,BE>,OwnedVector<SO,M>>
     for &'a Vector<'a,SL,K,BE>
     where BE: Backend + SimdVMat<SL,SR,SO,Backend = BE>,
           SO: Default + Copy + Clone {
-    fn product(&self,r:&'a ColumnMajorMatrix<'a,SR,M,K,BE>) -> OwnedVector<SO,M> {
+    fn product(&self,r:&'a ColumnMajorMatrix<'a,SR,K,M,BE>) -> OwnedVector<SO,M> {
         let mut o = OwnedVector::<SO,M>::default();
 
         self.backend.vmat(self,r,&mut o);
@@ -463,7 +529,10 @@ impl<'a,BE,SL,SR,SO,const N: usize,const M: usize,const K: usize> Product<&'a Co
           SO: Default + Copy + Clone {
     fn product(&self, r: &'a ColumnMajorMatrix<'a,SR,K,M,BE>) -> OwnedMatrix<SO,N,M> {
         let mut o = OwnedMatrix::<SO,N,M>::default();
-        self.backend.matmul(self, r, &mut o);
+        {
+            let mut o = (&mut o).into();
+            self.backend.matmul(self, r, &mut o);
+        }
 
         o
     }
