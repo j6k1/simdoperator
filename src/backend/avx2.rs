@@ -5,8 +5,8 @@ use std::mem::{transmute, MaybeUninit};
 use std::ops::{AddAssign, Mul};
 use crate::backend::common::Backend;
 use crate::traits::{SimdAdd, SimdBitAnd, SimdBitNot, SimdBitOr, SimdBitXor, SimdCols, SimdDot, SimdHSum, SimdLanes, SimdLoad, SimdMask, SimdMatMul, SimdMul, SimdMulAdd, SimdPartialDot, SimdReg, SimdRows, SimdScalarMul, SimdShiftLeft, SimdShiftRight, SimdStore, SimdSub, SimdTranspose, SimdZero};
-use crate::{ColumnMajorMatrix, Matrix, OwnedMatrix, OwnedVector, Vector};
-
+use crate::{derive_matmul, matmul_tile, ColumnMajorMatrix, Matrix, OwnedMatrix, OwnedVector, Vector};
+use crate::macros::*;
 pub struct Avx2 {
 
 }
@@ -3407,53 +3407,4 @@ impl<SL,SR,SO> SimdDot<SL,SR,SO> for Avx2
         }
     }
 }
-impl<SL,SR,SO> SimdMatMul<SL,SR,SO> for Avx2
-    where Self: SimdPartialDot<SL,SR,SO> +
-                SimdRows<SL> + SimdZero<SL> + SimdReg<SL> + SimdLoad<SL> +
-                SimdCols<SR> + SimdZero<SR> + SimdReg<SR> + SimdLoad<SR> +
-                SimdZero<SO> + SimdHSum<SO> +
-                SimdLanes<SR>,
-                <Self as SimdReg<SL>>::Reg: Clone + Copy,
-                <Self as SimdReg<SR>>::Reg: Clone + Copy,
-                <Self as SimdReg<SO>>::Reg: Clone + Copy {
-    type Backend = Avx2;
-
-    fn matmul<'a, const N: usize, const M: usize, const K: usize>(&self, l: &Matrix<'a, SL, N, K, Self::Backend>, r: &ColumnMajorMatrix<'a, SR, K, M, Self::Backend>, acc: &mut OwnedMatrix<SO, N, M>) {
-        todo!()
-    }
-
-    fn matmul_tile<'a, const N: usize, const M: usize, const K: usize, const Rows: usize, const Cols: usize>(
-        &self,
-        l: &Matrix<'a, SL, N, K, Self::Backend>,
-        r: &ColumnMajorMatrix<'a, SR, K, M, Self::Backend>,
-        i: usize, j: usize, acc: &mut OwnedMatrix<SO, N, M>) {
-        let mut acc_tile = [[<Self as SimdZero<SO>>::zero();Cols];Rows];
-
-        unsafe {
-            for k in (0..K).step_by(<Self as SimdLanes<SR>>::LANES) {
-                let mut rr: [<Self as SimdReg<SL>>::Reg; Rows] = std::mem::MaybeUninit::uninit().assume_init();
-                for r in 0..Rows {
-                    rr[r] = self.load(l.row(i + r).as_ref().as_ptr().add(k));
-                }
-
-                let mut cr:[<Self as SimdReg<SR>>::Reg;Cols] = std::mem::MaybeUninit::uninit().assume_init();;
-
-                for c in 0..Cols {
-                    cr[c] = self.load(r.col(j + c).as_ref().as_ptr().add(k))
-                }
-
-                for r in 0..Rows {
-                    for c in 0..Cols {
-                        acc_tile[r][c] = self.partial_dot(rr[r],cr[c],acc_tile[r][c]);
-                    }
-                }
-            }
-
-            for r in 0..Rows {
-                for c in 0..Cols {
-                    acc[(i+r,j+c)] = <Self as SimdHSum<SO>>::hsum(self,acc_tile[r][c]);
-                }
-            }
-        }
-    }
-}
+derive_matmul! { Avx2,i8,i8,i32 }

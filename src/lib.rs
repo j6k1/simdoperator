@@ -8,6 +8,8 @@ use crate::traits::{Dims, Dot, HMax, HMin, HSum, Product, SimdAdd, SimdBitAnd, S
 pub mod backend;
 pub mod traits;
 pub mod error;
+#[macro_use]
+pub mod macros;
 
 pub struct Vector<'a,T,const N: usize,BE: Backend> {
     data: &'a [T; N],

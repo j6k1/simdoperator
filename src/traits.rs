@@ -71,12 +71,39 @@ pub trait SimdMatMul<SL,SR,SO> {
                                                                l:&Matrix<'a,SL,N,K,Self::Backend>,
                                                                r:&ColumnMajorMatrix<'a,SR,K,M,Self::Backend>,
                                                                acc:&mut OwnedMatrix<SO,N,M>);
-    fn matmul_tile<'a,const N: usize,const M: usize,const K: usize,const Rows: usize, const Cols: usize>(
+    fn matmul_tile<'a,const N: usize,const M: usize,const K: usize,const Rows: usize,const Cols: usize>(
         &self,
         l:&Matrix<'a,SL,N,K,Self::Backend>,
         r:&ColumnMajorMatrix<'a,SR,K,M,Self::Backend>,
-        i:usize, j:usize,
-        acc:&mut OwnedMatrix<SO,N,M>);
+        i:usize,
+        j:usize,
+        acc:&mut OwnedMatrix<SO,N,M>
+    );
+    fn matmul_tile_tail_rows<'a,const N: usize,const M: usize,const K: usize,const Rows: usize,const Cols: usize>(
+        &self,
+        l:&Matrix<'a,SL,N,K,Self::Backend>,
+        r:&ColumnMajorMatrix<'a,SR,K,M,Self::Backend>,
+        i:usize,
+        j:usize,
+        acc:&mut OwnedMatrix<SO,N,M>
+    );
+
+    fn matmul_tile_tail_cols<'a,const N: usize,const M: usize,const K: usize,const Rows: usize,const Cols: usize>(
+        &self,
+        l:&Matrix<'a,SL,N,K,Self::Backend>,
+        r:&ColumnMajorMatrix<'a,SR,K,M,Self::Backend>,
+        i:usize,
+        j:usize,
+        acc:&mut OwnedMatrix<SO,N,M>
+    );
+    fn matmul_tile_tail_rows_cols<'a,const N: usize,const M: usize,const K: usize,const Rows: usize,const Cols: usize>(
+        &self,
+        l:&Matrix<'a,SL,N,K,Self::Backend>,
+        r:&ColumnMajorMatrix<'a,SR,K,M,Self::Backend>,
+        i:usize,
+        j:usize,
+        acc:&mut OwnedMatrix<SO,N,M>
+    );
 }
 pub trait SimdHSum<S>: SimdReg<S> {
     type Backend: Backend;
