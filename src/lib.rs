@@ -51,14 +51,14 @@ impl<'a,BE: Backend,T,const N: usize> From<&'a OwnedVector<T,N>> for Vector<'a,T
     }
 }
 impl<'a,BE: Backend,T,const N: usize> Vector<'a,T,N,BE> {
-    pub fn as_vmatrix(&self) -> Matrix<'a,T,N,1,BE> {
+    pub fn as_vertical(&self) -> Matrix<'a,T,N,1,BE> {
         Matrix {
             data: self.data,
             backend: BE::new()
         }
     }
 
-    pub fn as_hmatrix(&self) -> Matrix<'a,T,1,N,BE> {
+    pub fn as_horizontal(&self) -> Matrix<'a,T,1,N,BE> {
         Matrix {
             data: self.data,
             backend: BE::new()
