@@ -1,8 +1,9 @@
 //! Common Backend Implementation
 
+use std::arch::x86_64::{_mm256_mullo_epi32, _mm256_set1_epi32};
 use std::ops::{Add, Mul, Sub};
 use crate::backend::avx2::Avx2;
-use crate::traits::{SimdAddVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdDot, SimdHSum, SimdMatMul, SimdMatVec, SimdHMax, SimdMulVector, SimdShlVector, SimdShrVector, SimdSubVector, SimdVMat, SimdHMin, SimdMask, SimdScalarMulVector, SimdOuterProduct, SimdLoad, SimdStore, SimdReg, SimdMulAdd, SimdZero, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq};
+use crate::traits::{SimdAddVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdDot, SimdHSum, SimdMatMul, SimdMatVec, SimdHMax, SimdMulVector, SimdShlVector, SimdShrVector, SimdSubVector, SimdVMat, SimdHMin, SimdMask, SimdScalarMulVector, SimdOuterProduct, SimdLoad, SimdStore, SimdReg, SimdMulAdd, SimdZero, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat};
 use crate::{OwnedVector, Vector};
 
 pub trait Backend {
@@ -168,6 +169,68 @@ impl<SL,SR,SO,BE> SimdMulVector<SL,SR,SO> for BE
             if N % <Self as SimdLanes<SL>>::LANES != 0 {
                 for j in i..N {
                     rs[j] = l[j] * r[j];
+                }
+            }
+        }
+
+        rs
+    }
+}
+impl<SL,SR,SO,BE> SimdScalarMulVector<SL,SR,SO> for BE
+    where BE: Backend +
+              SimdReg<SL> +
+              SimdReg<SR> +
+              SimdReg<SO> +
+              SimdLanes<SL> +
+              SimdRows<SL> +
+              SimdMul<SL,SR,SO> +
+              SimdSplat<SL> +
+              SimdLoad<SR> +
+              SimdStoreSeq<SO,<Self as SimdMul<SL,SR,SO>>::Output> +
+              SimdStore<SO>,
+              SO: Default + Copy,
+              SL: Mul<SR,Output=SO> + Copy,
+              SR: Copy,
+              <Self as SimdReg<SL>>::Reg: Copy {
+    type Backend = BE;
+    #[inline]
+    fn scalarmul_vector<'a, const N: usize>(&self, l:SL, r: &Vector<'a, SR, N, Self::Backend>) -> OwnedVector<SO, N> {
+        let mut i = 0;
+
+        let mut rs = OwnedVector::from([SO::default(); N]);
+
+        unsafe {
+            let s = self.splat(l);
+            let pb = r.as_ref().as_ptr();
+            let po = rs.as_mut().as_mut_ptr();
+
+            while i + <Self as SimdLanes<SL>>::LANES * <Self as SimdRows<SL>>::ROWS <= N {
+                for j in 0..<Self as SimdRows<SL>>::ROWS {
+                    let rr = self.load(pb.add(i + j * <Self as SimdLanes<SL>>::LANES));
+
+                    let o = self.mul(s,rr);
+
+                    self.store_seq(po.add(i + j * <Self as SimdLanes<SL>>::LANES),o);
+                }
+
+                i += <Self as SimdLanes<SL>>::LANES * <Self as SimdRows<SL>>::ROWS;
+            }
+
+            if N % (<Self as SimdLanes<SL>>::LANES * <Self as SimdRows<SL>>::ROWS) != 0 {
+                while i + <Self as SimdLanes<SL>>::LANES <= N {
+                    let rr = self.load(pb.add(i));
+
+                    let o = self.mul(s,rr);
+
+                    self.store_seq(po.add(i),o);
+
+                    i += <Self as SimdLanes<SL>>::LANES;
+                }
+            }
+
+            if N % <Self as SimdLanes<SL>>::LANES != 0 {
+                for j in i..N {
+                    rs[j] = l * r[j];
                 }
             }
         }
