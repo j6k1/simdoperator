@@ -1,6 +1,6 @@
 //! Common Backend Implementation
 
-use crate::traits::{SimdAdd, SimdBitAnd, SimdBitNot, SimdBitOr, SimdBitXor, SimdDot, SimdHSum, SimdMatMul, SimdMatVec, SimdHMax, SimdMul, SimdShiftLeft, SimdShiftRight, SimdSub, SimdVMat, SimdHMin, SimdMask, SimdScalarMul, SimdOuterProduct, SimdLoad, SimdStore, SimdReg, SimdMulAdd, SimdZero};
+use crate::traits::{SimdAddVector, SimdBitAndVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdDot, SimdHSum, SimdMatMul, SimdMatVec, SimdHMax, SimdMulVector, SimdShlVector, SimdShrVector, SimdSubVector, SimdVMat, SimdHMin, SimdMask, SimdScalarMulVector, SimdOuterProduct, SimdLoad, SimdStore, SimdReg, SimdMulAdd, SimdZero};
 
 pub trait Backend/* : ArithmeticBackend +
                    ScalarMulBackend +
@@ -85,37 +85,37 @@ pub trait ProductBackend: SimdDot<f32,f32,f32> +
                           SimdOuterProduct<i8,i16,i32> +
                           SimdOuterProduct<i16,i16,i32> {
 }
-pub trait BitShiftBackend: SimdShiftLeft<i8> +
-                           SimdShiftLeft<i16> +
-                           SimdShiftLeft<i32> +
-                           SimdShiftLeft<f32> +
-                           SimdShiftLeft<f64> +
-                           SimdShiftRight<i8> +
-                           SimdShiftRight<i16> +
-                           SimdShiftRight<i32> +
-                           SimdShiftRight<f32> +
-                           SimdShiftRight<f64> {
+pub trait BitShiftBackend: SimdShlVector<i8> +
+                           SimdShlVector<i16> +
+                           SimdShlVector<i32> +
+                           SimdShlVector<f32> +
+                           SimdShlVector<f64> +
+                           SimdShrVector<i8> +
+                           SimdShrVector<i16> +
+                           SimdShrVector<i32> +
+                           SimdShrVector<f32> +
+                           SimdShrVector<f64> {
 }
-pub trait BitOperationsBackend: SimdBitOr<i8> +
-                                SimdBitOr<i16> +
-                                SimdBitOr<i32> +
-                                SimdBitOr<f32> +
-                                SimdBitOr<f64> +
-                                SimdBitAnd<i8> +
-                                SimdBitAnd<i16> +
-                                SimdBitAnd<i32> +
-                                SimdBitAnd<f32> +
-                                SimdBitAnd<f64> +
-                                SimdBitXor<i8> +
-                                SimdBitXor<i16> +
-                                SimdBitXor<i32> +
-                                SimdBitXor<f32> +
-                                SimdBitXor<f64> +
-                                SimdBitNot<i8> +
-                                SimdBitNot<i16> +
-                                SimdBitNot<i32> +
-                                SimdBitNot<f32> +
-                                SimdBitNot<f64> {
+pub trait BitOperationsBackend: SimdBitOrVector<i8> +
+                                SimdBitOrVector<i16> +
+                                SimdBitOrVector<i32> +
+                                SimdBitOrVector<f32> +
+                                SimdBitOrVector<f64> +
+                                SimdBitAndVector<i8> +
+                                SimdBitAndVector<i16> +
+                                SimdBitAndVector<i32> +
+                                SimdBitAndVector<f32> +
+                                SimdBitAndVector<f64> +
+                                SimdBitXorVector<i8> +
+                                SimdBitXorVector<i16> +
+                                SimdBitXorVector<i32> +
+                                SimdBitXorVector<f32> +
+                                SimdBitXorVector<f64> +
+                                SimdBitNotVector<i8> +
+                                SimdBitNotVector<i16> +
+                                SimdBitNotVector<i32> +
+                                SimdBitNotVector<f32> +
+                                SimdBitNotVector<f64> {
 
 }
 pub trait ZeroBackend: SimdZero<i8> +
@@ -130,27 +130,27 @@ pub trait MulAddBackend: SimdMulAdd<f32,f32,f32> +
                           SimdMulAdd<i8,i16,i32> +
                           SimdMulAdd<i16,i16,i32> {
 }
-pub trait ScalarMulBackend: SimdScalarMul<i8,i8,i32> +
-                            SimdScalarMul<i8,i16,i32> +
-                            SimdScalarMul<i16,i16,i32> +
-                            SimdScalarMul<i32,i32,i32> +
-                            SimdScalarMul<f32,f32,f32> +
-                            SimdScalarMul<f64,f64,f64> {
+pub trait ScalarMulBackend: SimdScalarMulVector<i8,i8,i32> +
+                            SimdScalarMulVector<i8,i16,i32> +
+                            SimdScalarMulVector<i16,i16,i32> +
+                            SimdScalarMulVector<i32,i32,i32> +
+                            SimdScalarMulVector<f32,f32,f32> +
+                            SimdScalarMulVector<f64,f64,f64> {
 }
-pub trait ArithmeticBackend: SimdAdd<f32,f32,f32> +
-                             SimdAdd<f64,f64,f64> +
-                             SimdAdd<i32,i32,i32> +
-                             SimdAdd<i16,i16,i16> +
-                             SimdAdd<i8,i8,i8> +
-                             SimdSub<f32,f32,f32> +
-                             SimdSub<f64,f64,f64> +
-                             SimdSub<i32,i32,i32> +
-                             SimdSub<i16,i16,i16> +
-                             SimdSub<i8,i8,i8> +
-                             SimdMul<f32,f32,f32> +
-                             SimdMul<f64,f64,f64> +
-                             SimdMul<i32,i32,i32> +
-                             SimdMul<i8,i8,i32> +
-                             SimdMul<i8,i16,i32> +
-                             SimdMul<i16,i16,i32> {
+pub trait ArithmeticBackend: SimdAddVector<f32,f32,f32> +
+                             SimdAddVector<f64,f64,f64> +
+                             SimdAddVector<i32,i32,i32> +
+                             SimdAddVector<i16,i16,i16> +
+                             SimdAddVector<i8,i8,i8> +
+                             SimdSubVector<f32,f32,f32> +
+                             SimdSubVector<f64,f64,f64> +
+                             SimdSubVector<i32,i32,i32> +
+                             SimdSubVector<i16,i16,i16> +
+                             SimdSubVector<i8,i8,i8> +
+                             SimdMulVector<f32,f32,f32> +
+                             SimdMulVector<f64,f64,f64> +
+                             SimdMulVector<i32,i32,i32> +
+                             SimdMulVector<i8,i8,i32> +
+                             SimdMulVector<i8,i16,i32> +
+                             SimdMulVector<i16,i16,i32> {
 }

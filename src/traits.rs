@@ -2,46 +2,59 @@
 
 use crate::{ColumnMajorMatrix, Matrix, MatrixMut, OwnedMatrix, OwnedVector, Vector};
 use crate::backend::common::Backend;
+pub trait SimdAdd<SL,SR,SO>: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> {
+    type Backend: Backend;
 
-pub trait SimdAdd<SL,SR,SO> {
-    type Backend: Backend;
-    fn add<'a,const N: usize>(&self, l:&Vector<'a,SL,N,Self::Backend>, r:&Vector<'a,SR,N,Self::Backend>) -> OwnedVector<SO,N>;
+    fn add(&self,l:<Self as SimdReg<SL>>::Reg,r:<Self as SimdReg<SR>>::Reg) -> <Self as SimdReg<SO>>::Reg;
 }
-pub trait SimdSub<SL,SR,SO> {
+pub trait SimdSub<SL,SR,SO>: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> {
     type Backend: Backend;
-    fn sub<'a,const N: usize>(&self,l:&Vector<'a,SL,N,Self::Backend>,r:&Vector<'a,SR,N,Self::Backend>) -> OwnedVector<SO,N>;
+    fn sub(&self,l:<Self as SimdReg<SL>>::Reg,r:<Self as SimdReg<SR>>::Reg) -> <Self as SimdReg<SO>>::Reg;
 }
-pub trait SimdMul<SL,SR,SO> {
+pub trait SimdMul<SL,SR,SO>: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> {
     type Backend: Backend;
-    fn mul<'a,const N: usize>(&self,l:&Vector<'a,SL,N,Self::Backend>,r:&Vector<'a,SR,N,Self::Backend>) -> OwnedVector<SO,N>;
+    type Output;
+    fn mul(&self,l:<Self as SimdReg<SL>>::Reg,r:<Self as SimdReg<SR>>::Reg) -> Self::Output;
 }
-pub trait SimdScalarMul<SL,SR,SO> {
+pub trait SimdAddVector<SL,SR,SO> {
     type Backend: Backend;
-    fn scalarmul<'a,const N: usize>(&self,l:SL,r:&Vector<'a,SR,N,Self::Backend>) -> OwnedVector<SO,N>;
+    fn add_vector<'a,const N: usize>(&self, l:&Vector<'a,SL,N,Self::Backend>, r:&Vector<'a,SR,N,Self::Backend>) -> OwnedVector<SO,N>;
 }
-pub trait SimdBitXor<S> where Self: SimdReg<S> {
+pub trait SimdSubVector<SL,SR,SO> {
     type Backend: Backend;
-    fn bitxor<'a,const N: usize>(&self,l:&Vector<'a,S,N,Self::Backend>,r:&Vector<'a,<Self as SimdReg<S>>::Bits,N,Self::Backend>) -> OwnedVector<S,N>;
+    fn sub_vector<'a,const N: usize>(&self, l:&Vector<'a,SL,N,Self::Backend>, r:&Vector<'a,SR,N,Self::Backend>) -> OwnedVector<SO,N>;
 }
-pub trait SimdBitAnd<S> where Self: SimdReg<S> {
+pub trait SimdMulVector<SL,SR,SO> {
     type Backend: Backend;
-    fn bitand<'a,const N: usize>(&self,l:&Vector<'a,S,N,Self::Backend>,r:&Vector<'a,<Self as SimdReg<S>>::Bits,N,Self::Backend>) -> OwnedVector<S,N>;
+    fn mul_vector<'a,const N: usize>(&self, l:&Vector<'a,SL,N,Self::Backend>, r:&Vector<'a,SR,N,Self::Backend>) -> OwnedVector<SO,N>;
 }
-pub trait SimdBitOr<S> where Self: SimdReg<S> {
+pub trait SimdScalarMulVector<SL,SR,SO> {
     type Backend: Backend;
-    fn bitor<'a,const N: usize>(&self,l:&Vector<'a,S,N,Self::Backend>,r:&Vector<'a,<Self as SimdReg<S>>::Bits,N,Self::Backend>) -> OwnedVector<S,N>;
+    fn scalarmul_vector<'a,const N: usize>(&self, l:SL, r:&Vector<'a,SR,N,Self::Backend>) -> OwnedVector<SO,N>;
 }
-pub trait SimdBitNot<S> {
+pub trait SimdBitXorVector<S> where Self: SimdReg<S> {
     type Backend: Backend;
-    fn bitnot<'a,const N: usize>(&self,v:&Vector<'a,S,N,Self::Backend>) -> OwnedVector<S,N>;
+    fn bitxor_vector<'a,const N: usize>(&self, l:&Vector<'a,S,N,Self::Backend>, r:&Vector<'a,<Self as SimdReg<S>>::Bits,N,Self::Backend>) -> OwnedVector<S,N>;
 }
-pub trait SimdShiftLeft<S> {
+pub trait SimdBitAndVector<S> where Self: SimdReg<S> {
     type Backend: Backend;
-    fn shl<'a,const N: usize>(&self,v:&Vector<'a,S,N,Self::Backend>,w:usize) -> OwnedVector<S,N>;
+    fn bitand_vector<'a,const N: usize>(&self, l:&Vector<'a,S,N,Self::Backend>, r:&Vector<'a,<Self as SimdReg<S>>::Bits,N,Self::Backend>) -> OwnedVector<S,N>;
 }
-pub trait SimdShiftRight<S> {
+pub trait SimdBitOrVector<S> where Self: SimdReg<S> {
     type Backend: Backend;
-    fn shr<'a,const N: usize>(&self,v:&Vector<'a,S,N,Self::Backend>,w:usize) -> OwnedVector<S,N>;
+    fn bitor_vector<'a,const N: usize>(&self, l:&Vector<'a,S,N,Self::Backend>, r:&Vector<'a,<Self as SimdReg<S>>::Bits,N,Self::Backend>) -> OwnedVector<S,N>;
+}
+pub trait SimdBitNotVector<S> {
+    type Backend: Backend;
+    fn bitnot_vector<'a,const N: usize>(&self, v:&Vector<'a,S,N,Self::Backend>) -> OwnedVector<S,N>;
+}
+pub trait SimdShlVector<S> {
+    type Backend: Backend;
+    fn shl_vector<'a,const N: usize>(&self, v:&Vector<'a,S,N,Self::Backend>, w:usize) -> OwnedVector<S,N>;
+}
+pub trait SimdShrVector<S> {
+    type Backend: Backend;
+    fn shr_vector<'a,const N: usize>(&self, v:&Vector<'a,S,N,Self::Backend>, w:usize) -> OwnedVector<S,N>;
 }
 pub trait SimdDot<SL,SR,SO> {
     type Backend: Backend;
@@ -156,9 +169,10 @@ pub trait SimdReinterpret<SS,SD>: SimdReg<SS> + SimdReg<SD> {
     type Backend: Backend;
     fn reinterpret(&self,reg:<Self as SimdReg<SS>>::Reg) -> <Self as SimdReg<SD>>::Reg;
 }
-pub trait SimdConvert<SS,SD>: SimdReg<SS> + SimdReg<SD> {
+pub trait SimdPromote<SS,SD>: SimdReg<SS> + SimdReg<SD> {
     type Backend: Backend;
-    fn convert(&self,reg:<Self as SimdReg<SS>>::Reg) -> <Self as SimdReg<SD>>::Reg;
+    type Output;
+    fn promotion(&self, reg:<Self as SimdReg<SS>>::Reg) -> Self::Output;
 }
 pub trait SimdMulAdd<SL,SR,SO>: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> {
     type Backend: Backend;

@@ -3,7 +3,7 @@
 use std::arch::x86_64::{__m128i, __m256, __m256d, __m256i, _mm256_add_epi16, _mm256_add_epi32, _mm256_add_epi8, _mm256_add_pd, _mm256_add_ps, _mm256_and_pd, _mm256_and_ps, _mm256_and_si256, _mm256_andnot_si256, _mm256_blendv_epi8, _mm256_blendv_pd, _mm256_blendv_ps, _mm256_castpd256_pd128, _mm256_castpd_si256, _mm256_castps256_ps128, _mm256_castps_si256, _mm256_castsi256_pd, _mm256_castsi256_ps, _mm256_castsi256_si128, _mm256_cmp_pd, _mm256_cmp_ps, _mm256_cmpeq_epi16, _mm256_cmpeq_epi32, _mm256_cmpeq_epi8, _mm256_cmpgt_epi16, _mm256_cmpgt_epi32, _mm256_cmpgt_epi8, _mm256_cvtepi16_epi32, _mm256_cvtepi32_epi16, _mm256_cvtepi8_epi16, _mm256_cvtepi8_epi32, _mm256_extractf128_pd, _mm256_extractf128_ps, _mm256_extracti128_si256, _mm256_fmadd_pd, _mm256_fmadd_ps, _mm256_inserti128_si256, _mm256_loadu_pd, _mm256_loadu_ps, _mm256_loadu_si256, _mm256_madd_epi16, _mm256_maddubs_epi16, _mm256_mul_epi32, _mm256_mul_pd, _mm256_mul_ps, _mm256_mullo_epi16, _mm256_mullo_epi32, _mm256_or_si256, _mm256_set1_epi16, _mm256_set1_epi32, _mm256_set1_pd, _mm256_set1_ps, _mm256_setzero_pd, _mm256_setzero_ps, _mm256_setzero_si256, _mm256_sll_epi32, _mm256_sll_epi64, _mm256_srl_epi32, _mm256_srl_epi64, _mm256_storeu_pd, _mm256_storeu_ps, _mm256_storeu_si256, _mm256_sub_epi16, _mm256_sub_epi32, _mm256_sub_epi8, _mm256_sub_pd, _mm256_sub_ps, _mm256_unpackhi_epi32, _mm256_unpackhi_ps, _mm256_unpacklo_epi32, _mm256_unpacklo_ps, _mm256_xor_si256, _mm_add_epi32, _mm_add_pd, _mm_add_ps, _mm_add_sd, _mm_add_ss, _mm_cvtepi8_epi16, _mm_cvtsd_f64, _mm_cvtsi128_si32, _mm_cvtss_f32, _mm_loadl_epi64, _mm_loadu_si128, _mm_movehl_ps, _mm_mullo_epi16, _mm_packus_epi16, _mm_set1_epi32, _mm_shuffle_ps, _mm_srli_si128, _mm_storel_epi64, _mm_unpackhi_pd, _CMP_EQ_OQ, _CMP_GT_OQ};
 use std::ops::{Add, AddAssign, Mul};
 use crate::backend::common::Backend;
-use crate::traits::{SimdAdd, SimdBitAnd, SimdBitNot, SimdBitOr, SimdBitXor, SimdCols, SimdDot, SimdHSum, SimdLanes, SimdLoad, SimdMask, SimdMatMul, SimdMatVec, SimdMul, SimdMulAdd, SimdOuterProduct, SimdPartialDot, SimdReg, SimdRows, SimdScalarMul, SimdShiftLeft, SimdShiftRight, SimdStore, SimdSub, SimdTranspose, SimdVMat, SimdZero};
+use crate::traits::{SimdAddVector, SimdBitAndVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdCols, SimdDot, SimdHSum, SimdLanes, SimdLoad, SimdMask, SimdMatMul, SimdMatVec, SimdMulVector, SimdMulAdd, SimdOuterProduct, SimdPartialDot, SimdReg, SimdRows, SimdScalarMulVector, SimdShlVector, SimdShrVector, SimdStore, SimdSubVector, SimdTranspose, SimdVMat, SimdZero, SimdAdd, SimdSub, SimdMul, SimdPromote};
 use crate::{derive_matmul, matmul_tile, ColumnMajorMatrix, Matrix, MatrixMut, OwnedMatrix, OwnedVector, Vector};
 pub struct Avx2 {
 
@@ -359,15 +359,192 @@ impl SimdMask<f64> for Avx2 where Self: SimdReg<f64> {
         unsafe { _mm256_loadu_si256(arr.as_ptr() as *const __m256i) }
     }
 }
-impl SimdAdd<i8,i8,i8> for Avx2
+impl SimdPromote<i8,i16> for Avx2 where Self: SimdReg<i8> + SimdReg<i16>{
+    type Backend = Avx2;
+    type Output = (<Self as SimdReg<i16>>::Reg,<Self as SimdReg<i16>>::Reg);
+
+    fn promotion(&self, reg: <Self as SimdReg<i8>>::Reg) -> Self::Output {
+        unsafe {
+            let lo = _mm256_castsi256_si128(reg);
+            let hi = _mm256_extracti128_si256(reg,1);
+
+            (_mm256_cvtepi8_epi16(lo),_mm256_cvtepi8_epi16(hi))
+        }
+    }
+}
+impl SimdPromote<i16,i32> for Avx2 where Self: SimdReg<i16> + SimdReg<i32>{
+    type Backend = Avx2;
+    type Output = (<Self as SimdReg<i32>>::Reg,<Self as SimdReg<i32>>::Reg);
+
+    fn promotion(&self, reg: <Self as SimdReg<i16>>::Reg) -> Self::Output {
+        unsafe {
+            let lo = _mm256_castsi256_si128(reg);
+            let hi = _mm256_extracti128_si256(reg,1);
+
+            let lo32 = _mm256_cvtepi16_epi32(lo);
+            let hi32 = _mm256_cvtepi16_epi32(hi);
+
+            (lo32,hi32)
+        }
+    }
+}
+impl SimdAdd<i8,i8,i8> for Avx2 where Self: SimdReg<i8> {
+    type Backend = Avx2;
+
+    fn add(&self, l: <Self as SimdReg<i8>>::Reg, r: <Self as SimdReg<i8>>::Reg) -> <Self as SimdReg<i8>>::Reg {
+        unsafe {
+            _mm256_add_epi8(l, r)
+        }
+    }
+}
+impl SimdAdd<i16,i16,i16> for Avx2 where Self: SimdReg<i16> {
+    type Backend = Avx2;
+
+    fn add(&self, l: <Self as SimdReg<i16>>::Reg, r: <Self as SimdReg<i16>>::Reg) -> <Self as SimdReg<i16>>::Reg {
+        unsafe {
+            _mm256_add_epi16(l, r)
+        }
+    }
+}
+impl SimdAdd<i32,i32,i32> for Avx2 where Self: SimdReg<i32> {
+    type Backend = Avx2;
+
+    fn add(&self, l: <Self as SimdReg<i32>>::Reg, r: <Self as SimdReg<i32>>::Reg) -> <Self as SimdReg<i32>>::Reg {
+        unsafe {
+            _mm256_add_epi32(l, r)
+        }
+    }
+}
+impl SimdAdd<f32,f32,f32> for Avx2 where Self: SimdReg<f32> {
+    type Backend = Avx2;
+
+    fn add(&self, l: <Self as SimdReg<f32>>::Reg, r: <Self as SimdReg<f32>>::Reg) -> <Self as SimdReg<f32>>::Reg {
+        unsafe {
+            _mm256_add_ps(l, r)
+        }
+    }
+}
+impl SimdAdd<f64,f64,f64> for Avx2 where Self: SimdReg<f64> {
+    type Backend = Avx2;
+
+    fn add(&self, l: <Self as SimdReg<f64>>::Reg, r: <Self as SimdReg<f64>>::Reg) -> <Self as SimdReg<f64>>::Reg {
+        unsafe {
+            _mm256_add_pd(l, r)
+        }
+    }
+}
+impl SimdSub<i8,i8,i8> for Avx2 where Self: SimdReg<i8> {
+    type Backend = Avx2;
+
+    fn sub(&self, l: <Self as SimdReg<i8>>::Reg, r: <Self as SimdReg<i8>>::Reg) -> <Self as SimdReg<i8>>::Reg {
+        unsafe {
+            _mm256_sub_epi8(l, r)
+        }
+    }
+}
+impl SimdSub<i16,i16,i16> for Avx2 where Self: SimdReg<i16> {
+    type Backend = Avx2;
+
+    fn sub(&self, l: <Self as SimdReg<i16>>::Reg, r: <Self as SimdReg<i16>>::Reg) -> <Self as SimdReg<i16>>::Reg {
+        unsafe {
+            _mm256_sub_epi16(l, r)
+        }
+    }
+}
+impl SimdSub<i32,i32,i32> for Avx2 where Self: SimdReg<i32> {
+    type Backend = Avx2;
+
+    fn sub(&self, l: <Self as SimdReg<i32>>::Reg, r: <Self as SimdReg<i32>>::Reg) -> <Self as SimdReg<i32>>::Reg {
+        unsafe {
+            _mm256_sub_epi32(l, r)
+        }
+    }
+}
+impl SimdSub<f32,f32,f32> for Avx2 where Self: SimdReg<f32> {
+    type Backend = Avx2;
+
+    fn sub(&self, l: <Self as SimdReg<f32>>::Reg, r: <Self as SimdReg<f32>>::Reg) -> <Self as SimdReg<f32>>::Reg {
+        unsafe {
+            _mm256_sub_ps(l, r)
+        }
+    }
+}
+impl SimdSub<f64,f64,f64> for Avx2 where Self: SimdReg<f64> {
+    type Backend = Avx2;
+
+    fn sub(&self, l: <Self as SimdReg<f64>>::Reg, r: <Self as SimdReg<f64>>::Reg) -> <Self as SimdReg<f64>>::Reg {
+        unsafe {
+            _mm256_sub_pd(l, r)
+        }
+    }
+}
+impl SimdMul<i8,i16,i32> for Avx2 where Self: SimdReg<i8> + SimdReg<i16> + SimdReg<i32> {
+    type Backend = Avx2;
+    type Output = (<Self as SimdReg<i32>>::Reg,<Self as SimdReg<i32>>::Reg,<Self as SimdReg<i32>>::Reg,<Self as SimdReg<i32>>::Reg);
+
+    fn mul(&self, l: <Self as SimdReg<i8>>::Reg, r: <Self as SimdReg<i16>>::Reg)
+        -> (<Self as SimdReg<i32>>::Reg,<Self as SimdReg<i32>>::Reg,<Self as SimdReg<i32>>::Reg,<Self as SimdReg<i32>>::Reg) {
+        unsafe {
+            let (lo,hi) = <Self as SimdPromote<i8,i16>>::promotion(self,l);
+
+            let (lo32_lo,lo32_hi) = <Self as SimdMul<i16,i16,i32>>::mul(self,lo,r);
+            let (hi32_lo,hi32_hi) = <Self as SimdMul<i16,i16,i32>>::mul(self,hi,r);
+
+            (lo32_lo,lo32_hi,hi32_lo,hi32_hi)
+        }
+    }
+}
+impl SimdMul<i16,i16,i32> for Avx2 where Self: SimdReg<i16> + SimdReg<i32> {
+    type Backend = Avx2;
+    type Output = (<Self as SimdReg<i32>>::Reg, <Self as SimdReg<i32>>::Reg);
+
+    fn mul(&self, l: <Self as SimdReg<i16>>::Reg, r: <Self as SimdReg<i16>>::Reg) -> <Self as SimdPromote<i16,i32>>::Output {
+        unsafe {
+            let prod16 = _mm256_mullo_epi16(l, r);
+
+            <Self as SimdPromote<i16,i32>>::promotion(self,prod16)
+        }
+    }
+}
+impl SimdMul<i32,i32,i32> for Avx2 where Self: SimdReg<i32> {
+    type Backend = Avx2;
+    type Output = <Self as SimdReg<i32>>::Reg;
+
+    fn mul(&self, l: <Self as SimdReg<i32>>::Reg, r: <Self as SimdReg<i32>>::Reg) -> <Self as SimdReg<i32>>::Reg {
+        unsafe {
+            _mm256_mul_epi32(l, r)
+        }
+    }
+}
+impl SimdMul<f32,f32,f32> for Avx2 where Self: SimdReg<f32> {
+    type Backend = Avx2;
+    type Output = <Self as SimdReg<f32>>::Reg;
+
+    fn mul(&self, l: <Self as SimdReg<f32>>::Reg, r: <Self as SimdReg<f32>>::Reg) -> <Self as SimdReg<f32>>::Reg {
+        unsafe {
+            _mm256_mul_ps(l, r)
+        }
+    }
+}
+impl SimdMul<f64,f64,f64> for Avx2 where Self: SimdReg<f64> {
+    type Backend = Avx2;
+    type Output = <Self as SimdReg<f64>>::Reg;
+
+    fn mul(&self, l: <Self as SimdReg<f64>>::Reg, r: <Self as SimdReg<f64>>::Reg) -> <Self as SimdReg<f64>>::Reg {
+        unsafe {
+            _mm256_mul_pd(l, r)
+        }
+    }
+}
+impl SimdAddVector<i8,i8,i8> for Avx2
     where Self: SimdReg<i8> +
                 SimdLanes<i8> +
                 SimdRows<i8> +
                 SimdMask<i8> {
     type Backend = Avx2;
     #[inline]
-    fn add<'a,const N: usize>(&self,l: &Vector<'a,i8,N,Self::Backend>,r: &Vector<'a,i8,N,Self::Backend>)
-        -> OwnedVector<i8,N> {
+    fn add_vector<'a,const N: usize>(&self, l: &Vector<'a,i8,N,Self::Backend>, r: &Vector<'a,i8,N,Self::Backend>)
+                                     -> OwnedVector<i8,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0i8; N]);
@@ -413,15 +590,15 @@ impl SimdAdd<i8,i8,i8> for Avx2
         rs
     }
 }
-impl SimdAdd<i16,i16,i16> for Avx2
+impl SimdAddVector<i16,i16,i16> for Avx2
     where Self: SimdReg<i16> +
                 SimdLanes<i16> +
                 SimdRows<i16> +
                 SimdMask<i16> {
     type Backend = Avx2;
     #[inline]
-    fn add<'a,const N: usize>(&self,l: &Vector<'a,i16,N,Self::Backend>,r: &Vector<'a,i16,N,Self::Backend>)
-                              -> OwnedVector<i16,N> {
+    fn add_vector<'a,const N: usize>(&self, l: &Vector<'a,i16,N,Self::Backend>, r: &Vector<'a,i16,N,Self::Backend>)
+                                     -> OwnedVector<i16,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0i16; N]);
@@ -467,15 +644,15 @@ impl SimdAdd<i16,i16,i16> for Avx2
         rs
     }
 }
-impl SimdAdd<i32,i32,i32> for Avx2
+impl SimdAddVector<i32,i32,i32> for Avx2
     where Self: SimdReg<i32> +
                 SimdLanes<i32> +
                 SimdRows<i32> +
                 SimdMask<i32> {
     type Backend = Avx2;
     #[inline]
-    fn add<'a,const N: usize>(&self,l: &Vector<'a,i32,N,Self::Backend>,r: &Vector<'a,i32,N,Self::Backend>)
-                              -> OwnedVector<i32,N> {
+    fn add_vector<'a,const N: usize>(&self, l: &Vector<'a,i32,N,Self::Backend>, r: &Vector<'a,i32,N,Self::Backend>)
+                                     -> OwnedVector<i32,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0i32; N]);
@@ -521,15 +698,15 @@ impl SimdAdd<i32,i32,i32> for Avx2
         rs
     }
 }
-impl SimdAdd<f32,f32,f32> for Avx2
+impl SimdAddVector<f32,f32,f32> for Avx2
     where Self: SimdReg<f32> +
                 SimdLanes<f32> +
                 SimdRows<f32> +
                 SimdMask<f32> {
     type Backend = Avx2;
     #[inline]
-    fn add<'a,const N: usize>(&self,l: &Vector<'a,f32,N,Self::Backend>,r: &Vector<'a,f32,N,Self::Backend>)
-                              -> OwnedVector<f32,N> {
+    fn add_vector<'a,const N: usize>(&self, l: &Vector<'a,f32,N,Self::Backend>, r: &Vector<'a,f32,N,Self::Backend>)
+                                     -> OwnedVector<f32,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0f32; N]);
@@ -575,15 +752,15 @@ impl SimdAdd<f32,f32,f32> for Avx2
         rs
     }
 }
-impl SimdAdd<f64,f64,f64> for Avx2
+impl SimdAddVector<f64,f64,f64> for Avx2
     where Self: SimdReg<f64> +
                 SimdLanes<f64> +
                 SimdRows<f64> +
                 SimdMask<f64> {
     type Backend = Avx2;
     #[inline]
-    fn add<'a,const N: usize>(&self,l: &Vector<'a,f64,N,Self::Backend>,r: &Vector<'a,f64,N,Self::Backend>)
-                              -> OwnedVector<f64,N> {
+    fn add_vector<'a,const N: usize>(&self, l: &Vector<'a,f64,N,Self::Backend>, r: &Vector<'a,f64,N,Self::Backend>)
+                                     -> OwnedVector<f64,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0f64; N]);
@@ -629,15 +806,15 @@ impl SimdAdd<f64,f64,f64> for Avx2
         rs
     }
 }
-impl SimdSub<i8,i8,i8> for Avx2
+impl SimdSubVector<i8,i8,i8> for Avx2
     where Self: SimdReg<i8> +
                 SimdLanes<i8> +
                 SimdRows<i8> +
                 SimdMask<i8> {
     type Backend = Avx2;
     #[inline]
-    fn sub<'a,const N: usize>(&self,l: &Vector<'a,i8,N,Self::Backend>,r: &Vector<'a,i8,N,Self::Backend>)
-                              -> OwnedVector<i8,N> {
+    fn sub_vector<'a,const N: usize>(&self, l: &Vector<'a,i8,N,Self::Backend>, r: &Vector<'a,i8,N,Self::Backend>)
+                                     -> OwnedVector<i8,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0i8; N]);
@@ -683,15 +860,15 @@ impl SimdSub<i8,i8,i8> for Avx2
         rs
     }
 }
-impl SimdSub<i16,i16,i16> for Avx2
+impl SimdSubVector<i16,i16,i16> for Avx2
     where Self: SimdReg<i16> +
                 SimdLanes<i16> +
                 SimdRows<i16> +
                 SimdMask<i16> {
     type Backend = Avx2;
     #[inline]
-    fn sub<'a,const N: usize>(&self,l: &Vector<'a,i16,N,Self::Backend>,r: &Vector<'a,i16,N,Self::Backend>)
-                              -> OwnedVector<i16,N> {
+    fn sub_vector<'a,const N: usize>(&self, l: &Vector<'a,i16,N,Self::Backend>, r: &Vector<'a,i16,N,Self::Backend>)
+                                     -> OwnedVector<i16,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0i16; N]);
@@ -737,15 +914,15 @@ impl SimdSub<i16,i16,i16> for Avx2
         rs
     }
 }
-impl SimdSub<i32,i32,i32> for Avx2
+impl SimdSubVector<i32,i32,i32> for Avx2
     where Self: SimdReg<i32> +
                 SimdLanes<i32> +
                 SimdRows<i32> +
                 SimdMask<i32> {
     type Backend = Avx2;
     #[inline]
-    fn sub<'a,const N: usize>(&self,l: &Vector<'a,i32,N,Self::Backend>,r: &Vector<'a,i32,N,Self::Backend>)
-                              -> OwnedVector<i32,N> {
+    fn sub_vector<'a,const N: usize>(&self, l: &Vector<'a,i32,N,Self::Backend>, r: &Vector<'a,i32,N,Self::Backend>)
+                                     -> OwnedVector<i32,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0i32; N]);
@@ -791,15 +968,15 @@ impl SimdSub<i32,i32,i32> for Avx2
         rs
     }
 }
-impl SimdSub<f32,f32,f32> for Avx2
+impl SimdSubVector<f32,f32,f32> for Avx2
     where Self: SimdReg<f32> +
                 SimdLanes<f32> +
                 SimdRows<f32> +
                 SimdMask<f32> {
     type Backend = Avx2;
     #[inline]
-    fn sub<'a,const N: usize>(&self,l: &Vector<'a,f32,N,Self::Backend>,r: &Vector<'a,f32,N,Self::Backend>)
-                              -> OwnedVector<f32,N> {
+    fn sub_vector<'a,const N: usize>(&self, l: &Vector<'a,f32,N,Self::Backend>, r: &Vector<'a,f32,N,Self::Backend>)
+                                     -> OwnedVector<f32,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0f32; N]);
@@ -845,15 +1022,15 @@ impl SimdSub<f32,f32,f32> for Avx2
         rs
     }
 }
-impl SimdSub<f64,f64,f64> for Avx2
+impl SimdSubVector<f64,f64,f64> for Avx2
     where Self: SimdReg<f64> +
                 SimdLanes<f64> +
                 SimdRows<f64> +
                 SimdMask<f64> {
     type Backend = Avx2;
     #[inline]
-    fn sub<'a,const N: usize>(&self,l: &Vector<'a,f64,N,Self::Backend>,r: &Vector<'a,f64,N,Self::Backend>)
-                              -> OwnedVector<f64,N> {
+    fn sub_vector<'a,const N: usize>(&self, l: &Vector<'a,f64,N,Self::Backend>, r: &Vector<'a,f64,N,Self::Backend>)
+                                     -> OwnedVector<f64,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0f64; N]);
@@ -899,14 +1076,14 @@ impl SimdSub<f64,f64,f64> for Avx2
         rs
     }
 }
-impl SimdMul<i8,i8,i32> for Avx2
+impl SimdMulVector<i8,i8,i32> for Avx2
     where Self: SimdReg<i8> +
                 SimdLanes<i32> +
                 SimdMask<i8> {
     type Backend = Avx2;
     #[inline]
-    fn mul<'a,const N: usize>(&self,l: &Vector<'a,i8,N,Self::Backend>,r: &Vector<'a,i8,N,Self::Backend>)
-                              -> OwnedVector<i32,N> {
+    fn mul_vector<'a,const N: usize>(&self, l: &Vector<'a,i8,N,Self::Backend>, r: &Vector<'a,i8,N,Self::Backend>)
+                                     -> OwnedVector<i32,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0i32; N]);
@@ -940,14 +1117,14 @@ impl SimdMul<i8,i8,i32> for Avx2
         rs
     }
 }
-impl SimdMul<i8,i16,i32> for Avx2
+impl SimdMulVector<i8,i16,i32> for Avx2
     where Self: SimdReg<i8> +
                 SimdLanes<i32> +
                 SimdMask<i8> {
     type Backend = Avx2;
     #[inline]
-    fn mul<'a,const N: usize>(&self,l: &Vector<'a,i8,N,Self::Backend>,r: &Vector<'a,i16,N,Self::Backend>)
-                              -> OwnedVector<i32,N> {
+    fn mul_vector<'a,const N: usize>(&self, l: &Vector<'a,i8,N,Self::Backend>, r: &Vector<'a,i16,N,Self::Backend>)
+                                     -> OwnedVector<i32,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0i32; N]);
@@ -981,14 +1158,14 @@ impl SimdMul<i8,i16,i32> for Avx2
         rs
     }
 }
-impl SimdMul<i16,i16,i32> for Avx2
+impl SimdMulVector<i16,i16,i32> for Avx2
     where Self: SimdReg<i8> +
                 SimdLanes<i32> +
                 SimdMask<i8> {
     type Backend = Avx2;
     #[inline]
-    fn mul<'a,const N: usize>(&self,l: &Vector<'a,i16,N,Self::Backend>,r: &Vector<'a,i16,N,Self::Backend>)
-                              -> OwnedVector<i32,N> {
+    fn mul_vector<'a,const N: usize>(&self, l: &Vector<'a,i16,N,Self::Backend>, r: &Vector<'a,i16,N,Self::Backend>)
+                                     -> OwnedVector<i32,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0i32; N]);
@@ -1020,15 +1197,15 @@ impl SimdMul<i16,i16,i32> for Avx2
         rs
     }
 }
-impl SimdMul<i32,i32,i32> for Avx2
+impl SimdMulVector<i32,i32,i32> for Avx2
     where Self: SimdReg<i32> +
                 SimdLanes<i32> +
                 SimdRows<i32> +
                 SimdMask<i32> {
     type Backend = Avx2;
     #[inline]
-    fn mul<'a,const N: usize>(&self,l: &Vector<'a,i32,N,Self::Backend>,r: &Vector<'a,i32,N,Self::Backend>)
-                              -> OwnedVector<i32,N> {
+    fn mul_vector<'a,const N: usize>(&self, l: &Vector<'a,i32,N,Self::Backend>, r: &Vector<'a,i32,N,Self::Backend>)
+                                     -> OwnedVector<i32,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0i32; N]);
@@ -1074,15 +1251,15 @@ impl SimdMul<i32,i32,i32> for Avx2
         rs
     }
 }
-impl SimdMul<f32,f32,f32> for Avx2
+impl SimdMulVector<f32,f32,f32> for Avx2
     where Self: SimdReg<f32> +
                 SimdLanes<f32> +
                 SimdRows<f32> +
                 SimdMask<f32> {
     type Backend = Avx2;
     #[inline]
-    fn mul<'a,const N: usize>(&self,l: &Vector<'a,f32,N,Self::Backend>,r: &Vector<'a,f32,N,Self::Backend>)
-                              -> OwnedVector<f32,N> {
+    fn mul_vector<'a,const N: usize>(&self, l: &Vector<'a,f32,N,Self::Backend>, r: &Vector<'a,f32,N,Self::Backend>)
+                                     -> OwnedVector<f32,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0f32; N]);
@@ -1128,15 +1305,15 @@ impl SimdMul<f32,f32,f32> for Avx2
         rs
     }
 }
-impl SimdMul<f64,f64,f64> for Avx2
+impl SimdMulVector<f64,f64,f64> for Avx2
     where Self: SimdReg<f64> +
                 SimdLanes<f64> +
                 SimdRows<f64> +
                 SimdMask<f64> {
     type Backend = Avx2;
     #[inline]
-    fn mul<'a,const N: usize>(&self,l: &Vector<'a,f64,N,Self::Backend>,r: &Vector<'a,f64,N,Self::Backend>)
-                              -> OwnedVector<f64,N> {
+    fn mul_vector<'a,const N: usize>(&self, l: &Vector<'a,f64,N,Self::Backend>, r: &Vector<'a,f64,N,Self::Backend>)
+                                     -> OwnedVector<f64,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0f64; N]);
@@ -1182,14 +1359,14 @@ impl SimdMul<f64,f64,f64> for Avx2
         rs
     }
 }
-impl SimdScalarMul<i32,i32,i32> for Avx2
+impl SimdScalarMulVector<i32,i32,i32> for Avx2
     where Self: SimdReg<i32> +
                 SimdLanes<i32> +
                 SimdRows<i32> +
                 SimdMask<i32> {
     type Backend = Avx2;
     #[inline]
-    fn scalarmul<'a, const N: usize>(&self, l:i32,r: &Vector<'a, i32, N, Self::Backend>) -> OwnedVector<i32, N> {
+    fn scalarmul_vector<'a, const N: usize>(&self, l:i32, r: &Vector<'a, i32, N, Self::Backend>) -> OwnedVector<i32, N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0i32; N]);
@@ -1233,14 +1410,14 @@ impl SimdScalarMul<i32,i32,i32> for Avx2
         rs
     }
 }
-impl SimdScalarMul<i8,i8,i32> for Avx2
+impl SimdScalarMulVector<i8,i8,i32> for Avx2
     where Self: SimdReg<i32> +
                 SimdLanes<i32> +
                 SimdRows<i32> +
                 SimdMask<i32> {
     type Backend = Avx2;
     #[inline]
-    fn scalarmul<'a, const N: usize>(&self, l:i8,r: &Vector<'a, i8, N, Self::Backend>) -> OwnedVector<i32, N> {
+    fn scalarmul_vector<'a, const N: usize>(&self, l:i8, r: &Vector<'a, i8, N, Self::Backend>) -> OwnedVector<i32, N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0i32; N]);
@@ -1292,14 +1469,14 @@ impl SimdScalarMul<i8,i8,i32> for Avx2
         rs
     }
 }
-impl SimdScalarMul<i8,i16,i32> for Avx2
+impl SimdScalarMulVector<i8,i16,i32> for Avx2
     where Self: SimdReg<i32> +
                 SimdLanes<i32> +
                 SimdRows<i32> +
                 SimdMask<i32> {
     type Backend = Avx2;
     #[inline]
-    fn scalarmul<'a, const N: usize>(&self, l:i8,r: &Vector<'a, i16, N, Self::Backend>) -> OwnedVector<i32, N> {
+    fn scalarmul_vector<'a, const N: usize>(&self, l:i8, r: &Vector<'a, i16, N, Self::Backend>) -> OwnedVector<i32, N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0i32; N]);
@@ -1351,14 +1528,14 @@ impl SimdScalarMul<i8,i16,i32> for Avx2
         rs
     }
 }
-impl SimdScalarMul<i16,i16,i32> for Avx2
+impl SimdScalarMulVector<i16,i16,i32> for Avx2
     where Self: SimdReg<i32> +
                 SimdLanes<i32> +
                 SimdRows<i32> +
                 SimdMask<i32> {
     type Backend = Avx2;
     #[inline]
-    fn scalarmul<'a, const N: usize>(&self, l:i16,r: &Vector<'a, i16, N, Self::Backend>) -> OwnedVector<i32, N> {
+    fn scalarmul_vector<'a, const N: usize>(&self, l:i16, r: &Vector<'a, i16, N, Self::Backend>) -> OwnedVector<i32, N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0i32; N]);
@@ -1410,14 +1587,14 @@ impl SimdScalarMul<i16,i16,i32> for Avx2
         rs
     }
 }
-impl SimdScalarMul<f32,f32,f32> for Avx2
+impl SimdScalarMulVector<f32,f32,f32> for Avx2
     where Self: SimdReg<f32> +
                 SimdLanes<f32> +
                 SimdRows<f32> +
                 SimdMask<f32> {
     type Backend = Avx2;
     #[inline]
-    fn scalarmul<'a, const N: usize>(&self, l:f32,r: &Vector<'a, f32, N, Self::Backend>) -> OwnedVector<f32, N> {
+    fn scalarmul_vector<'a, const N: usize>(&self, l:f32, r: &Vector<'a, f32, N, Self::Backend>) -> OwnedVector<f32, N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0f32; N]);
@@ -1461,14 +1638,14 @@ impl SimdScalarMul<f32,f32,f32> for Avx2
         rs
     }
 }
-impl SimdScalarMul<f64,f64,f64> for Avx2
+impl SimdScalarMulVector<f64,f64,f64> for Avx2
     where Self: SimdReg<f64> +
                 SimdLanes<f64> +
                 SimdRows<f64> +
                 SimdMask<f64> {
     type Backend = Avx2;
     #[inline]
-    fn scalarmul<'a, const N: usize>(&self, l:f64,r: &Vector<'a, f64, N, Self::Backend>) -> OwnedVector<f64, N> {
+    fn scalarmul_vector<'a, const N: usize>(&self, l:f64, r: &Vector<'a, f64, N, Self::Backend>) -> OwnedVector<f64, N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0f64; N]);
@@ -1512,15 +1689,15 @@ impl SimdScalarMul<f64,f64,f64> for Avx2
         rs
     }
 }
-impl SimdBitAnd<i8> for Avx2
+impl SimdBitAndVector<i8> for Avx2
     where Self: SimdReg<i8> +
                 SimdLanes<i8> +
                 SimdRows<i8> +
                 SimdMask<i8> {
     type Backend = Avx2;
     #[inline]
-    fn bitand<'a,const N: usize>(&self,l: &Vector<'a,i8,N,Self::Backend>,r: &Vector<'a,i8,N,Self::Backend>)
-                              -> OwnedVector<i8,N> {
+    fn bitand_vector<'a,const N: usize>(&self, l: &Vector<'a,i8,N,Self::Backend>, r: &Vector<'a,i8,N,Self::Backend>)
+                                        -> OwnedVector<i8,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0i8; N]);
@@ -1566,15 +1743,15 @@ impl SimdBitAnd<i8> for Avx2
         rs
     }
 }
-impl SimdBitAnd<i16> for Avx2
+impl SimdBitAndVector<i16> for Avx2
     where Self: SimdReg<i16> +
                 SimdLanes<i16> +
                 SimdRows<i16> +
                 SimdMask<i16> {
     type Backend = Avx2;
     #[inline]
-    fn bitand<'a,const N: usize>(&self,l: &Vector<'a,i16,N,Self::Backend>,r: &Vector<'a,i16,N,Self::Backend>)
-                                 -> OwnedVector<i16,N> {
+    fn bitand_vector<'a,const N: usize>(&self, l: &Vector<'a,i16,N,Self::Backend>, r: &Vector<'a,i16,N,Self::Backend>)
+                                        -> OwnedVector<i16,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0i16; N]);
@@ -1620,15 +1797,15 @@ impl SimdBitAnd<i16> for Avx2
         rs
     }
 }
-impl SimdBitAnd<i32> for Avx2
+impl SimdBitAndVector<i32> for Avx2
     where Self: SimdReg<i32> +
                 SimdLanes<i32> +
                 SimdRows<i32> +
                 SimdMask<i32> {
     type Backend = Avx2;
     #[inline]
-    fn bitand<'a,const N: usize>(&self,l: &Vector<'a,i32,N,Self::Backend>,r: &Vector<'a,i32,N,Self::Backend>)
-                                 -> OwnedVector<i32,N> {
+    fn bitand_vector<'a,const N: usize>(&self, l: &Vector<'a,i32,N,Self::Backend>, r: &Vector<'a,i32,N,Self::Backend>)
+                                        -> OwnedVector<i32,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0i32; N]);
@@ -1674,15 +1851,15 @@ impl SimdBitAnd<i32> for Avx2
         rs
     }
 }
-impl SimdBitAnd<f32> for Avx2
+impl SimdBitAndVector<f32> for Avx2
     where Self: SimdReg<f32> +
                 SimdLanes<f32> +
                 SimdRows<f32> +
                 SimdMask<f32> {
     type Backend = Avx2;
     #[inline]
-    fn bitand<'a,const N: usize>(&self,l: &Vector<'a,f32,N,Self::Backend>,r: &Vector<'a,i32,N,Self::Backend>)
-                                 -> OwnedVector<f32,N> {
+    fn bitand_vector<'a,const N: usize>(&self, l: &Vector<'a,f32,N,Self::Backend>, r: &Vector<'a,i32,N,Self::Backend>)
+                                        -> OwnedVector<f32,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0f32; N]);
@@ -1730,15 +1907,15 @@ impl SimdBitAnd<f32> for Avx2
         rs
     }
 }
-impl SimdBitAnd<f64> for Avx2
+impl SimdBitAndVector<f64> for Avx2
     where Self: SimdReg<f64> +
                 SimdLanes<f64> +
                 SimdRows<f64> +
                 SimdMask<f64> {
     type Backend = Avx2;
     #[inline]
-    fn bitand<'a,const N: usize>(&self,l: &Vector<'a,f64,N,Self::Backend>,r: &Vector<'a,i64,N,Self::Backend>)
-        -> OwnedVector<f64,N> {
+    fn bitand_vector<'a,const N: usize>(&self, l: &Vector<'a,f64,N,Self::Backend>, r: &Vector<'a,i64,N,Self::Backend>)
+                                        -> OwnedVector<f64,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0f64; N]);
@@ -1786,15 +1963,15 @@ impl SimdBitAnd<f64> for Avx2
         rs
     }
 }
-impl SimdBitOr<i8> for Avx2
+impl SimdBitOrVector<i8> for Avx2
     where Self: SimdReg<i8> +
                 SimdLanes<i8> +
                 SimdRows<i8> +
                 SimdMask<i8> {
     type Backend = Avx2;
     #[inline]
-    fn bitor<'a,const N: usize>(&self,l: &Vector<'a,i8,N,Self::Backend>,r: &Vector<'a,i8,N,Self::Backend>)
-                                 -> OwnedVector<i8,N> {
+    fn bitor_vector<'a,const N: usize>(&self, l: &Vector<'a,i8,N,Self::Backend>, r: &Vector<'a,i8,N,Self::Backend>)
+                                       -> OwnedVector<i8,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0i8; N]);
@@ -1840,15 +2017,15 @@ impl SimdBitOr<i8> for Avx2
         rs
     }
 }
-impl SimdBitOr<i16> for Avx2
+impl SimdBitOrVector<i16> for Avx2
     where Self: SimdReg<i16> +
                 SimdLanes<i16> +
                 SimdRows<i16> +
                 SimdMask<i16> {
     type Backend = Avx2;
     #[inline]
-    fn bitor<'a,const N: usize>(&self,l: &Vector<'a,i16,N,Self::Backend>,r: &Vector<'a,i16,N,Self::Backend>)
-                                 -> OwnedVector<i16,N> {
+    fn bitor_vector<'a,const N: usize>(&self, l: &Vector<'a,i16,N,Self::Backend>, r: &Vector<'a,i16,N,Self::Backend>)
+                                       -> OwnedVector<i16,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0i16; N]);
@@ -1894,15 +2071,15 @@ impl SimdBitOr<i16> for Avx2
         rs
     }
 }
-impl SimdBitOr<i32> for Avx2
+impl SimdBitOrVector<i32> for Avx2
     where Self: SimdReg<i32> +
                 SimdLanes<i32> +
                 SimdRows<i32> +
                 SimdMask<i32> {
     type Backend = Avx2;
     #[inline]
-    fn bitor<'a,const N: usize>(&self,l: &Vector<'a,i32,N,Self::Backend>,r: &Vector<'a,i32,N,Self::Backend>)
-                                 -> OwnedVector<i32,N> {
+    fn bitor_vector<'a,const N: usize>(&self, l: &Vector<'a,i32,N,Self::Backend>, r: &Vector<'a,i32,N,Self::Backend>)
+                                       -> OwnedVector<i32,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0i32; N]);
@@ -1948,7 +2125,7 @@ impl SimdBitOr<i32> for Avx2
         rs
     }
 }
-impl SimdBitOr<f32> for Avx2
+impl SimdBitOrVector<f32> for Avx2
     where Self: SimdReg<f32> +
                 SimdLanes<f32> +
                 SimdRows<f32> +
@@ -1956,8 +2133,8 @@ impl SimdBitOr<f32> for Avx2
     type Backend = Avx2;
 
     #[inline]
-    fn bitor<'a,const N: usize>(&self,l: &Vector<'a,f32,N,Self::Backend>,r: &Vector<'a,i32,N,Self::Backend>)
-                                 -> OwnedVector<f32,N> {
+    fn bitor_vector<'a,const N: usize>(&self, l: &Vector<'a,f32,N,Self::Backend>, r: &Vector<'a,i32,N,Self::Backend>)
+                                       -> OwnedVector<f32,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0f32; N]);
@@ -2005,15 +2182,15 @@ impl SimdBitOr<f32> for Avx2
         rs
     }
 }
-impl SimdBitOr<f64> for Avx2
+impl SimdBitOrVector<f64> for Avx2
     where Self: SimdReg<f64> +
                 SimdLanes<f64> +
                 SimdRows<f64> +
                 SimdMask<f64> {
     type Backend = Avx2;
     #[inline]
-    fn bitor<'a,const N: usize>(&self,l: &Vector<'a,f64,N,Self::Backend>,r: &Vector<'a,i64,N,Self::Backend>)
-                                 -> OwnedVector<f64,N> {
+    fn bitor_vector<'a,const N: usize>(&self, l: &Vector<'a,f64,N,Self::Backend>, r: &Vector<'a,i64,N,Self::Backend>)
+                                       -> OwnedVector<f64,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0f64; N]);
@@ -2061,15 +2238,15 @@ impl SimdBitOr<f64> for Avx2
         rs
     }
 }
-impl SimdBitXor<i8> for Avx2
+impl SimdBitXorVector<i8> for Avx2
     where Self: SimdReg<i8> +
                 SimdLanes<i8> +
                 SimdRows<i8> +
                 SimdMask<i8> {
     type Backend = Avx2;
     #[inline]
-    fn bitxor<'a,const N: usize>(&self,l: &Vector<'a,i8,N,Self::Backend>,r: &Vector<'a,i8,N,Self::Backend>)
-                                 -> OwnedVector<i8,N> {
+    fn bitxor_vector<'a,const N: usize>(&self, l: &Vector<'a,i8,N,Self::Backend>, r: &Vector<'a,i8,N,Self::Backend>)
+                                        -> OwnedVector<i8,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0i8; N]);
@@ -2115,15 +2292,15 @@ impl SimdBitXor<i8> for Avx2
         rs
     }
 }
-impl SimdBitXor<i16> for Avx2
+impl SimdBitXorVector<i16> for Avx2
     where Self: SimdReg<i16> +
                 SimdLanes<i16> +
                 SimdRows<i16> +
                 SimdMask<i16> {
     type Backend = Avx2;
     #[inline]
-    fn bitxor<'a,const N: usize>(&self,l: &Vector<'a,i16,N,Self::Backend>,r: &Vector<'a,i16,N,Self::Backend>)
-                                 -> OwnedVector<i16,N> {
+    fn bitxor_vector<'a,const N: usize>(&self, l: &Vector<'a,i16,N,Self::Backend>, r: &Vector<'a,i16,N,Self::Backend>)
+                                        -> OwnedVector<i16,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0i16; N]);
@@ -2169,15 +2346,15 @@ impl SimdBitXor<i16> for Avx2
         rs
     }
 }
-impl SimdBitXor<i32> for Avx2
+impl SimdBitXorVector<i32> for Avx2
     where Self: SimdReg<i32> +
                 SimdLanes<i32> +
                 SimdRows<i32> +
                 SimdMask<i32> {
     type Backend = Avx2;
     #[inline]
-    fn bitxor<'a,const N: usize>(&self,l: &Vector<'a,i32,N,Self::Backend>,r: &Vector<'a,i32,N,Self::Backend>)
-                                 -> OwnedVector<i32,N> {
+    fn bitxor_vector<'a,const N: usize>(&self, l: &Vector<'a,i32,N,Self::Backend>, r: &Vector<'a,i32,N,Self::Backend>)
+                                        -> OwnedVector<i32,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0i32; N]);
@@ -2223,7 +2400,7 @@ impl SimdBitXor<i32> for Avx2
         rs
     }
 }
-impl SimdBitXor<f32> for Avx2
+impl SimdBitXorVector<f32> for Avx2
     where Self: SimdReg<f32> +
                 SimdLanes<f32> +
                 SimdRows<f32> +
@@ -2231,8 +2408,8 @@ impl SimdBitXor<f32> for Avx2
     type Backend = Avx2;
 
     #[inline]
-    fn bitxor<'a,const N: usize>(&self,l: &Vector<'a,f32,N,Self::Backend>,r: &Vector<'a,i32,N,Self::Backend>)
-                                 -> OwnedVector<f32,N> {
+    fn bitxor_vector<'a,const N: usize>(&self, l: &Vector<'a,f32,N,Self::Backend>, r: &Vector<'a,i32,N,Self::Backend>)
+                                        -> OwnedVector<f32,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0f32; N]);
@@ -2280,15 +2457,15 @@ impl SimdBitXor<f32> for Avx2
         rs
     }
 }
-impl SimdBitXor<f64> for Avx2
+impl SimdBitXorVector<f64> for Avx2
     where Self: SimdReg<f64> +
                 SimdLanes<f64> +
                 SimdRows<f64> +
                 SimdMask<f64> {
     type Backend = Avx2;
     #[inline]
-    fn bitxor<'a,const N: usize>(&self,l: &Vector<'a,f64,N,Self::Backend>,r: &Vector<'a,i64,N,Self::Backend>)
-                                 -> OwnedVector<f64,N> {
+    fn bitxor_vector<'a,const N: usize>(&self, l: &Vector<'a,f64,N,Self::Backend>, r: &Vector<'a,i64,N,Self::Backend>)
+                                        -> OwnedVector<f64,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0f64; N]);
@@ -2336,15 +2513,15 @@ impl SimdBitXor<f64> for Avx2
         rs
     }
 }
-impl SimdBitNot<i8> for Avx2
+impl SimdBitNotVector<i8> for Avx2
     where Self: SimdReg<i8> +
                 SimdLanes<i8> +
                 SimdRows<i8> +
                 SimdMask<i8> {
     type Backend = Avx2;
     #[inline]
-    fn bitnot<'a,const N: usize>(&self,v: &Vector<'a,i8,N,Self::Backend>)
-                                 -> OwnedVector<i8,N> {
+    fn bitnot_vector<'a,const N: usize>(&self, v: &Vector<'a,i8,N,Self::Backend>)
+                                        -> OwnedVector<i8,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0i8; N]);
@@ -2389,15 +2566,15 @@ impl SimdBitNot<i8> for Avx2
         rs
     }
 }
-impl SimdBitNot<i16> for Avx2
+impl SimdBitNotVector<i16> for Avx2
     where Self: SimdReg<i16> +
                 SimdLanes<i16> +
                 SimdRows<i16> +
                 SimdMask<i16> {
     type Backend = Avx2;
     #[inline]
-    fn bitnot<'a,const N: usize>(&self,v: &Vector<'a,i16,N,Self::Backend>)
-                                 -> OwnedVector<i16,N> {
+    fn bitnot_vector<'a,const N: usize>(&self, v: &Vector<'a,i16,N,Self::Backend>)
+                                        -> OwnedVector<i16,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0i16; N]);
@@ -2442,15 +2619,15 @@ impl SimdBitNot<i16> for Avx2
         rs
     }
 }
-impl SimdBitNot<i32> for Avx2
+impl SimdBitNotVector<i32> for Avx2
     where Self: SimdReg<i32> +
                 SimdLanes<i32> +
                 SimdRows<i32> +
                 SimdMask<i32> {
     type Backend = Avx2;
     #[inline]
-    fn bitnot<'a,const N: usize>(&self,v: &Vector<'a,i32,N,Self::Backend>)
-                                 -> OwnedVector<i32,N> {
+    fn bitnot_vector<'a,const N: usize>(&self, v: &Vector<'a,i32,N,Self::Backend>)
+                                        -> OwnedVector<i32,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0i32; N]);
@@ -2495,7 +2672,7 @@ impl SimdBitNot<i32> for Avx2
         rs
     }
 }
-impl SimdBitNot<f32> for Avx2
+impl SimdBitNotVector<f32> for Avx2
     where Self: SimdReg<f32> +
                 SimdLanes<f32> +
                 SimdRows<f32> +
@@ -2503,8 +2680,8 @@ impl SimdBitNot<f32> for Avx2
     type Backend = Avx2;
 
     #[inline]
-    fn bitnot<'a,const N: usize>(&self,v: &Vector<'a,f32,N,Self::Backend>)
-                                 -> OwnedVector<f32,N> {
+    fn bitnot_vector<'a,const N: usize>(&self, v: &Vector<'a,f32,N,Self::Backend>)
+                                        -> OwnedVector<f32,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0f32; N]);
@@ -2551,15 +2728,15 @@ impl SimdBitNot<f32> for Avx2
         rs
     }
 }
-impl SimdBitNot<f64> for Avx2
+impl SimdBitNotVector<f64> for Avx2
     where Self: SimdReg<f64> +
                 SimdLanes<f64> +
                 SimdRows<f64> +
                 SimdMask<f64> {
     type Backend = Avx2;
     #[inline]
-    fn bitnot<'a,const N: usize>(&self,v: &Vector<'a,f64,N,Self::Backend>)
-                                 -> OwnedVector<f64,N> {
+    fn bitnot_vector<'a,const N: usize>(&self, v: &Vector<'a,f64,N,Self::Backend>)
+                                        -> OwnedVector<f64,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0f64; N]);
@@ -2606,15 +2783,15 @@ impl SimdBitNot<f64> for Avx2
         rs
     }
 }
-impl SimdShiftLeft<i8> for Avx2
+impl SimdShlVector<i8> for Avx2
     where Self: SimdReg<i8> +
                 SimdLanes<i8> +
                 SimdRows<i8> +
                 SimdMask<i8> {
     type Backend = Avx2;
     #[inline]
-    fn shl<'a,const N: usize>(&self,v: &Vector<'a,i8,N,Self::Backend>,w:usize)
-        -> OwnedVector<i8,N> {
+    fn shl_vector<'a,const N: usize>(&self, v: &Vector<'a,i8,N,Self::Backend>, w:usize)
+                                     -> OwnedVector<i8,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0i8; N]);
@@ -2665,15 +2842,15 @@ impl SimdShiftLeft<i8> for Avx2
         rs
     }
 }
-impl SimdShiftLeft<i16> for Avx2
+impl SimdShlVector<i16> for Avx2
     where Self: SimdReg<i16> +
                 SimdLanes<i16> +
                 SimdRows<i16> +
                 SimdMask<i16> {
     type Backend = Avx2;
     #[inline]
-    fn shl<'a,const N: usize>(&self,v: &Vector<'a,i16,N,Self::Backend>,w:usize)
-        -> OwnedVector<i16,N> {
+    fn shl_vector<'a,const N: usize>(&self, v: &Vector<'a,i16,N,Self::Backend>, w:usize)
+                                     -> OwnedVector<i16,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0i16; N]);
@@ -2721,15 +2898,15 @@ impl SimdShiftLeft<i16> for Avx2
         rs
     }
 }
-impl SimdShiftLeft<i32> for Avx2
+impl SimdShlVector<i32> for Avx2
     where Self: SimdReg<i32> +
                 SimdLanes<i32> +
                 SimdRows<i32> +
                 SimdMask<i32> {
     type Backend = Avx2;
     #[inline]
-    fn shl<'a,const N: usize>(&self,v: &Vector<'a,i32,N,Self::Backend>,w:usize)
-                              -> OwnedVector<i32,N> {
+    fn shl_vector<'a,const N: usize>(&self, v: &Vector<'a,i32,N,Self::Backend>, w:usize)
+                                     -> OwnedVector<i32,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0i32; N]);
@@ -2772,15 +2949,15 @@ impl SimdShiftLeft<i32> for Avx2
         rs
     }
 }
-impl SimdShiftLeft<f32> for Avx2
+impl SimdShlVector<f32> for Avx2
     where Self: SimdReg<f32> +
                 SimdLanes<f32> +
                 SimdRows<f32> +
                 SimdMask<f32> {
     type Backend = Avx2;
     #[inline]
-    fn shl<'a,const N: usize>(&self,v: &Vector<'a,f32,N,Self::Backend>,w:usize)
-                              -> OwnedVector<f32,N> {
+    fn shl_vector<'a,const N: usize>(&self, v: &Vector<'a,f32,N,Self::Backend>, w:usize)
+                                     -> OwnedVector<f32,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0f32; N]);
@@ -2827,15 +3004,15 @@ impl SimdShiftLeft<f32> for Avx2
         rs
     }
 }
-impl SimdShiftLeft<f64> for Avx2
+impl SimdShlVector<f64> for Avx2
     where Self: SimdReg<f64> +
                 SimdLanes<f64> +
                 SimdRows<f64> +
                 SimdMask<f64> {
     type Backend = Avx2;
     #[inline]
-    fn shl<'a,const N: usize>(&self,v: &Vector<'a,f64,N,Self::Backend>,w:usize)
-        -> OwnedVector<f64,N> {
+    fn shl_vector<'a,const N: usize>(&self, v: &Vector<'a,f64,N,Self::Backend>, w:usize)
+                                     -> OwnedVector<f64,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0f64; N]);
@@ -2882,15 +3059,15 @@ impl SimdShiftLeft<f64> for Avx2
         rs
     }
 }
-impl SimdShiftRight<i8> for Avx2
+impl SimdShrVector<i8> for Avx2
     where Self: SimdReg<i8> +
                 SimdLanes<i8> +
                 SimdRows<i8> +
                 SimdMask<i8> {
     type Backend = Avx2;
     #[inline]
-    fn shr<'a,const N: usize>(&self,v: &Vector<'a,i8,N,Self::Backend>,w:usize)
-                              -> OwnedVector<i8,N> {
+    fn shr_vector<'a,const N: usize>(&self, v: &Vector<'a,i8,N,Self::Backend>, w:usize)
+                                     -> OwnedVector<i8,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0i8; N]);
@@ -2941,15 +3118,15 @@ impl SimdShiftRight<i8> for Avx2
         rs
     }
 }
-impl SimdShiftRight<i16> for Avx2
+impl SimdShrVector<i16> for Avx2
     where Self: SimdReg<i16> +
                 SimdLanes<i16> +
                 SimdRows<i16> +
                 SimdMask<i16> {
     type Backend = Avx2;
     #[inline]
-    fn shr<'a,const N: usize>(&self,v: &Vector<'a,i16,N,Self::Backend>,w:usize)
-                              -> OwnedVector<i16,N> {
+    fn shr_vector<'a,const N: usize>(&self, v: &Vector<'a,i16,N,Self::Backend>, w:usize)
+                                     -> OwnedVector<i16,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0i16; N]);
@@ -2997,15 +3174,15 @@ impl SimdShiftRight<i16> for Avx2
         rs
     }
 }
-impl SimdShiftRight<i32> for Avx2
+impl SimdShrVector<i32> for Avx2
     where Self: SimdReg<i32> +
                 SimdLanes<i32> +
                 SimdRows<i32> +
                 SimdMask<i32> {
     type Backend = Avx2;
     #[inline]
-    fn shr<'a,const N: usize>(&self,v: &Vector<'a,i32,N,Self::Backend>,w:usize)
-                              -> OwnedVector<i32,N> {
+    fn shr_vector<'a,const N: usize>(&self, v: &Vector<'a,i32,N,Self::Backend>, w:usize)
+                                     -> OwnedVector<i32,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0i32; N]);
@@ -3048,15 +3225,15 @@ impl SimdShiftRight<i32> for Avx2
         rs
     }
 }
-impl SimdShiftRight<f32> for Avx2
+impl SimdShrVector<f32> for Avx2
     where Self: SimdReg<f32> +
                 SimdLanes<f32> +
                 SimdRows<f32> +
                 SimdMask<f32> {
     type Backend = Avx2;
     #[inline]
-    fn shr<'a,const N: usize>(&self,v: &Vector<'a,f32,N,Self::Backend>,w:usize)
-                              -> OwnedVector<f32,N> {
+    fn shr_vector<'a,const N: usize>(&self, v: &Vector<'a,f32,N,Self::Backend>, w:usize)
+                                     -> OwnedVector<f32,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0f32; N]);
@@ -3103,15 +3280,15 @@ impl SimdShiftRight<f32> for Avx2
         rs
     }
 }
-impl SimdShiftRight<f64> for Avx2
+impl SimdShrVector<f64> for Avx2
     where Self: SimdReg<f64> +
                 SimdLanes<f64> +
                 SimdRows<f64> +
                 SimdMask<f64> {
     type Backend = Avx2;
     #[inline]
-    fn shr<'a,const N: usize>(&self,v: &Vector<'a,f64,N,Self::Backend>,w:usize)
-                              -> OwnedVector<f64,N> {
+    fn shr_vector<'a,const N: usize>(&self, v: &Vector<'a,f64,N,Self::Backend>, w:usize)
+                                     -> OwnedVector<f64,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from([0f64; N]);

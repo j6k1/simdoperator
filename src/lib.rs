@@ -3,7 +3,7 @@
 use std::ops::{Add, BitAnd, BitOr, BitXor, Index, IndexMut, Mul, Not, Shl, Shr, Sub};
 use crate::error::TryFromSliceError;
 use crate::backend::common::{Backend};
-use crate::traits::{Dims, Dot, Product, SimdAdd, SimdBitAnd, SimdBitNot, SimdBitOr, SimdBitXor, SimdDot, SimdMatMul, SimdMatVec, SimdMul, SimdOuterProduct, SimdReg, SimdScalarMul, SimdShiftLeft, SimdShiftRight, SimdSub, SimdVMat, ToColumnMajor, Transpose};
+use crate::traits::{Dims, Dot, Product, SimdAddVector, SimdBitAndVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdDot, SimdMatMul, SimdMatVec, SimdMulVector, SimdOuterProduct, SimdReg, SimdScalarMulVector, SimdShlVector, SimdShrVector, SimdSubVector, SimdVMat, ToColumnMajor, Transpose};
 
 pub mod backend;
 pub mod traits;
@@ -344,142 +344,142 @@ impl<'a,BE: Backend,T,const N: usize,const M: usize> From<&'a ColumnMajorMatrix<
     }
 }
 impl<'a,BE,T,const N: usize> Add<&'a Vector<'a,T,N,BE>> for &'a Vector<'a,T,N,BE>
-    where BE: Backend + SimdAdd<T,T,T,Backend = BE> {
+    where BE: Backend + SimdAddVector<T,T,T,Backend = BE> {
     type Output = OwnedVector<T,N>;
 
     fn add(self, rhs: &'a Vector<'a,T,N,BE>) -> Self::Output {
-        self.backend.add(self, rhs)
+        self.backend.add_vector(self, rhs)
     }
 }
 impl<'a,BE,T,const N: usize> Sub<&'a Vector<'a,T,N,BE>> for &'a Vector<'a,T,N,BE>
-    where BE: Backend + SimdSub<T,T,T,Backend = BE> {
+    where BE: Backend + SimdSubVector<T,T,T,Backend = BE> {
     type Output = OwnedVector<T,N>;
 
     fn sub(self, rhs: &'a Vector<'a,T,N,BE>) -> Self::Output {
-        self.backend.sub(self, rhs)
+        self.backend.sub_vector(self, rhs)
     }
 }
 impl<'a,BE,const N: usize> Mul<&'a Vector<'a,i8,N,BE>> for &'a Vector<'a,i8,N,BE>
-    where BE: Backend + SimdMul<i8,i8,i32,Backend = BE> {
+    where BE: Backend + SimdMulVector<i8,i8,i32,Backend = BE> {
     type Output = OwnedVector<i32,N>;
 
     fn mul(self, rhs: &'a Vector<'a,i8,N,BE>) -> Self::Output {
-        self.backend.mul(self, rhs)
+        self.backend.mul_vector(self, rhs)
     }
 }
 impl<'a,BE,const N: usize> Mul<&'a Vector<'a,i16,N,BE>> for &'a Vector<'a,i8,N,BE>
-    where BE: Backend + SimdMul<i8,i16,i32,Backend = BE> {
+    where BE: Backend + SimdMulVector<i8,i16,i32,Backend = BE> {
     type Output = OwnedVector<i32,N>;
 
     fn mul(self, rhs: &'a Vector<'a,i16,N,BE>) -> Self::Output {
-        self.backend.mul(self, rhs)
+        self.backend.mul_vector(self, rhs)
     }
 }
 impl<'a,BE,const N: usize> Mul<&'a Vector<'a,i16,N,BE>> for &'a Vector<'a,i16,N,BE>
-    where BE: Backend + SimdMul<i16,i16,i32,Backend = BE> {
+    where BE: Backend + SimdMulVector<i16,i16,i32,Backend = BE> {
     type Output = OwnedVector<i32,N>;
 
     fn mul(self, rhs: &'a Vector<'a,i16,N,BE>) -> Self::Output {
-        self.backend.mul(self, rhs)
+        self.backend.mul_vector(self, rhs)
     }
 }
 impl<'a,BE,const N: usize> Mul<&'a Vector<'a,i8,N,BE>> for i8
-    where BE: Backend + SimdScalarMul<i8,i8,i32,Backend = BE> {
+    where BE: Backend + SimdScalarMulVector<i8,i8,i32,Backend = BE> {
     type Output = OwnedVector<i32,N>;
 
     fn mul(self, rhs: &'a Vector<'a,i8,N,BE>) -> Self::Output {
-        rhs.backend.scalarmul(self, rhs)
+        rhs.backend.scalarmul_vector(self, rhs)
     }
 }
 impl<'a,BE,const N: usize> Mul<&'a Vector<'a,i16,N,BE>> for i8
-    where BE: Backend + SimdScalarMul<i8,i16,i32,Backend = BE> {
+    where BE: Backend + SimdScalarMulVector<i8,i16,i32,Backend = BE> {
     type Output = OwnedVector<i32,N>;
 
     fn mul(self, rhs: &'a Vector<'a,i16,N,BE>) -> Self::Output {
-        rhs.backend.scalarmul(self, rhs)
+        rhs.backend.scalarmul_vector(self, rhs)
     }
 }
 impl<'a,BE,const N: usize> Mul<&'a Vector<'a,i16,N,BE>> for i16
-    where BE: Backend + SimdScalarMul<i16,i16,i32,Backend = BE> {
+    where BE: Backend + SimdScalarMulVector<i16,i16,i32,Backend = BE> {
     type Output = OwnedVector<i32,N>;
 
     fn mul(self, rhs: &'a Vector<'a,i16,N,BE>) -> Self::Output {
-        rhs.backend.scalarmul(self, rhs)
+        rhs.backend.scalarmul_vector(self, rhs)
     }
 }
 impl<'a,BE,const N: usize> Mul<&'a Vector<'a,i32,N,BE>> for i32
-    where BE: Backend + SimdScalarMul<i32,i32,i32,Backend = BE> {
+    where BE: Backend + SimdScalarMulVector<i32,i32,i32,Backend = BE> {
     type Output = OwnedVector<i32,N>;
 
     fn mul(self, rhs: &'a Vector<'a,i32,N,BE>) -> Self::Output {
-        rhs.backend.scalarmul(self, rhs)
+        rhs.backend.scalarmul_vector(self, rhs)
     }
 }
 impl<'a,BE,const N: usize> Mul<&'a Vector<'a,f32,N,BE>> for f32
-    where BE: Backend + SimdScalarMul<f32,f32,f32,Backend = BE> {
+    where BE: Backend + SimdScalarMulVector<f32,f32,f32,Backend = BE> {
     type Output = OwnedVector<f32,N>;
 
     fn mul(self, rhs: &'a Vector<'a,f32,N,BE>) -> Self::Output {
-        rhs.backend.scalarmul(self, rhs)
+        rhs.backend.scalarmul_vector(self, rhs)
     }
 }
 impl<'a,BE,const N: usize> Mul<&'a Vector<'a,f64,N,BE>> for f64
-    where BE: Backend + SimdScalarMul<f64,f64,f64,Backend = BE> {
+    where BE: Backend + SimdScalarMulVector<f64,f64,f64,Backend = BE> {
     type Output = OwnedVector<f64,N>;
 
     fn mul(self, rhs: &'a Vector<'a,f64,N,BE>) -> Self::Output {
-        rhs.backend.scalarmul(self, rhs)
+        rhs.backend.scalarmul_vector(self, rhs)
     }
 }
 impl<'a,BE,T,const N: usize> BitXor<&'a Vector<'a,<BE as SimdReg<T>>::Bits,N,BE>> for &'a Vector<'a,T,N,BE>
-    where BE: Backend + SimdReg<T> + SimdBitXor<T,Backend = BE> {
+    where BE: Backend + SimdReg<T> + SimdBitXorVector<T,Backend = BE> {
     type Output = OwnedVector<T,N>;
 
     fn bitxor(self, rhs: &'a Vector<'a,<BE as SimdReg<T>>::Bits,N,BE>) -> Self::Output {
-        self.backend.bitxor(self, rhs)
+        self.backend.bitxor_vector(self, rhs)
     }
 }
 impl<'a,BE,T,const N: usize> BitOr<&'a Vector<'a,<BE as SimdReg<T>>::Bits,N,BE>> for &'a Vector<'a,T,N,BE>
-    where BE: Backend + SimdReg<T> + SimdBitOr<T,Backend = BE> {
+    where BE: Backend + SimdReg<T> + SimdBitOrVector<T,Backend = BE> {
 
     type Output = OwnedVector<T,N>;
 
     fn bitor(self, rhs: &'a Vector<'a,<BE as SimdReg<T>>::Bits,N,BE>) -> Self::Output {
-        self.backend.bitor(self, rhs)
+        self.backend.bitor_vector(self, rhs)
     }
 }
 impl<'a,BE,T,const N: usize> BitAnd<&'a Vector<'a,<BE as SimdReg<T>>::Bits,N,BE>> for &'a Vector<'a,T,N,BE>
-    where BE: Backend + SimdReg<T> + SimdBitAnd<T,Backend = BE> {
+    where BE: Backend + SimdReg<T> + SimdBitAndVector<T,Backend = BE> {
 
     type Output = OwnedVector<T,N>;
 
     fn bitand(self, rhs: &'a Vector<'a,<BE as SimdReg<T>>::Bits,N,BE>) -> Self::Output {
-        self.backend.bitand(self, rhs)
+        self.backend.bitand_vector(self, rhs)
     }
 }
 impl<'a,BE,T,const N: usize> Not for &'a Vector<'a,T,N,BE>
-    where BE: Backend + SimdBitNot<T,Backend = BE> {
+    where BE: Backend + SimdBitNotVector<T,Backend = BE> {
 
     type Output = OwnedVector<T,N>;
 
     fn not(self) -> Self::Output {
-        self.backend.bitnot(self)
+        self.backend.bitnot_vector(self)
     }
 }
 impl<'a,BE,T,const N: usize> Shl<usize> for &'a Vector<'a,T,N,BE>
-    where BE: Backend + SimdShiftLeft<T,Backend = BE> {
+    where BE: Backend + SimdShlVector<T,Backend = BE> {
     type Output = OwnedVector<T,N>;
 
     fn shl(self, rhs: usize) -> Self::Output {
-        self.backend.shl(self, rhs)
+        self.backend.shl_vector(self, rhs)
     }
 }
 impl<'a,BE,T,const N: usize> Shr<usize> for &'a Vector<'a,T,N,BE>
-    where BE: Backend + SimdShiftRight<T,Backend = BE> {
+    where BE: Backend + SimdShrVector<T,Backend = BE> {
     type Output = OwnedVector<T,N>;
 
     fn shr(self, rhs: usize) -> Self::Output {
-        self.backend.shr(self, rhs)
+        self.backend.shr_vector(self, rhs)
     }
 }
 impl<'a,BE,SL,SR,SO,const N: usize> Dot<&'a Vector<'a,SR,N,BE>,SO> for &'a Vector<'a,SL,N,BE>
