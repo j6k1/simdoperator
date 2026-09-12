@@ -16,6 +16,10 @@ pub trait SimdMul<SL,SR,SO>: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> {
     type Output;
     fn mul(&self,l:<Self as SimdReg<SL>>::Reg,r:<Self as SimdReg<SR>>::Reg) -> Self::Output;
 }
+pub trait SimdScalarMul<SS,SO>: SimdReg<SS> + SimdReg<SO> {
+    type Backend: Backend;
+    fn scalarmul(&self,l:SS,r:<Self as SimdReg<SS>>::Reg) -> <Self as SimdReg<SO>>::Reg;
+}
 pub trait SimdAddVector<SL,SR,SO> {
     type Backend: Backend;
     fn add_vector<'a,const N: usize>(&self, l:&Vector<'a,SL,N,Self::Backend>, r:&Vector<'a,SR,N,Self::Backend>) -> OwnedVector<SO,N>;
@@ -156,6 +160,9 @@ pub trait SimdLoad<S>: SimdReg<S> {
 }
 pub trait SimdStore<S>: SimdReg<S> {
     unsafe fn store(&self, ptr: *mut S, reg: Self::Reg);
+}
+pub trait SimdStoreSeq<S,I> {
+    unsafe fn store_seq(&self, ptr: *mut S, reg: I);
 }
 pub trait SimdMask<S>: SimdReg<S> {
 
