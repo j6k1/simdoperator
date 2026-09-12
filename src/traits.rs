@@ -245,3 +245,22 @@ pub trait ToColumnMajor<T,const N: usize, const M: usize> where Self: Dims<N,M> 
 }
 pub trait Dims<const N: usize,const M: usize> {
 }
+pub trait BitsBitAnd {
+    type Bits;
+
+    fn bits_bitand(self,m:Self::Bits) -> Self;
+}
+pub trait BitsBitOr {
+    type Bits;
+
+    fn bits_bitor(self,m:Self::Bits) -> Self;
+}
+pub trait BitsBitXor {
+    type Bits;
+
+    fn bits_bitxor(self,m:Self::Bits) -> Self;
+}
+pub trait BitsBitNot {
+
+    fn bits_bitnot(self) -> Self;
+}

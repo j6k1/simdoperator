@@ -3,7 +3,7 @@
 use std::arch::x86_64::{_mm256_mullo_epi32, _mm256_set1_epi32};
 use std::ops::{Add, Mul, Sub};
 use crate::backend::avx2::Avx2;
-use crate::traits::{SimdAddVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdDot, SimdHSum, SimdMatMul, SimdMatVec, SimdHMax, SimdMulVector, SimdShlVector, SimdShrVector, SimdSubVector, SimdVMat, SimdHMin, SimdMask, SimdScalarMulVector, SimdOuterProduct, SimdLoad, SimdStore, SimdReg, SimdMulAdd, SimdZero, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols};
+use crate::traits::{SimdAddVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdDot, SimdHSum, SimdMatMul, SimdMatVec, SimdHMax, SimdMulVector, SimdShlVector, SimdShrVector, SimdSubVector, SimdVMat, SimdHMin, SimdMask, SimdScalarMulVector, SimdOuterProduct, SimdLoad, SimdStore, SimdReg, SimdMulAdd, SimdZero, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot};
 use crate::{OwnedVector, Vector};
 
 pub trait Backend {
@@ -236,5 +236,170 @@ impl<SL,SR,SO,BE> SimdScalarMulVector<SL,SR,SO> for BE
         }
 
         rs
+    }
+}
+impl BitsBitAnd for i8 {
+    type Bits = i8;
+
+    #[inline(always)]
+    fn bits_bitand(self,m:i8) -> Self {
+        self & m
+    }
+}
+impl BitsBitAnd for i16 {
+    type Bits = i16;
+    #[inline(always)]
+    fn bits_bitand(self,m:i16) -> Self {
+        self & m
+    }
+}
+impl BitsBitAnd for i32 {
+    type Bits = i32;
+    #[inline(always)]
+    fn bits_bitand(self,m:i32) -> Self {
+        self & m
+    }
+}
+impl BitsBitAnd for i64 {
+    type Bits = i64;
+    #[inline(always)]
+    fn bits_bitand(self,m:i64) -> Self {
+        self & m
+    }
+}
+impl BitsBitAnd for f32 {
+    type Bits = u32;
+
+    #[inline(always)]
+    fn bits_bitand(self, m: Self::Bits) -> Self {
+        f32::from_bits(self.to_bits() & m)
+    }
+}
+impl BitsBitAnd for f64 {
+    type Bits = u64;
+    #[inline(always)]
+    fn bits_bitand(self, m: Self::Bits) -> Self {
+        f64::from_bits(self.to_bits() & m)
+    }
+}
+impl BitsBitOr for i8 {
+    type Bits = i8;
+
+    #[inline(always)]
+    fn bits_bitor(self,m:i8) -> Self {
+        self | m
+    }
+}
+impl BitsBitOr for i16 {
+    type Bits = i16;
+    fn bits_bitor(self,m:i16) -> Self {
+        self | m
+    }
+}
+impl BitsBitOr for i32 {
+    type Bits = i32;
+    #[inline(always)]
+    fn bits_bitor(self,m:i32) -> Self {
+        self | m
+    }
+}
+impl BitsBitOr for i64 {
+    type Bits = i64;
+    #[inline(always)]
+    fn bits_bitor(self,m:i64) -> Self {
+        self | m
+    }
+}
+impl BitsBitOr for f32 {
+    type Bits = u32;
+
+    #[inline(always)]
+    fn bits_bitor(self, m: Self::Bits) -> Self {
+        f32::from_bits(self.to_bits() | m)
+    }
+}
+impl BitsBitOr for f64 {
+    type Bits = u64;
+    #[inline(always)]
+    fn bits_bitor(self, m: Self::Bits) -> Self {
+        f64::from_bits(self.to_bits() | m)
+    }
+}
+impl BitsBitXor for i8 {
+    type Bits = i8;
+    #[inline(always)]
+    fn bits_bitxor(self,m:i8) -> Self {
+        self ^ m
+    }
+}
+impl BitsBitXor for i16 {
+    type Bits = i16;
+    #[inline(always)]
+    fn bits_bitxor(self,m:i16) -> Self {
+        self ^ m
+    }
+}
+impl BitsBitXor for i32 {
+    type Bits = i32;
+    #[inline(always)]
+    fn bits_bitxor(self,m:i32) -> Self {
+        self ^ m
+    }
+}
+impl BitsBitXor for i64 {
+    type Bits = i64;
+    #[inline(always)]
+    fn bits_bitxor(self,m:i64) -> Self {
+        self ^ m
+    }
+}
+impl BitsBitXor for f32 {
+    type Bits = u32;
+    #[inline(always)]
+    fn bits_bitxor(self, m: Self::Bits) -> Self {
+        f32::from_bits(self.to_bits() ^ m)
+    }
+}
+impl BitsBitXor for f64 {
+    type Bits = u64;
+    #[inline(always)]
+    fn bits_bitxor(self, m: Self::Bits) -> Self {
+        f64::from_bits(self.to_bits() ^ m)
+    }
+}
+impl BitsBitNot for i8 {
+    #[inline(always)]
+    fn bits_bitnot(self) -> Self {
+        !self
+    }
+}
+impl BitsBitNot for i16 {
+    #[inline(always)]
+    fn bits_bitnot(self) -> Self {
+        !self
+    }
+}
+impl BitsBitNot for i32 {
+    #[inline(always)]
+    fn bits_bitnot(self) -> Self {
+        !self
+    }
+}
+impl BitsBitNot for i64 {
+    #[inline(always)]
+    fn bits_bitnot(self) -> Self {
+        !self
+    }
+}
+impl BitsBitNot for f32 {
+    #[inline(always)]
+    fn bits_bitnot(self) -> Self {
+        f32::from_bits(!self.to_bits())
+    }
+}
+impl BitsBitNot for f64 {
+    #[inline(always)]
+    fn bits_bitnot(self) -> Self {
+        f64::from_bits(!self.to_bits())
     }
 }
