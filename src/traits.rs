@@ -150,7 +150,6 @@ pub trait SimdLanes<S> {
 }
 pub trait SimdRows<S> {
     const ROWS: usize;
-    const ROWS_GEMV: usize;
 }
 pub trait SimdCols<S> {
     const COLS: usize;
