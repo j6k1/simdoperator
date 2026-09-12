@@ -152,6 +152,14 @@ pub trait SimdMask<S>: SimdReg<S> {
     fn mask_zero(&self,m:Self::Mask,a:Self::Reg) -> Self::Reg;
     fn tail_mask(&self,index: usize, total: usize) -> Self::Mask;
 }
+pub trait SimdReinterpret<SS,SD>: SimdReg<SS> + SimdReg<SD> {
+    type Backend: Backend;
+    fn reinterpret(&self,reg:<Self as SimdReg<SS>>::Reg) -> <Self as SimdReg<SD>>::Reg;
+}
+pub trait SimdConvert<SS,SD>: SimdReg<SS> + SimdReg<SD> {
+    type Backend: Backend;
+    fn convert(&self,reg:<Self as SimdReg<SS>>::Reg) -> <Self as SimdReg<SD>>::Reg;
+}
 pub trait SimdMulAdd<SL,SR,SO>: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> {
     type Backend: Backend;
     fn mul_add(&self,l:<Self as SimdReg<SL>>::Reg,r:<Self as SimdReg<SR>>::Reg,acc:<Self as SimdReg<SO>>::Reg) -> <Self as SimdReg<SO>>::Reg;
