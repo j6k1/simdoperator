@@ -1,9 +1,9 @@
 //! Implementation of SIMD Operations Using AVX2
 
-use std::arch::x86_64::{__m128i, __m256, __m256d, __m256i, _mm256_add_epi16, _mm256_add_epi32, _mm256_add_epi8, _mm256_add_pd, _mm256_add_ps, _mm256_and_pd, _mm256_and_ps, _mm256_and_si256, _mm256_andnot_si256, _mm256_blendv_epi8, _mm256_blendv_pd, _mm256_blendv_ps, _mm256_castpd256_pd128, _mm256_castpd_si256, _mm256_castps256_ps128, _mm256_castps_si256, _mm256_castsi256_pd, _mm256_castsi256_ps, _mm256_castsi256_si128, _mm256_cmp_pd, _mm256_cmp_ps, _mm256_cmpeq_epi16, _mm256_cmpeq_epi32, _mm256_cmpeq_epi8, _mm256_cmpgt_epi16, _mm256_cmpgt_epi32, _mm256_cmpgt_epi8, _mm256_cvtepi16_epi32, _mm256_cvtepi32_epi16, _mm256_cvtepi8_epi16, _mm256_cvtepi8_epi32, _mm256_extractf128_pd, _mm256_extractf128_ps, _mm256_extracti128_si256, _mm256_fmadd_pd, _mm256_fmadd_ps, _mm256_inserti128_si256, _mm256_loadu_pd, _mm256_loadu_ps, _mm256_loadu_si256, _mm256_madd_epi16, _mm256_maddubs_epi16, _mm256_mul_epi32, _mm256_mul_pd, _mm256_mul_ps, _mm256_mullo_epi16, _mm256_mullo_epi32, _mm256_or_si256, _mm256_set1_epi16, _mm256_set1_epi32, _mm256_set1_pd, _mm256_set1_ps, _mm256_setzero_pd, _mm256_setzero_ps, _mm256_setzero_si256, _mm256_sll_epi32, _mm256_sll_epi64, _mm256_srl_epi32, _mm256_srl_epi64, _mm256_storeu_pd, _mm256_storeu_ps, _mm256_storeu_si256, _mm256_sub_epi16, _mm256_sub_epi32, _mm256_sub_epi8, _mm256_sub_pd, _mm256_sub_ps, _mm256_unpackhi_epi32, _mm256_unpackhi_ps, _mm256_unpacklo_epi32, _mm256_unpacklo_ps, _mm256_xor_si256, _mm_add_epi32, _mm_add_pd, _mm_add_ps, _mm_add_sd, _mm_add_ss, _mm_cvtepi8_epi16, _mm_cvtsd_f64, _mm_cvtsi128_si32, _mm_cvtss_f32, _mm_loadl_epi64, _mm_loadu_si128, _mm_movehl_ps, _mm_mullo_epi16, _mm_packus_epi16, _mm_set1_epi32, _mm_shuffle_ps, _mm_srli_si128, _mm_storel_epi64, _mm_unpackhi_pd, _CMP_EQ_OQ, _CMP_GT_OQ};
+use std::arch::x86_64::{__m128i, __m256, __m256d, __m256i, _mm256_add_epi16, _mm256_add_epi32, _mm256_add_epi8, _mm256_add_pd, _mm256_add_ps, _mm256_and_pd, _mm256_and_ps, _mm256_and_si256, _mm256_andnot_si256, _mm256_blendv_epi8, _mm256_blendv_pd, _mm256_blendv_ps, _mm256_castpd256_pd128, _mm256_castpd_si256, _mm256_castps256_ps128, _mm256_castps_si256, _mm256_castsi256_pd, _mm256_castsi256_ps, _mm256_castsi256_si128, _mm256_cmp_pd, _mm256_cmp_ps, _mm256_cmpeq_epi16, _mm256_cmpeq_epi32, _mm256_cmpeq_epi8, _mm256_cmpgt_epi16, _mm256_cmpgt_epi32, _mm256_cmpgt_epi8, _mm256_cvtepi16_epi32, _mm256_cvtepi32_epi16, _mm256_cvtepi8_epi16, _mm256_cvtepi8_epi32, _mm256_extractf128_pd, _mm256_extractf128_ps, _mm256_extracti128_si256, _mm256_fmadd_pd, _mm256_fmadd_ps, _mm256_inserti128_si256, _mm256_loadu_pd, _mm256_loadu_ps, _mm256_loadu_si256, _mm256_madd_epi16, _mm256_maddubs_epi16, _mm256_mul_epi32, _mm256_mul_pd, _mm256_mul_ps, _mm256_mullo_epi16, _mm256_mullo_epi32, _mm256_or_si256, _mm256_set1_epi16, _mm256_set1_epi32, _mm256_set1_epi8, _mm256_set1_pd, _mm256_set1_ps, _mm256_setzero_pd, _mm256_setzero_ps, _mm256_setzero_si256, _mm256_sll_epi32, _mm256_sll_epi64, _mm256_srl_epi32, _mm256_srl_epi64, _mm256_storeu_pd, _mm256_storeu_ps, _mm256_storeu_si256, _mm256_sub_epi16, _mm256_sub_epi32, _mm256_sub_epi8, _mm256_sub_pd, _mm256_sub_ps, _mm256_unpackhi_epi32, _mm256_unpackhi_ps, _mm256_unpacklo_epi32, _mm256_unpacklo_ps, _mm256_xor_si256, _mm_add_epi32, _mm_add_pd, _mm_add_ps, _mm_add_sd, _mm_add_ss, _mm_cvtepi8_epi16, _mm_cvtsd_f64, _mm_cvtsi128_si32, _mm_cvtss_f32, _mm_loadl_epi64, _mm_loadu_si128, _mm_movehl_ps, _mm_mullo_epi16, _mm_packus_epi16, _mm_set1_epi16, _mm_set1_epi32, _mm_shuffle_ps, _mm_srli_si128, _mm_storel_epi64, _mm_unpackhi_pd, _CMP_EQ_OQ, _CMP_GT_OQ};
 use std::ops::{Add, AddAssign, Mul};
 use crate::backend::common::Backend;
-use crate::traits::{SimdAddVector, SimdBitAndVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdCols, SimdDot, SimdHSum, SimdLanes, SimdLoad, SimdMask, SimdMatMul, SimdMatVec, SimdMulVector, SimdMulAdd, SimdOuterProduct, SimdPartialDot, SimdReg, SimdRows, SimdScalarMulVector, SimdShlVector, SimdShrVector, SimdStore, SimdSubVector, SimdTranspose, SimdVMat, SimdZero, SimdAdd, SimdSub, SimdMul, SimdPromote, SimdStoreSeq};
+use crate::traits::{SimdAddVector, SimdBitAndVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdCols, SimdDot, SimdHSum, SimdLanes, SimdLoad, SimdMask, SimdMatMul, SimdMatVec, SimdMulVector, SimdMulAdd, SimdOuterProduct, SimdPartialDot, SimdReg, SimdRows, SimdScalarMulVector, SimdShlVector, SimdShrVector, SimdStore, SimdSubVector, SimdTranspose, SimdVMat, SimdZero, SimdAdd, SimdSub, SimdMul, SimdPromote, SimdStoreSeq, SimdScalarMul, SimdSplat};
 use crate::{derive_matmul, matmul_tile, ColumnMajorMatrix, Matrix, MatrixMut, OwnedMatrix, OwnedVector, Vector};
 pub struct Avx2 {
 
@@ -510,6 +510,24 @@ impl SimdSub<f64,f64,f64> for Avx2 where Self: SimdReg<f64> {
         }
     }
 }
+impl SimdMul<i8,i8,i32> for Avx2 where Self: SimdReg<i8> + SimdReg<i32> {
+    type Backend = Avx2;
+    type Output = (<Self as SimdReg<i32>>::Reg,<Self as SimdReg<i32>>::Reg,<Self as SimdReg<i32>>::Reg,<Self as SimdReg<i32>>::Reg);
+
+    #[inline(always)]
+    fn mul(&self, l: <Self as SimdReg<i8>>::Reg, r: <Self as SimdReg<i8>>::Reg)
+           -> (<Self as SimdReg<i32>>::Reg,<Self as SimdReg<i32>>::Reg,<Self as SimdReg<i32>>::Reg,<Self as SimdReg<i32>>::Reg) {
+        unsafe {
+            let (lo,hi) = <Self as SimdPromote<i8,i16>>::promotion(self,l);
+            let (lo_r,hi_r) = <Self as SimdPromote<i8,i16>>::promotion(self,r);
+
+            let (lo32_lo,lo32_hi) = <Self as SimdMul<i16,i16,i32>>::mul(self,lo,lo_r);
+            let (hi32_lo,hi32_hi) = <Self as SimdMul<i16,i16,i32>>::mul(self,hi,hi_r);
+
+            (lo32_lo,lo32_hi,hi32_lo,hi32_hi)
+        }
+    }
+}
 impl SimdMul<i8,i16,i32> for Avx2 where Self: SimdReg<i8> + SimdReg<i16> + SimdReg<i32> {
     type Backend = Avx2;
     type Output = (<Self as SimdReg<i32>>::Reg,<Self as SimdReg<i32>>::Reg,<Self as SimdReg<i32>>::Reg,<Self as SimdReg<i32>>::Reg);
@@ -570,6 +588,67 @@ impl SimdMul<f64,f64,f64> for Avx2 where Self: SimdReg<f64> {
     fn mul(&self, l: <Self as SimdReg<f64>>::Reg, r: <Self as SimdReg<f64>>::Reg) -> <Self as SimdReg<f64>>::Reg {
         unsafe {
             _mm256_mul_pd(l, r)
+        }
+    }
+}
+impl SimdSplat<i8> for Avx2 where Self: SimdReg<i8> {
+    type Backend = Avx2;
+
+    fn splat(&self, v: i8) -> Self::Reg {
+        unsafe {
+            _mm256_set1_epi8(v)
+        }
+    }
+}
+impl SimdSplat<i16> for Avx2 where Self: SimdReg<i16> {
+    type Backend = Avx2;
+
+    fn splat(&self, v: i16) -> Self::Reg {
+        unsafe {
+            _mm256_set1_epi16(v)
+        }
+    }
+}
+impl SimdSplat<i32> for Avx2 where Self: SimdReg<i32> {
+    type Backend = Avx2;
+
+    fn splat(&self, v: i32) -> Self::Reg {
+        unsafe {
+            _mm256_set1_epi32(v)
+        }
+    }
+}
+impl SimdSplat<f32> for Avx2 where Self: SimdReg<f32> {
+    type Backend = Avx2;
+
+    fn splat(&self, v: f32) -> Self::Reg {
+        unsafe {
+            _mm256_set1_ps(v)
+        }
+    }
+}
+impl SimdSplat<f64> for Avx2 where Self: SimdReg<f64> {
+    type Backend = Avx2;
+
+    fn splat(&self, v: f64) -> Self::Reg {
+        unsafe {
+            _mm256_set1_pd(v)
+        }
+    }
+}
+impl<SL,SR,SO> SimdScalarMul<SL,SR,SO> for Avx2
+    where Self: SimdReg<SL> +
+                SimdReg<SR> +
+                SimdReg<SO> +
+                SimdSplat<SL> +
+                SimdMul<SL,SR,SO> {
+    type Backend = Avx2;
+
+    #[inline(always)]
+    fn scalarmul(&self, l: SL, r: <Self as SimdReg<SR>>::Reg) -> <Self as SimdMul<SL,SR,SO>>::Output {
+        unsafe {
+            let splat = <Self as SimdSplat<SL>>::splat(self,l);
+            <Self as SimdMul<SL,SR,SO>>::mul(self,splat,r)
         }
     }
 }

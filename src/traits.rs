@@ -16,10 +16,15 @@ pub trait SimdMul<SL,SR,SO>: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> {
     type Output;
     fn mul(&self,l:<Self as SimdReg<SL>>::Reg,r:<Self as SimdReg<SR>>::Reg) -> Self::Output;
 }
-pub trait SimdScalarMul<SS,SO>: SimdReg<SS> + SimdReg<SO> {
+pub trait SimdScalarMul<SL,SR,SO>: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> + SimdMul<SL,SR,SO> {
     type Backend: Backend;
-    fn scalarmul(&self,l:SS,r:<Self as SimdReg<SS>>::Reg) -> <Self as SimdReg<SO>>::Reg;
+    fn scalarmul(&self,l:SL,r:<Self as SimdReg<SR>>::Reg) -> <Self as SimdMul<SL,SR,SO>>::Output;
 }
+pub trait SimdSplat<S>: SimdReg<S> {
+    type Backend: Backend;
+    fn splat(&self,v:S) -> Self::Reg;
+}
+pub trait SimdSplatVector<S,const N: usize>: SimdReg<S> {}
 pub trait SimdAddVector<SL,SR,SO> {
     type Backend: Backend;
     fn add_vector<'a,const N: usize>(&self, l:&Vector<'a,SL,N,Self::Backend>, r:&Vector<'a,SR,N,Self::Backend>) -> OwnedVector<SO,N>;
