@@ -20,17 +20,23 @@ pub trait SimdScalarMul<SL,SR,SO>: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> + Sim
     type Backend: Backend;
     fn scalarmul(&self,l:SL,r:<Self as SimdReg<SR>>::Reg) -> <Self as SimdMul<SL,SR,SO>>::Output;
 }
-pub trait SimdBitOr<S>: SimdReg<S> {
+pub trait SimdBitOr<S>: SimdReg<S>
+    where S: BitsBitOr,
+          Self: SimdReg<<S as BitsBitOr>::Bits> {
     type Backend: Backend;
-    fn bitor(&self,l:Self::Reg,r:<Self as SimdReg<S>>::Mask) -> Self::Reg;
+    fn bitor(&self,l:<Self as SimdReg<S>>::Reg,r:<Self as SimdReg<<S as BitsBitOr>::Bits>>::Reg) -> <Self as SimdReg<S>>::Reg;
 }
-pub  trait SimdBitAnd<S>: SimdReg<S> {
+pub  trait SimdBitAnd<S>: SimdReg<S>
+    where S: BitsBitAnd,
+          Self: SimdReg<<S as BitsBitAnd>::Bits>{
     type Backend: Backend;
-    fn bitand(&self,l:Self::Reg,r:<Self as SimdReg<S>>::Mask) -> Self::Reg;
+    fn bitand(&self,l:<Self as SimdReg<S>>::Reg,r:<Self as SimdReg<<S as BitsBitAnd>::Bits>>::Reg) -> <Self as SimdReg<S>>::Reg;
 }
-pub trait SimdBitXor<S>: SimdReg<S> {
+pub trait SimdBitXor<S>: SimdReg<S>
+    where S: BitsBitXor,
+          Self: SimdReg<<S as BitsBitXor>::Bits> {
     type Backend: Backend;
-    fn bitxor(&self,l:Self::Reg,r:<Self as SimdReg<S>>::Mask) -> Self::Reg;
+    fn bitxor(&self,l:<Self as SimdReg<S>>::Reg,r:<Self as SimdReg<<S as BitsBitXor>::Bits>>::Reg) -> <Self as SimdReg<S>>::Reg;
 }
 pub trait SimdBitNot<S>: SimdReg<S> {
     type Backend: Backend;
@@ -69,9 +75,11 @@ pub trait SimdBitXorVector<S> where Self: SimdReg<S> {
     type Backend: Backend;
     fn bitxor_vector<'a,const N: usize>(&self, l:&Vector<'a,S,N,Self::Backend>, r:&Vector<'a,<Self as SimdReg<S>>::Bits,N,Self::Backend>) -> OwnedVector<S,N>;
 }
-pub trait SimdBitAndVector<S> where Self: SimdReg<S> {
+pub trait SimdBitAndVector<S>
+    where Self: SimdReg<S> + SimdReg<<S as BitsBitAnd>::Bits>,
+          S: BitsBitAnd {
     type Backend: Backend;
-    fn bitand_vector<'a,const N: usize>(&self, l:&Vector<'a,S,N,Self::Backend>, r:&Vector<'a,<Self as SimdReg<S>>::Bits,N,Self::Backend>) -> OwnedVector<S,N>;
+    fn bitand_vector<'a,const N: usize>(&self, l:&Vector<'a,S,N,Self::Backend>, r:&Vector<'a,<S as BitsBitAnd>::Bits,N,Self::Backend>) -> OwnedVector<S,N>;
 }
 pub trait SimdBitOrVector<S> where Self: SimdReg<S> {
     type Backend: Backend;

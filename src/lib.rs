@@ -3,7 +3,7 @@
 use std::ops::{Add, BitAnd, BitOr, BitXor, Index, IndexMut, Mul, Not, Shl, Shr, Sub};
 use crate::error::TryFromSliceError;
 use crate::backend::common::{Backend};
-use crate::traits::{Dims, Dot, Product, SimdAddVector, SimdBitAndVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdDot, SimdMatMul, SimdMatVec, SimdMulVector, SimdOuterProduct, SimdReg, SimdScalarMulVector, SimdShlVector, SimdShrVector, SimdSubVector, SimdVMat, ToColumnMajor, Transpose};
+use crate::traits::{BitsBitAnd, BitsBitOr, BitsBitXor, Dims, Dot, Product, SimdAddVector, SimdBitAndVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdDot, SimdMatMul, SimdMatVec, SimdMulVector, SimdOuterProduct, SimdReg, SimdScalarMulVector, SimdShlVector, SimdShrVector, SimdSubVector, SimdVMat, ToColumnMajor, Transpose};
 
 pub mod backend;
 pub mod traits;
@@ -431,29 +431,40 @@ impl<'a,BE,const N: usize> Mul<&'a Vector<'a,f64,N,BE>> for f64
         rhs.backend.scalarmul_vector(self, rhs)
     }
 }
-impl<'a,BE,T,const N: usize> BitXor<&'a Vector<'a,<BE as SimdReg<T>>::Bits,N,BE>> for &'a Vector<'a,T,N,BE>
-    where BE: Backend + SimdReg<T> + SimdBitXorVector<T,Backend = BE> {
+impl<'a,BE,T,const N: usize> BitXor<&'a Vector<'a,<T as BitsBitXor>::Bits,N,BE>> for &'a Vector<'a,T,N,BE>
+    where BE: Backend +
+              SimdReg<T,Bits=<T as BitsBitXor>::Bits> +
+              SimdReg<<T as BitsBitXor>::Bits> +
+              SimdBitXorVector<T,Backend=BE>,
+              T: BitsBitXor {
     type Output = OwnedVector<T,N>;
 
-    fn bitxor(self, rhs: &'a Vector<'a,<BE as SimdReg<T>>::Bits,N,BE>) -> Self::Output {
+    fn bitxor(self, rhs: &'a Vector<'a,<T as BitsBitXor>::Bits,N,BE>) -> Self::Output {
         self.backend.bitxor_vector(self, rhs)
     }
 }
 impl<'a,BE,T,const N: usize> BitOr<&'a Vector<'a,<BE as SimdReg<T>>::Bits,N,BE>> for &'a Vector<'a,T,N,BE>
-    where BE: Backend + SimdReg<T> + SimdBitOrVector<T,Backend = BE> {
-
+    where BE: Backend +
+              SimdReg<T,Bits=<T as BitsBitOr>::Bits> +
+              SimdReg<<T as BitsBitOr>::Bits> +
+              SimdBitOrVector<T,Backend=BE>,
+              T: BitsBitOr {
     type Output = OwnedVector<T,N>;
 
-    fn bitor(self, rhs: &'a Vector<'a,<BE as SimdReg<T>>::Bits,N,BE>) -> Self::Output {
+    fn bitor(self, rhs: &'a Vector<'a,<T as BitsBitOr>::Bits,N,BE>) -> Self::Output {
         self.backend.bitor_vector(self, rhs)
     }
 }
 impl<'a,BE,T,const N: usize> BitAnd<&'a Vector<'a,<BE as SimdReg<T>>::Bits,N,BE>> for &'a Vector<'a,T,N,BE>
-    where BE: Backend + SimdReg<T> + SimdBitAndVector<T,Backend = BE> {
+    where BE: Backend +
+              SimdReg<T,Bits=<T as BitsBitAnd>::Bits> +
+              SimdReg<<T as BitsBitAnd>::Bits> +
+              SimdBitAndVector<T,Backend = BE>,
+              T: BitsBitAnd {
 
     type Output = OwnedVector<T,N>;
 
-    fn bitand(self, rhs: &'a Vector<'a,<BE as SimdReg<T>>::Bits,N,BE>) -> Self::Output {
+    fn bitand(self, rhs: &'a Vector<'a,<T as BitsBitAnd>::Bits,N,BE>) -> Self::Output {
         self.backend.bitand_vector(self, rhs)
     }
 }

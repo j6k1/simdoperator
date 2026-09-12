@@ -1,9 +1,9 @@
 //! Common Backend Implementation
 
-use std::arch::x86_64::{_mm256_mullo_epi32, _mm256_set1_epi32};
+use std::arch::x86_64::{_mm256_and_si256, _mm256_mullo_epi32, _mm256_set1_epi32};
 use std::ops::{Add, Mul, Sub};
 use crate::backend::avx2::Avx2;
-use crate::traits::{SimdAddVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdDot, SimdHSum, SimdMatMul, SimdMatVec, SimdHMax, SimdMulVector, SimdShlVector, SimdShrVector, SimdSubVector, SimdVMat, SimdHMin, SimdMask, SimdScalarMulVector, SimdOuterProduct, SimdLoad, SimdStore, SimdReg, SimdMulAdd, SimdZero, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot};
+use crate::traits::{SimdAddVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdDot, SimdHSum, SimdMatMul, SimdMatVec, SimdHMax, SimdMulVector, SimdShlVector, SimdShrVector, SimdSubVector, SimdVMat, SimdHMin, SimdMask, SimdScalarMulVector, SimdOuterProduct, SimdLoad, SimdStore, SimdReg, SimdMulAdd, SimdZero, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot};
 use crate::{OwnedVector, Vector};
 
 pub trait Backend {
@@ -32,30 +32,15 @@ impl<T,BE> SimdAddVector<T,T,T> for BE
             let pb = r.as_ref().as_ptr();
             let po = rs.as_mut().as_mut_ptr();
 
-            while i + <Self as SimdLanes<T>>::LANES * <Self as SimdRows<T>>::ROWS <= N {
-                for j in 0..<Self as SimdRows<T>>::ROWS {
-                    let ra = self.load(pa.add(i + j * <Self as SimdLanes<T>>::LANES));
-                    let rb = self.load(pb.add(i + j * <Self as SimdLanes<T>>::LANES));
+            while i + <Self as SimdLanes<T>>::LANES <= N {
+                let ra = self.load(pa.add(i));
+                let rb = self.load(pb.add(i));
 
-                    let rr = self.add(ra,rb);
+                let rr = self.add(ra,rb);
 
-                    self.store(po.add(i + j * <Self as SimdLanes<T>>::LANES),rr);
+                self.store(po.add(i),rr);
 
-                    i += <Self as SimdLanes<T>>::LANES * <Self as SimdRows<T>>::ROWS;
-                }
-            }
-
-            if N % (<Self as SimdLanes<T>>::LANES * <Self as SimdRows<T>>::ROWS) != 0 {
-                while i + <Self as SimdLanes<T>>::LANES <= N {
-                    let ra = self.load(pa.add(i));
-                    let rb = self.load(pb.add(i));
-
-                    let rr = self.add(ra,rb);
-
-                    self.store(po.add(i),rr);
-
-                    i += <Self as SimdLanes<T>>::LANES;
-                }
+                i += <Self as SimdLanes<T>>::LANES;
             }
 
             if N % <Self as SimdLanes<T>>::LANES != 0 {
@@ -91,30 +76,15 @@ impl<T,BE> SimdSubVector<T,T,T> for BE
             let pb = r.as_ref().as_ptr();
             let po = rs.as_mut().as_mut_ptr();
 
-            while i + <Self as SimdLanes<T>>::LANES * <Self as SimdRows<T>>::ROWS <= N {
-                for j in 0..<Self as SimdRows<T>>::ROWS {
-                    let ra = self.load(pa.add(i + j * <Self as SimdLanes<T>>::LANES));
-                    let rb = self.load(pb.add(i + j * <Self as SimdLanes<T>>::LANES));
+            while i + <Self as SimdLanes<T>>::LANES <= N {
+                let ra = self.load(pa.add(i));
+                let rb = self.load(pb.add(i));
 
-                    let rr = self.sub(ra,rb);
+                let rr = self.sub(ra,rb);
 
-                    self.store(po.add(i + j * <Self as SimdLanes<T>>::LANES),rr);
+                self.store(po.add(i),rr);
 
-                    i += <Self as SimdLanes<T>>::LANES * <Self as SimdRows<T>>::ROWS;
-                }
-            }
-
-            if N % (<Self as SimdLanes<T>>::LANES * <Self as SimdRows<T>>::ROWS) != 0 {
-                while i + <Self as SimdLanes<T>>::LANES <= N {
-                    let ra = self.load(pa.add(i));
-                    let rb = self.load(pb.add(i));
-
-                    let rr = self.sub(ra,rb);
-
-                    self.store(po.add(i),rr);
-
-                    i += <Self as SimdLanes<T>>::LANES;
-                }
+                i += <Self as SimdLanes<T>>::LANES;
             }
 
             if N % <Self as SimdLanes<T>>::LANES != 0 {
@@ -231,6 +201,189 @@ impl<SL,SR,SO,BE> SimdScalarMulVector<SL,SR,SO> for BE
             if N % <Self as SimdLanes<SL>>::LANES != 0 {
                 for j in i..N {
                     rs[j] = l * r[j];
+                }
+            }
+        }
+
+        rs
+    }
+}
+impl<T,BE> SimdBitAndVector<T> for BE
+    where BE: Backend +
+              SimdReg<T,Bits=<T as BitsBitAnd>::Bits> +
+              SimdReg<<T as BitsBitAnd>::Bits> +
+              SimdLoad<T> +
+              SimdLoad<<T as BitsBitAnd>::Bits> +
+              SimdStore<T> +
+              SimdLanes<T> +
+              SimdRows<T> +
+              SimdMask<T> +
+              SimdBitAnd<T> +,
+              T: BitsBitAnd + Default + Copy,
+              <T as BitsBitAnd>::Bits: Copy {
+    type Backend = BE;
+    #[inline]
+    fn bitand_vector<'a,const N: usize>(&self, l: &Vector<'a,T,N,Self::Backend>, r: &Vector<'a,<T as BitsBitAnd>::Bits,N,Self::Backend>)
+        -> OwnedVector<T,N> {
+        let mut i = 0;
+
+        let mut rs = OwnedVector::from([T::default(); N]);
+
+        unsafe {
+            let pa = l.as_ref().as_ptr();
+            let pb = r.as_ref().as_ptr();
+            let po = rs.as_mut().as_mut_ptr();
+
+            while i + <Self as SimdLanes<T>>::LANES <= N {
+                let ra = self.load(pa.add(i));
+                let rb = self.load(pb.add(i));
+
+                let rr = self.bitand(ra,rb);
+
+                self.store(po.add(i),rr);
+
+                i += <Self as SimdLanes<T>>::LANES;
+            }
+
+            if N % <Self as SimdLanes<T>>::LANES != 0 {
+                for j in i..N {
+                    rs[j] = l[j].bits_bitand(r[j]);
+                }
+            }
+        }
+
+        rs
+    }
+}
+impl<T,BE> SimdBitOrVector<T> for BE
+    where BE: Backend +
+              SimdReg<T,Bits=<T as BitsBitOr>::Bits> +
+              SimdReg<<T as BitsBitOr>::Bits,Reg=<Self as SimdReg<<T as BitsBitOr>::Bits>>::Mask> +
+              SimdLoad<T> +
+              SimdLoad<<Self as SimdReg<T>>::Bits> +
+              SimdStore<T> +
+              SimdLanes<T> +
+              SimdRows<T> +
+              SimdMask<T> +
+              SimdBitOr<T>,
+              T: BitsBitOr + Default + Copy,
+              <T as BitsBitOr>::Bits: Copy {
+    type Backend = BE;
+    #[inline]
+    fn bitor_vector<'a,const N: usize>(&self, l: &Vector<'a,T,N,Self::Backend>, r: &Vector<'a,<T as BitsBitOr>::Bits,N,Self::Backend>)
+                                        -> OwnedVector<T,N> {
+        let mut i = 0;
+
+        let mut rs = OwnedVector::from([T::default(); N]);
+
+        unsafe {
+            let pa = l.as_ref().as_ptr();
+            let pb = r.as_ref().as_ptr();
+            let po = rs.as_mut().as_mut_ptr();
+
+            while i + <Self as SimdLanes<T>>::LANES <= N {
+                let ra = self.load(pa.add(i));
+                let rb = self.load(pb.add(i));
+
+                let rr = self.bitor(ra,rb);
+
+                self.store(po.add(i),rr);
+
+                i += <Self as SimdLanes<T>>::LANES;
+            }
+
+            if N % <Self as SimdLanes<T>>::LANES != 0 {
+                for j in i..N {
+                    rs[j] = l[j].bits_bitor(r[j]);
+                }
+            }
+        }
+
+        rs
+    }
+}
+impl<T,BE> SimdBitXorVector<T> for BE
+    where BE: Backend +
+              SimdReg<T,Bits=<T as BitsBitXor>::Bits> +
+              SimdReg<<T as BitsBitXor>::Bits,Reg=<Self as SimdReg<<T as BitsBitXor>::Bits>>::Mask> +
+              SimdLoad<T> +
+              SimdLoad<<Self as SimdReg<T>>::Bits> +
+              SimdStore<T> +
+              SimdLanes<T> +
+              SimdRows<T> +
+              SimdMask<T> +
+              SimdBitXor<T>,
+              T: BitsBitXor + Default + Copy,
+              <T as BitsBitXor>::Bits: Copy {
+    type Backend = BE;
+    #[inline]
+    fn bitxor_vector<'a,const N: usize>(&self, l: &Vector<'a,T,N,Self::Backend>, r: &Vector<'a,<T as BitsBitXor>::Bits,N,Self::Backend>)
+                                       -> OwnedVector<T,N> {
+        let mut i = 0;
+
+        let mut rs = OwnedVector::from([T::default(); N]);
+
+        unsafe {
+            let pa = l.as_ref().as_ptr();
+            let pb = r.as_ref().as_ptr();
+            let po = rs.as_mut().as_mut_ptr();
+
+            while i + <Self as SimdLanes<T>>::LANES <= N {
+                let ra = self.load(pa.add(i));
+                let rb = self.load(pb.add(i));
+
+                let rr = self.bitxor(ra,rb);
+
+                self.store(po.add(i),rr);
+
+                i += <Self as SimdLanes<T>>::LANES;
+            }
+
+            if N % <Self as SimdLanes<T>>::LANES != 0 {
+                for j in i..N {
+                    rs[j] = l[j].bits_bitxor(r[j]);
+                }
+            }
+        }
+
+        rs
+    }
+}
+impl<T,BE> SimdBitNotVector<T> for BE
+    where BE: Backend +
+              SimdReg<T> +
+              SimdLoad<T> +
+              SimdStore<T> +
+              SimdLanes<T> +
+              SimdRows<T> +
+              SimdMask<T> +
+              SimdBitNot<T>,
+              T: BitsBitNot + Default + Copy {
+    type Backend = BE;
+    #[inline]
+    fn bitnot_vector<'a,const N: usize>(&self, l: &Vector<'a,T,N,Self::Backend>)
+        -> OwnedVector<T,N> {
+        let mut i = 0;
+
+        let mut rs = OwnedVector::from([T::default(); N]);
+
+        unsafe {
+            let pa = l.as_ref().as_ptr();
+            let po = rs.as_mut().as_mut_ptr();
+
+            while i + <Self as SimdLanes<T>>::LANES <= N {
+                let ra = self.load(pa.add(i));
+
+                let rr = self.bitnot(ra);
+
+                self.store(po.add(i),rr);
+
+                i += <Self as SimdLanes<T>>::LANES;
+            }
+
+            if N % <Self as SimdLanes<T>>::LANES != 0 {
+                for j in i..N {
+                    rs[j] = l[j].bits_bitnot();
                 }
             }
         }
