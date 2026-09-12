@@ -22,15 +22,15 @@ pub trait SimdScalarMul<SL,SR,SO>: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> + Sim
 }
 pub trait SimdBitOr<S>: SimdReg<S> {
     type Backend: Backend;
-    fn bitor(&self,v:Self::Reg) -> Self::Reg;
+    fn bitor(&self,l:Self::Reg,r:<Self as SimdReg<S>>::Mask) -> Self::Reg;
 }
 pub  trait SimdBitAnd<S>: SimdReg<S> {
     type Backend: Backend;
-    fn bitand(&self,v:Self::Reg) -> Self::Reg;
+    fn bitand(&self,l:Self::Reg,r:<Self as SimdReg<S>>::Mask) -> Self::Reg;
 }
 pub trait SimdBitXor<S>: SimdReg<S> {
     type Backend: Backend;
-    fn bitxor(&self,v:Self::Reg) -> Self::Reg;
+    fn bitxor(&self,l:Self::Reg,r:<Self as SimdReg<S>>::Mask) -> Self::Reg;
 }
 pub trait SimdBitNot<S>: SimdReg<S> {
     type Backend: Backend;
@@ -38,11 +38,11 @@ pub trait SimdBitNot<S>: SimdReg<S> {
 }
 pub trait SimdShl<S>: SimdReg<S> {
     type Backend: Backend;
-    fn shl(&self,v:Self::Reg) -> Self::Reg;
+    fn shl(&self,v:Self::Reg,w:usize) -> Self::Reg;
 }
 pub trait SimdShr<S>: SimdReg<S> {
     type Backend: Backend;
-    fn shr(&self,v:Self::Reg) -> Self::Reg;
+    fn shr(&self,v:Self::Reg,w:usize) -> Self::Reg;
 }
 pub trait SimdSplat<S>: SimdReg<S> {
     type Backend: Backend;

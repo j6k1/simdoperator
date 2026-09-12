@@ -1,9 +1,9 @@
 //! Implementation of SIMD Operations Using AVX2
 
-use std::arch::x86_64::{__m128i, __m256, __m256d, __m256i, _mm256_add_epi16, _mm256_add_epi32, _mm256_add_epi8, _mm256_add_pd, _mm256_add_ps, _mm256_and_pd, _mm256_and_ps, _mm256_and_si256, _mm256_andnot_si256, _mm256_blendv_epi8, _mm256_blendv_pd, _mm256_blendv_ps, _mm256_castpd256_pd128, _mm256_castpd_si256, _mm256_castps256_ps128, _mm256_castps_si256, _mm256_castsi256_pd, _mm256_castsi256_ps, _mm256_castsi256_si128, _mm256_cmp_pd, _mm256_cmp_ps, _mm256_cmpeq_epi16, _mm256_cmpeq_epi32, _mm256_cmpeq_epi8, _mm256_cmpgt_epi16, _mm256_cmpgt_epi32, _mm256_cmpgt_epi8, _mm256_cvtepi16_epi32, _mm256_cvtepi32_epi16, _mm256_cvtepi8_epi16, _mm256_cvtepi8_epi32, _mm256_extractf128_pd, _mm256_extractf128_ps, _mm256_extracti128_si256, _mm256_fmadd_pd, _mm256_fmadd_ps, _mm256_inserti128_si256, _mm256_loadu_pd, _mm256_loadu_ps, _mm256_loadu_si256, _mm256_madd_epi16, _mm256_maddubs_epi16, _mm256_mul_epi32, _mm256_mul_pd, _mm256_mul_ps, _mm256_mullo_epi16, _mm256_mullo_epi32, _mm256_or_si256, _mm256_set1_epi16, _mm256_set1_epi32, _mm256_set1_epi8, _mm256_set1_pd, _mm256_set1_ps, _mm256_setzero_pd, _mm256_setzero_ps, _mm256_setzero_si256, _mm256_sll_epi32, _mm256_sll_epi64, _mm256_srl_epi32, _mm256_srl_epi64, _mm256_storeu_pd, _mm256_storeu_ps, _mm256_storeu_si256, _mm256_sub_epi16, _mm256_sub_epi32, _mm256_sub_epi8, _mm256_sub_pd, _mm256_sub_ps, _mm256_unpackhi_epi32, _mm256_unpackhi_ps, _mm256_unpacklo_epi32, _mm256_unpacklo_ps, _mm256_xor_si256, _mm_add_epi32, _mm_add_pd, _mm_add_ps, _mm_add_sd, _mm_add_ss, _mm_cvtepi8_epi16, _mm_cvtsd_f64, _mm_cvtsi128_si32, _mm_cvtss_f32, _mm_loadl_epi64, _mm_loadu_si128, _mm_movehl_ps, _mm_packus_epi16, _mm_set1_epi32, _mm_shuffle_ps, _mm_srli_si128, _mm_storel_epi64, _mm_unpackhi_pd, _CMP_EQ_OQ, _CMP_GT_OQ};
+use std::arch::x86_64::{__m128i, __m256, __m256d, __m256i, _mm256_add_epi16, _mm256_add_epi32, _mm256_add_epi8, _mm256_add_pd, _mm256_add_ps, _mm256_and_pd, _mm256_and_ps, _mm256_and_si256, _mm256_andnot_si256, _mm256_blendv_epi8, _mm256_blendv_pd, _mm256_blendv_ps, _mm256_castpd256_pd128, _mm256_castpd_si256, _mm256_castps256_ps128, _mm256_castps_si256, _mm256_castsi256_pd, _mm256_castsi256_ps, _mm256_castsi256_si128, _mm256_cmp_pd, _mm256_cmp_ps, _mm256_cmpeq_epi16, _mm256_cmpeq_epi32, _mm256_cmpeq_epi8, _mm256_cmpgt_epi16, _mm256_cmpgt_epi32, _mm256_cmpgt_epi8, _mm256_cvtepi16_epi32, _mm256_cvtepi32_epi16, _mm256_cvtepi8_epi16, _mm256_extractf128_pd, _mm256_extractf128_ps, _mm256_extracti128_si256, _mm256_fmadd_pd, _mm256_fmadd_ps, _mm256_inserti128_si256, _mm256_loadu_pd, _mm256_loadu_ps, _mm256_loadu_si256, _mm256_madd_epi16, _mm256_maddubs_epi16, _mm256_mul_epi32, _mm256_mul_pd, _mm256_mul_ps, _mm256_mullo_epi16, _mm256_mullo_epi32, _mm256_or_si256, _mm256_set1_epi16, _mm256_set1_epi32, _mm256_set1_epi8, _mm256_set1_pd, _mm256_set1_ps, _mm256_setzero_pd, _mm256_setzero_ps, _mm256_setzero_si256, _mm256_sll_epi32, _mm256_sll_epi64, _mm256_srl_epi32, _mm256_srl_epi64, _mm256_storeu_pd, _mm256_storeu_ps, _mm256_storeu_si256, _mm256_sub_epi16, _mm256_sub_epi32, _mm256_sub_epi8, _mm256_sub_pd, _mm256_sub_ps, _mm256_unpackhi_epi32, _mm256_unpackhi_ps, _mm256_unpacklo_epi32, _mm256_unpacklo_ps, _mm256_xor_si256, _mm_add_epi32, _mm_add_pd, _mm_add_ps, _mm_add_sd, _mm_add_ss, _mm_cvtepi8_epi16, _mm_cvtsd_f64, _mm_cvtsi128_si32, _mm_cvtss_f32, _mm_loadl_epi64, _mm_movehl_ps, _mm_packus_epi16, _mm_set1_epi32, _mm_shuffle_ps, _mm_srli_si128, _mm_storel_epi64, _mm_unpackhi_pd, _CMP_EQ_OQ, _CMP_GT_OQ};
 use std::ops::{Add, AddAssign, Mul};
 use crate::backend::common::{Backend};
-use crate::traits::{SimdAddVector, SimdBitAndVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdCols, SimdDot, SimdHSum, SimdLanes, SimdLoad, SimdMask, SimdMatMul, SimdMatVec, SimdMulVector, SimdMulAdd, SimdOuterProduct, SimdPartialDot, SimdReg, SimdRows, SimdScalarMulVector, SimdShlVector, SimdShrVector, SimdStore, SimdSubVector, SimdTranspose, SimdVMat, SimdZero, SimdAdd, SimdSub, SimdMul, SimdPromote, SimdStoreSeq, SimdScalarMul, SimdSplat};
+use crate::traits::{SimdBitAndVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdCols, SimdDot, SimdHSum, SimdLanes, SimdLoad, SimdMask, SimdMatMul, SimdMatVec, SimdMulAdd, SimdOuterProduct, SimdPartialDot, SimdReg, SimdRows, SimdShlVector, SimdShrVector, SimdStore, SimdTranspose, SimdVMat, SimdZero, SimdAdd, SimdSub, SimdMul, SimdPromote, SimdStoreSeq, SimdScalarMul, SimdSplat, SimdBitOr, SimdBitAnd, SimdReinterpret, SimdBitXor, SimdBitNot};
 use crate::{derive_matmul, matmul_tile, ColumnMajorMatrix, Matrix, MatrixMut, OwnedMatrix, OwnedVector, Vector};
 pub struct Avx2 {
 
@@ -642,55 +642,249 @@ impl<SL,SR,SO> SimdScalarMul<SL,SR,SO> for Avx2
         <Self as SimdMul<SL,SR,SO>>::mul(self,splat,r)
     }
 }
-impl SimdScalarMulVector<i32,i32,i32> for Avx2
-    where Self: SimdReg<i32> +
-                SimdLanes<i32> +
-                SimdRows<i32> +
-                SimdMask<i32> {
+impl SimdReinterpret<f32,i32> for Avx2 where Self: SimdReg<i32> {
     type Backend = Avx2;
-    #[inline]
-    fn scalarmul_vector<'a, const N: usize>(&self, l:i32, r: &Vector<'a, i32, N, Self::Backend>) -> OwnedVector<i32, N> {
-        let mut i = 0;
 
-        let mut rs = OwnedVector::from([0i32; N]);
-
+    fn reinterpret(&self, reg: <Self as SimdReg<f32>>::Reg) -> <Self as SimdReg<i32>>::Reg {
         unsafe {
-            let s32 = _mm256_set1_epi32(l);
-            let pb = r.as_ref().as_ptr();
-            let po = rs.as_mut().as_mut_ptr();
-
-            while i + <Self as SimdLanes<i32>>::LANES * <Self as SimdRows<i32>>::ROWS <= N {
-                for j in 0..<Self as SimdRows<i32>>::ROWS {
-                    let v32 = self.load(pb.add(i + j * <Self as SimdLanes<i32>>::LANES));
-
-                    let o = _mm256_mullo_epi32(s32,v32);
-
-                    self.store(po.add(i + j * <Self as SimdLanes<i32>>::LANES),o);
-
-                    i += <Self as SimdLanes<i32>>::LANES * <Self as SimdRows<i32>>::ROWS;
-                }
-            }
-
-            if N % (<Self as SimdLanes<i32>>::LANES * <Self as SimdRows<i32>>::ROWS) != 0 {
-                while i + <Self as SimdLanes<i32>>::LANES <= N {
-                    let v32 = self.load(pb.add(i));
-
-                    let o = _mm256_mullo_epi32(s32,v32);
-
-                    self.store(po.add(i),o);
-
-                    i += <Self as SimdLanes<i32>>::LANES;
-                }
-            }
-
-            if N % <Self as SimdLanes<i32>>::LANES != 0 {
-                for j in i..N {
-                    rs[j] = l * r[j];
-                }
-            }
+            _mm256_castps_si256(reg)
         }
+    }
+}
+impl SimdReinterpret<f64,i64> for Avx2 where Self: SimdReg<i64> {
+    type Backend = Avx2;
 
-        rs
+    fn reinterpret(&self, reg: <Self as SimdReg<f64>>::Reg) -> <Self as SimdReg<i64>>::Reg {
+        unsafe {
+            _mm256_castpd_si256(reg)
+        }
+    }
+}
+impl SimdReinterpret<i32,f32> for Avx2 where Self: SimdReg<f32> {
+    type Backend = Avx2;
+
+    fn reinterpret(&self, reg: <Self as SimdReg<i32>>::Reg) -> <Self as SimdReg<f32>>::Reg {
+        unsafe {
+            _mm256_castsi256_ps(reg)
+        }
+    }
+}
+impl SimdReinterpret<i64,f64> for Avx2 where Self: SimdReg<f64> {
+    type Backend = Avx2;
+
+    fn reinterpret(&self, reg: <Self as SimdReg<i64>>::Reg) -> <Self as SimdReg<f64>>::Reg {
+        unsafe {
+            _mm256_castsi256_pd(reg)
+        }
+    }
+}
+impl SimdBitAnd<i8> for Avx2 where Self: SimdReg<i8> {
+    type Backend = Avx2;
+    #[inline(always)]
+    fn bitand(&self, l: <Self as SimdReg<i8>>::Reg, r: <Self as SimdReg<i8>>::Mask) -> <Self as SimdReg<i8>>::Reg {
+        unsafe {
+            _mm256_and_si256(l, r)
+        }
+    }
+}
+impl SimdBitAnd<i16> for Avx2 where Self: SimdReg<i16> {
+    type Backend = Avx2;
+    #[inline(always)]
+    fn bitand(&self, l: <Self as SimdReg<i16>>::Reg, r: <Self as SimdReg<i16>>::Mask) -> <Self as SimdReg<i16>>::Reg {
+        unsafe {
+            _mm256_and_si256(l, r)
+        }
+    }
+}
+impl SimdBitAnd<i32> for Avx2 where Self: SimdReg<i32> {
+    type Backend = Avx2;
+    #[inline(always)]
+    fn bitand(&self, l: <Self as SimdReg<i32>>::Reg, r: <Self as SimdReg<i32>>::Mask) -> <Self as SimdReg<i32>>::Reg {
+        unsafe {
+            _mm256_and_si256(l, r)
+        }
+    }
+}
+impl SimdBitAnd<f32> for Avx2 where Self: SimdReg<f32> {
+    type Backend = Avx2;
+    #[inline(always)]
+    fn bitand(&self, l: <Self as SimdReg<f32>>::Reg, r: <Self as SimdReg<f32>>::Mask) -> <Self as SimdReg<f32>>::Reg {
+        unsafe {
+            let lr = <Self as SimdReinterpret<f32,i32>>::reinterpret(self,l);
+            let lcr = _mm256_and_si256(lr, r);
+
+            <Self as SimdReinterpret<i32,f32>>::reinterpret(self,lcr)
+        }
+    }
+}
+impl SimdBitAnd<f64> for Avx2 where Self: SimdReg<f64> {
+    type Backend = Avx2;
+    #[inline(always)]
+    fn bitand(&self, l: <Self as SimdReg<f64>>::Reg, r: <Self as SimdReg<f32>>::Mask) -> <Self as SimdReg<f64>>::Reg {
+        unsafe {
+            let lr = <Self as SimdReinterpret<f64,i64>>::reinterpret(self,l);
+            let lcr = _mm256_and_si256(lr, r);
+
+            <Self as SimdReinterpret<i64,f64>>::reinterpret(self,lcr)
+        }
+    }
+}
+impl SimdBitOr<i8> for Avx2 where Self: SimdReg<i8> {
+    type Backend = Avx2;
+    #[inline(always)]
+    fn bitor(&self, l: <Self as SimdReg<i8>>::Reg, r: <Self as SimdReg<i8>>::Mask) -> <Self as SimdReg<i8>>::Reg {
+        unsafe {
+            _mm256_or_si256(l, r)
+        }
+    }
+}
+impl SimdBitOr<i16> for Avx2 where Self: SimdReg<i16> {
+    type Backend = Avx2;
+    #[inline(always)]
+    fn bitor(&self, l: <Self as SimdReg<i16>>::Reg, r: <Self as SimdReg<i16>>::Mask) -> <Self as SimdReg<i16>>::Reg {
+        unsafe {
+            _mm256_or_si256(l, r)
+        }
+    }
+}
+impl SimdBitOr<i32> for Avx2 where Self: SimdReg<i32> {
+    type Backend = Avx2;
+    #[inline(always)]
+    fn bitor(&self, l: <Self as SimdReg<i32>>::Reg, r: <Self as SimdReg<i32>>::Mask) -> <Self as SimdReg<i32>>::Reg {
+        unsafe {
+            _mm256_or_si256(l, r)
+        }
+    }
+}
+impl SimdBitOr<f32> for Avx2 where Self: SimdReg<f32> {
+    type Backend = Avx2;
+    #[inline(always)]
+    fn bitor(&self, l: <Self as SimdReg<f32>>::Reg, r: <Self as SimdReg<f32>>::Mask) -> <Self as SimdReg<f32>>::Reg {
+        unsafe {
+            let lr = <Self as SimdReinterpret<f32,i32>>::reinterpret(self,l);
+            let lcr = _mm256_or_si256(lr, r);
+
+            <Self as SimdReinterpret<i32,f32>>::reinterpret(self,lcr)
+        }
+    }
+}
+impl SimdBitOr<f64> for Avx2 where Self: SimdReg<f64> {
+    type Backend = Avx2;
+    #[inline(always)]
+    fn bitor(&self, l: <Self as SimdReg<f64>>::Reg, r: <Self as SimdReg<f32>>::Mask) -> <Self as SimdReg<f64>>::Reg {
+        unsafe {
+            let lr = <Self as SimdReinterpret<f64,i64>>::reinterpret(self,l);
+            let lcr = _mm256_or_si256(lr, r);
+
+            <Self as SimdReinterpret<i64,f64>>::reinterpret(self,lcr)
+        }
+    }
+}
+impl SimdBitXor<i8> for Avx2 where Self: SimdReg<i8> {
+    type Backend = Avx2;
+    #[inline(always)]
+    fn bitxor(&self, l: <Self as SimdReg<i8>>::Reg, r: <Self as SimdReg<i8>>::Mask) -> <Self as SimdReg<i8>>::Reg {
+        unsafe {
+            _mm256_xor_si256(l, r)
+        }
+    }
+}
+impl SimdBitXor<i16> for Avx2 where Self: SimdReg<i16> {
+    type Backend = Avx2;
+    #[inline(always)]
+    fn bitxor(&self, l: <Self as SimdReg<i16>>::Reg, r: <Self as SimdReg<i16>>::Mask) -> <Self as SimdReg<i16>>::Reg {
+        unsafe {
+            _mm256_xor_si256(l, r)
+        }
+    }
+}
+impl SimdBitXor<i32> for Avx2 where Self: SimdReg<i32> {
+    type Backend = Avx2;
+    #[inline(always)]
+    fn bitxor(&self, l: <Self as SimdReg<i32>>::Reg, r: <Self as SimdReg<i32>>::Mask) -> <Self as SimdReg<i32>>::Reg {
+        unsafe {
+            _mm256_xor_si256(l, r)
+        }
+    }
+}
+impl SimdBitXor<f32> for Avx2 where Self: SimdReg<f32> {
+    type Backend = Avx2;
+    #[inline(always)]
+    fn bitxor(&self, l: <Self as SimdReg<f32>>::Reg, r: <Self as SimdReg<f32>>::Mask) -> <Self as SimdReg<f32>>::Reg {
+        unsafe {
+            let lr = <Self as SimdReinterpret<f32,i32>>::reinterpret(self,l);
+            let lcr = _mm256_xor_si256(lr, r);
+
+            <Self as SimdReinterpret<i32,f32>>::reinterpret(self,lcr)
+        }
+    }
+}
+impl SimdBitXor<f64> for Avx2 where Self: SimdReg<f64> {
+    type Backend = Avx2;
+    #[inline(always)]
+    fn bitxor(&self, l: <Self as SimdReg<f64>>::Reg, r: <Self as SimdReg<f64>>::Mask) -> <Self as SimdReg<f64>>::Reg {
+        unsafe {
+            let lr = <Self as SimdReinterpret<f64,i64>>::reinterpret(self,l);
+            let lcr = _mm256_xor_si256(lr, r);
+
+            <Self as SimdReinterpret<i64,f64>>::reinterpret(self,lcr)
+        }
+    }
+}
+impl SimdBitNot<i8> for Avx2 where Self: SimdReg<i8> {
+    type Backend = Avx2;
+    #[inline(always)]
+    fn bitnot(&self, v: <Self as SimdReg<i8>>::Reg) -> <Self as SimdReg<i8>>::Reg {
+        unsafe {
+            let mask = _mm256_set1_epi32(-1);
+            _mm256_andnot_si256(v, mask)
+        }
+    }
+}
+impl SimdBitNot<i16> for Avx2 where Self: SimdReg<i16> {
+    type Backend = Avx2;
+    #[inline(always)]
+    fn bitnot(&self, v: <Self as SimdReg<i16>>::Reg) -> <Self as SimdReg<i16>>::Reg {
+        unsafe {
+            let mask = _mm256_set1_epi32(-1);
+            _mm256_andnot_si256(v, mask)
+        }
+    }
+}
+impl SimdBitNot<i32> for Avx2 where Self: SimdReg<i32> {
+    type Backend = Avx2;
+    #[inline(always)]
+    fn bitnot(&self, v: <Self as SimdReg<i32>>::Reg) -> <Self as SimdReg<i32>>::Reg {
+        unsafe {
+            let mask = _mm256_set1_epi32(-1);
+            _mm256_andnot_si256(v, mask)
+        }
+    }
+}
+impl SimdBitNot<f32> for Avx2 where Self: SimdReg<f32> {
+    type Backend = Avx2;
+    #[inline(always)]
+    fn bitnot(&self, v: <Self as SimdReg<f32>>::Reg) -> <Self as SimdReg<f32>>::Reg {
+        unsafe {
+            let vr = <Self as SimdReinterpret<f32,i32>>::reinterpret(self,v);
+            let mask = _mm256_set1_epi32(-1);
+            let vcr = _mm256_andnot_si256(vr, mask);
+
+            <Self as SimdReinterpret<i32,f32>>::reinterpret(self,vcr)
+        }
+    }
+}
+impl SimdBitNot<f64> for Avx2 where Self: SimdReg<f64> {
+    type Backend = Avx2;
+    #[inline(always)]
+    fn bitnot(&self, v: <Self as SimdReg<f64>>::Reg) -> <Self as SimdReg<f64>>::Reg {
+        unsafe {
+            let vr = <Self as SimdReinterpret<f64,i64>>::reinterpret(self,v);
+            let mask = _mm256_set1_epi32(-1);
+            let vcr = _mm256_andnot_si256(vr, mask);
+
+            <Self as SimdReinterpret<i64,f64>>::reinterpret(self,vcr)
+        }
     }
 }
 impl SimdBitAndVector<i8> for Avx2

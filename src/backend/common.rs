@@ -3,7 +3,7 @@
 use std::arch::x86_64::{_mm256_mullo_epi32, _mm256_set1_epi32};
 use std::ops::{Add, Mul, Sub};
 use crate::backend::avx2::Avx2;
-use crate::traits::{SimdAddVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdDot, SimdHSum, SimdMatMul, SimdMatVec, SimdHMax, SimdMulVector, SimdShlVector, SimdShrVector, SimdSubVector, SimdVMat, SimdHMin, SimdMask, SimdScalarMulVector, SimdOuterProduct, SimdLoad, SimdStore, SimdReg, SimdMulAdd, SimdZero, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat};
+use crate::traits::{SimdAddVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdDot, SimdHSum, SimdMatMul, SimdMatVec, SimdHMax, SimdMulVector, SimdShlVector, SimdShrVector, SimdSubVector, SimdVMat, SimdHMin, SimdMask, SimdScalarMulVector, SimdOuterProduct, SimdLoad, SimdStore, SimdReg, SimdMulAdd, SimdZero, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols};
 use crate::{OwnedVector, Vector};
 
 pub trait Backend {
@@ -182,7 +182,7 @@ impl<SL,SR,SO,BE> SimdScalarMulVector<SL,SR,SO> for BE
               SimdReg<SR> +
               SimdReg<SO> +
               SimdLanes<SL> +
-              SimdRows<SL> +
+              SimdCols<SL> +
               SimdMul<SL,SR,SO> +
               SimdSplat<SL> +
               SimdLoad<SR> +
@@ -204,8 +204,8 @@ impl<SL,SR,SO,BE> SimdScalarMulVector<SL,SR,SO> for BE
             let pb = r.as_ref().as_ptr();
             let po = rs.as_mut().as_mut_ptr();
 
-            while i + <Self as SimdLanes<SL>>::LANES * <Self as SimdRows<SL>>::ROWS <= N {
-                for j in 0..<Self as SimdRows<SL>>::ROWS {
+            while i + <Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS <= N {
+                for j in 0..<Self as SimdCols<SL>>::COLS {
                     let rr = self.load(pb.add(i + j * <Self as SimdLanes<SL>>::LANES));
 
                     let o = self.mul(s,rr);
@@ -213,10 +213,10 @@ impl<SL,SR,SO,BE> SimdScalarMulVector<SL,SR,SO> for BE
                     self.store_seq(po.add(i + j * <Self as SimdLanes<SL>>::LANES),o);
                 }
 
-                i += <Self as SimdLanes<SL>>::LANES * <Self as SimdRows<SL>>::ROWS;
+                i += <Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS;
             }
 
-            if N % (<Self as SimdLanes<SL>>::LANES * <Self as SimdRows<SL>>::ROWS) != 0 {
+            if N % (<Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS) != 0 {
                 while i + <Self as SimdLanes<SL>>::LANES <= N {
                     let rr = self.load(pb.add(i));
 
