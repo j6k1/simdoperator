@@ -254,7 +254,8 @@ impl<SL,SR,SO,BE> SimdScalarMulVector<SL,SR,SO> for BE
               SO: Default + Copy,
               SL: Mul<SR,Output=SO> + Copy,
               SR: Copy,
-              <Self as SimdReg<SL>>::Reg: Copy {
+              <Self as SimdReg<SL>>::Reg: Copy,
+              (SL,SO): SupportMul<Heterogeneous> {
     type Backend = BE;
     #[inline]
     fn scalarmul_vector<'a, const N: usize>(&self, l:SL, r: &Vector<'a, SR, N, Self::Backend>) -> OwnedVector<SO, N> {
@@ -286,6 +287,69 @@ impl<SL,SR,SO,BE> SimdScalarMulVector<SL,SR,SO> for BE
                     let o = self.mul(s,rr);
 
                     self.store_seq(po.add(i),o);
+
+                    i += <Self as SimdLanes<SL>>::LANES;
+                }
+            }
+
+            if N % <Self as SimdLanes<SL>>::LANES != 0 {
+                for j in i..N {
+                    rs[j] = l * r[j];
+                }
+            }
+        }
+
+        rs
+    }
+}
+impl<SL,SR,SO,BE> SimdScalarMulVector<SL,SR,SO> for BE
+    where BE: Backend +
+              SimdReg<SL> +
+              SimdReg<SR> +
+              SimdReg<SO> +
+              SimdLanes<SL> +
+              SimdCols<SL> +
+              SimdMul<SL,SR,SO,Output=<Self as SimdReg<SO>>::Reg> +
+              SimdSplat<SL> +
+              SimdLoad<SR> +
+              SimdStore<SO> +
+              SimdStore<SO>,
+          SO: Default + Copy,
+          SL: Mul<SR,Output=SO> + Copy,
+          SR: Copy,
+          <Self as SimdReg<SL>>::Reg: Copy,
+          (SL,SO): SupportMul<Homogeneous> {
+    type Backend = BE;
+    #[inline]
+    fn scalarmul_vector<'a, const N: usize>(&self, l:SL, r: &Vector<'a, SR, N, Self::Backend>) -> OwnedVector<SO, N> {
+        let mut i = 0;
+
+        let mut rs = OwnedVector::from(Box::new([SO::default(); N]));
+
+        unsafe {
+            let s = self.splat(l);
+            let pb = r.as_ref().as_ptr();
+            let po = rs.as_mut().as_mut_ptr();
+
+            while i + <Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS <= N {
+                for j in 0..<Self as SimdCols<SL>>::COLS {
+                    let rr = self.load(pb.add(i + j * <Self as SimdLanes<SL>>::LANES));
+
+                    let o = self.mul(s,rr);
+
+                    self.store(po.add(i + j * <Self as SimdLanes<SL>>::LANES),o);
+                }
+
+                i += <Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS;
+            }
+
+            if N % (<Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS) != 0 {
+                while i + <Self as SimdLanes<SL>>::LANES <= N {
+                    let rr = self.load(pb.add(i));
+
+                    let o = self.mul(s,rr);
+
+                    self.store(po.add(i),o);
 
                     i += <Self as SimdLanes<SL>>::LANES;
                 }
