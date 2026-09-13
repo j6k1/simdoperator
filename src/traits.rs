@@ -272,3 +272,9 @@ pub trait BitsBitNot {
 
     fn bits_bitnot(self) -> Self;
 }
+pub trait BitsShl {
+    fn bits_shl(self,w:usize) -> Self;
+}
+pub trait BitsShr {
+    fn bits_shr(self,w:usize) -> Self;
+}

@@ -1,8 +1,10 @@
 //! Common Backend Implementation
 
+use std::arch::x86_64::{__m128i, _mm256_cvtepi16_epi32, _mm256_cvtepi32_epi16, _mm256_sll_epi32, _mm_cvtepi8_epi16, _mm_loadl_epi64, _mm_packus_epi16, _mm_set1_epi32, _mm_storel_epi64};
 use std::ops::{Add, Mul, Sub};
-use crate::traits::{SimdAddVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot};
+use crate::traits::{SimdAddVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr};
 use crate::{OwnedVector, Vector};
+use crate::backend::avx2::Avx2;
 
 pub trait Backend {
     fn new() -> Self;
@@ -389,6 +391,84 @@ impl<T,BE> SimdBitNotVector<T> for BE
         rs
     }
 }
+impl<T,BE> SimdShlVector<T> for BE
+    where BE: Backend +
+              SimdReg<T> +
+              SimdLoad<T> +
+              SimdStore<T> +
+              SimdShl<T> +
+              SimdLanes<T>,
+              T: BitsShl + Default + Copy {
+    type Backend = BE;
+    #[inline]
+    fn shl_vector<'a,const N: usize>(&self, v: &Vector<'a,T,N,Self::Backend>, w:usize)
+                                     -> OwnedVector<T,N> {
+        let mut i = 0;
+
+        let mut rs = OwnedVector::from([T::default(); N]);
+
+        unsafe {
+            let pa = v.as_ref().as_ptr();
+            let po = rs.as_mut().as_mut_ptr();
+
+            while i + <Self as SimdLanes<T>>::LANES <= N {
+                let vr = self.load(pa.add(i));
+                let rr = self.shl(vr,w);
+
+                self.store(po.add(i),rr);
+
+                i += <Self as SimdLanes<T>>::LANES;
+            }
+
+            if N % <Self as SimdLanes<T>>::LANES != 0 {
+                for j in i..N {
+                    rs[j] = rs[j].bits_shl(w);
+                }
+            }
+        }
+
+        rs
+    }
+}
+impl<T,BE> SimdShrVector<T> for BE
+    where BE: Backend +
+              SimdReg<T> +
+              SimdLoad<T> +
+              SimdStore<T> +
+              SimdShr<T> +
+              SimdLanes<T>,
+              T: BitsShr + Default + Copy {
+    type Backend = BE;
+    #[inline]
+    fn shr_vector<'a,const N: usize>(&self, v: &Vector<'a,T,N,Self::Backend>, w:usize)
+                                     -> OwnedVector<T,N> {
+        let mut i = 0;
+
+        let mut rs = OwnedVector::from([T::default(); N]);
+
+        unsafe {
+            let pa = v.as_ref().as_ptr();
+            let po = rs.as_mut().as_mut_ptr();
+
+            while i + <Self as SimdLanes<T>>::LANES <= N {
+                let vr = self.load(pa.add(i));
+                let rr = self.shr(vr,w);
+
+                self.store(po.add(i),rr);
+
+                i += <Self as SimdLanes<T>>::LANES;
+            }
+
+            if N % <Self as SimdLanes<T>>::LANES != 0 {
+                for j in i..N {
+                    rs[j] = rs[j].bits_shr(w);
+                }
+            }
+        }
+
+        rs
+    }
+}
 impl BitsBitAnd for i8 {
     type Bits = i8;
 
@@ -552,5 +632,53 @@ impl BitsBitNot for f64 {
     #[inline(always)]
     fn bits_bitnot(self) -> Self {
         f64::from_bits(!self.to_bits())
+    }
+}
+impl BitsShl for i16 {
+    #[inline(always)]
+    fn bits_shl(self,w:usize) -> Self {
+        self << w as i16
+    }
+}
+impl BitsShl for i32 {
+    #[inline(always)]
+    fn bits_shl(self,w:usize) -> Self {
+        self << w as i32
+    }
+}
+impl BitsShl for f32 {
+    #[inline(always)]
+    fn bits_shl(self,w:usize) -> Self {
+        f32::from_bits(self.to_bits() << w as u32)
+    }
+}
+impl BitsShl for f64 {
+    #[inline(always)]
+    fn bits_shl(self,w:usize) -> Self {
+        f64::from_bits(self.to_bits() << w as u64)
+    }
+}
+impl BitsShr for i16 {
+    #[inline(always)]
+    fn bits_shr(self,w:usize) -> Self {
+        self >> w as i16
+    }
+}
+impl BitsShr for i32 {
+    #[inline(always)]
+    fn bits_shr(self,w:usize) -> Self {
+        self >> w as i32
+    }
+}
+impl BitsShr for f32 {
+    #[inline(always)]
+    fn bits_shr(self,w:usize) -> Self {
+        f32::from_bits(self.to_bits() >> w as u32)
+    }
+}
+impl BitsShr for f64 {
+    #[inline(always)]
+    fn bits_shr(self,w:usize) -> Self {
+        f64::from_bits(self.to_bits() >> w as u64)
     }
 }
