@@ -1,7 +1,7 @@
 //! Common Backend Implementation
 
 use std::ops::{Add, Mul, Sub};
-use crate::traits::{SimdAddVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert};
+use crate::traits::{SimdAddVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportMul};
 use crate::{OwnedVector, Vector};
 
 pub trait Backend {
@@ -151,11 +151,11 @@ impl<SL,SR,SO,BE> SimdMulVector<SL,SR,SO> for BE
               SimdMul<SL,SR,SO> +
               SimdLoad<SL> +
               SimdLoad<SR> +
-              SimdStoreSeq<SO,<Self as SimdMul<SL,SR,SO>>::Output> +
-              SimdStore<SO>,
+              SimdStoreSeq<SO,<Self as SimdMul<SL,SR,SO>>::Output>,
               SO: Default + Copy,
               SL: Mul<SR,Output=SO> + Copy,
-              SR: Copy {
+              SR: Copy,
+              (SL,SO): SupportMul<Heterogeneous> {
     type Backend = BE;
     #[inline]
     fn mul_vector<'a,const N: usize>(&self, l: &Vector<'a,SL,N,Self::Backend>, r: &Vector<'a,SR,N,Self::Backend>)
@@ -176,6 +176,55 @@ impl<SL,SR,SO,BE> SimdMulVector<SL,SR,SO> for BE
                 let prod = self.mul(ra,rb);
 
                 self.store_seq(po.add(i),prod);
+
+                i += <Self as SimdLanes<SL>>::LANES;
+            }
+
+            if N % <Self as SimdLanes<SL>>::LANES != 0 {
+                for j in i..N {
+                    rs[j] = l[j] * r[j];
+                }
+            }
+        }
+
+        rs
+    }
+}
+impl<SL,SR,SO,BE> SimdMulVector<SL,SR,SO> for BE
+    where BE: Backend +
+              SimdReg<SL> +
+              SimdReg<SR> +
+              SimdReg<SO> +
+              SimdLanes<SL> +
+              SimdRows<SL> +
+              SimdMul<SL,SR,SO,Output=<Self as SimdReg<SO>>::Reg> +
+              SimdLoad<SL> +
+              SimdLoad<SR> +
+              SimdStore<SO>,
+              SO: Default + Copy,
+              SL: Mul<SR,Output=SO> + Copy,
+              SR: Copy,
+              (SL,SO): SupportMul<Homogeneous> {
+    type Backend = BE;
+    #[inline]
+    fn mul_vector<'a,const N: usize>(&self, l: &Vector<'a,SL,N,Self::Backend>, r: &Vector<'a,SR,N,Self::Backend>)
+                                     -> OwnedVector<SO,N> {
+        let mut i = 0;
+
+        let mut rs = OwnedVector::from(Box::new([SO::default(); N]));
+
+        unsafe {
+            let pa = l.as_ref().as_ptr();
+            let pb = r.as_ref().as_ptr();
+            let po = rs.as_mut().as_mut_ptr();
+
+            while i + <Self as SimdLanes<SL>>::LANES <= N {
+                let ra = self.load(pa.add(i));
+                let rb = self.load(pb.add(i));
+
+                let prod = self.mul(ra,rb);
+
+                self.store(po.add(i),prod);
 
                 i += <Self as SimdLanes<SL>>::LANES;
             }
@@ -957,3 +1006,8 @@ impl Assume<i16> for i32 {
         self as i16
     }
 }
+pub enum Homogeneous {}
+pub enum Heterogeneous {}
+impl SupportMul<Heterogeneous> for (i8,i32) {}
+impl SupportMul<Heterogeneous> for (i16,i32) {}
+impl<T> SupportMul<Homogeneous> for (T,T) {}

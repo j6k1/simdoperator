@@ -251,6 +251,7 @@ pub trait SimdPartialDot<SL,SR,SO>: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> {
 pub trait SimdZero<S>: SimdReg<S> {
     fn zero() -> <Self as SimdReg<S>>::Reg;
 }
+pub trait SupportMul<K> {}
 pub trait Dot<R,O> {
     fn dot(&self,r:R) -> O;
 }
