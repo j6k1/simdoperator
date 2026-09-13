@@ -412,7 +412,7 @@ impl SimdPromote<i16,i32> for Avx2 where Self: SimdReg<i16> + SimdReg<i32>{
 }
 impl SimdDemote<i32,i16> for Avx2 where Self: SimdReg<i32> + SimdReg<i16> {
     type Backend = Avx2;
-    type Output = <Self as SimdReg<i16>>::Reg;
+    type Output = (<Self as SimdReg<i16>>::Reg,);
 
     fn demotion(&self, reg: <Self as SimdReg<i32>>::Reg) -> Self::Output {
         unsafe {
@@ -422,13 +422,13 @@ impl SimdDemote<i32,i16> for Avx2 where Self: SimdReg<i32> + SimdReg<i16> {
             let hi = _mm256_extracti128_si256(reg, 1);
             let hi16 = _mm_packs_epi32(hi, hi);
 
-            _mm256_set_m128i(hi16, lo16)
+            (_mm256_set_m128i(hi16, lo16),)
         }
     }
 }
 impl SimdDemote<i16,i8> for Avx2 where Self: SimdReg<i16> + SimdReg<i8> {
     type Backend = Avx2;
-    type Output = <Self as SimdReg<i8>>::Reg;
+    type Output = (<Self as SimdReg<i8>>::Reg,);
     fn demotion(&self, reg: <Self as SimdReg<i16>>::Reg) -> Self::Output {
         unsafe {
             let lo = _mm256_castsi256_si128(reg);
@@ -437,7 +437,7 @@ impl SimdDemote<i16,i8> for Avx2 where Self: SimdReg<i16> + SimdReg<i8> {
             let lo8 = _mm_packs_epi16(lo, lo);
             let hi8 = _mm_packs_epi16(hi, hi);
 
-            _mm256_set_m128i(hi8, lo8)
+            (_mm256_set_m128i(hi8, lo8),)
         }
     }
 }
@@ -462,11 +462,11 @@ impl SimdConvert<i16,f32> for Avx2 where Self: SimdReg<i16> + SimdReg<f32> {
 }
 impl SimdConvert<i32,f32> for Avx2 where Self: SimdReg<i32> + SimdReg<f32> {
     type Backend = Avx2;
-    type Output = <Self as SimdReg<f32>>::Reg;
+    type Output = (<Self as SimdReg<f32>>::Reg,);
 
     fn convert(&self, reg: <Self as SimdReg<i32>>::Reg) -> Self::Output {
         unsafe {
-            _mm256_cvtepi32_ps(reg)
+            (_mm256_cvtepi32_ps(reg),)
         }
     }
 }

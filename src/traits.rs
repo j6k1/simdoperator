@@ -197,6 +197,7 @@ pub trait SimdLoad<S>: SimdReg<S> {
 pub trait SimdStore<S>: SimdReg<S> {
     unsafe fn store(&self, ptr: *mut S, reg: Self::Reg);
 }
+
 pub trait SimdStoreSeq<S,I> {
     unsafe fn store_seq(&self, ptr: *mut S, reg: I);
 }
