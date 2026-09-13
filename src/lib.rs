@@ -1,5 +1,6 @@
 //! Trait and data type features for abstracting SIMD operations
 
+use std::marker::PhantomData;
 use std::ops::{Add, BitAnd, BitOr, BitXor, Index, IndexMut, Mul, Not, Shl, Shr, Sub};
 use crate::error::TryFromSliceError;
 use crate::backend::common::{Backend};
@@ -286,7 +287,7 @@ impl<'a,BE: Backend,T,const N: usize,const M: usize> ColumnMajorMatrix<'a,T,N,M,
 }
 pub struct ColumnMajorMatrix<'a,T,const N: usize,const M: usize,BE: Backend> {
     data: &'a [T],
-    backend: BE
+    be: PhantomData<BE>
 }
 impl<'a,BE: Backend,T,const N: usize,const M: usize> Dims<N,M> for ColumnMajorMatrix<'a,T,N,M,BE> {}
 impl<'a,BE: Backend,T,const N: usize,const M: usize> TryFrom<&'a [T]> for ColumnMajorMatrix<'a,T,M,N,BE> {
@@ -299,7 +300,7 @@ impl<'a,BE: Backend,T,const N: usize,const M: usize> TryFrom<&'a [T]> for Column
         } else {
             Ok(ColumnMajorMatrix {
                 data: value,
-                backend: BE::new()
+                be: PhantomData::<BE>
             })
         }
     }
@@ -308,7 +309,7 @@ impl<'a,BE: Backend,T,const M: usize> From<&'a Vector<'a,T,M,BE>> for ColumnMajo
     fn from(value: &'a Vector<'a, T, M, BE>) -> Self {
         ColumnMajorMatrix {
             data: value.data,
-            backend: BE::new()
+            be: PhantomData::<BE>
         }
     }
 }
@@ -330,7 +331,7 @@ impl<'a,BE: Backend,T,const N: usize,const M: usize> From<&'a OwnedColumnMajorMa
     fn from(value: &'a OwnedColumnMajorMatrix<T,N,M>) -> Self {
         ColumnMajorMatrix {
             data: &value.data,
-            backend: BE::new()
+            be: PhantomData::<BE>
         }
     }
 }
