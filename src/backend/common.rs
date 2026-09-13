@@ -1,6 +1,5 @@
 //! Common Backend Implementation
 
-use std::arch::x86_64::{__m128i, _mm256_cvtepi16_epi32, _mm256_cvtepi32_epi16, _mm256_sll_epi32, _mm_cvtepi8_epi16, _mm_loadl_epi64, _mm_packus_epi16, _mm_set1_epi32, _mm_storel_epi64};
 use std::ops::{Add, Mul, Sub};
 use crate::traits::{SimdAddVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr};
 use crate::{OwnedVector, Vector};
@@ -8,6 +7,37 @@ use crate::backend::avx2::Avx2;
 
 pub trait Backend {
     fn new() -> Self;
+}
+impl<T,BE> SimdStoreSeq<T,(<Self as SimdReg<T>>::Reg,<Self as SimdReg<T>>::Reg,<Self as SimdReg<T>>::Reg,<Self as SimdReg<T>>::Reg)> for BE
+    where BE: Backend +
+              SimdLanes<T> +
+              SimdReg<T> +
+              SimdStore<T> {
+    #[inline(always)]
+    unsafe fn store_seq(&self, ptr: *mut T, (a,b,c,d): (<Self as SimdReg<T>>::Reg,<Self as SimdReg<T>>::Reg,<Self as SimdReg<T>>::Reg,<Self as SimdReg<T>>::Reg)) {
+        unsafe {
+            self.store(ptr, a);
+            self.store(ptr.add(1 * <Self as SimdLanes<T>>::LANES),b);
+            self.store(ptr.add(2 * <Self as SimdLanes<T>>::LANES), c);
+            self.store(ptr.add(3 * <Self as SimdLanes<T>>::LANES),d);
+        }
+    }
+}
+impl<T,BE> SimdStoreSeq<T,(<Self as SimdReg<T>>::Reg,<Self as SimdReg<T>>::Reg)> for BE
+    where BE: Backend +
+              SimdLanes<T> +
+              SimdReg<T> +
+              SimdStore<T> +
+              SimdLanes<T> +
+              SimdReg<T> +
+              SimdStore<T> {
+    #[inline(always)]
+    unsafe fn store_seq(&self, ptr: *mut T, (a,b): (<Self as SimdReg<T>>::Reg,<Self as SimdReg<T>>::Reg)) {
+        unsafe {
+            self.store(ptr, a);
+            self.store(ptr.add(1 * <Self as SimdLanes<T>>::LANES),b);
+        }
+    }
 }
 impl<T,BE> SimdAddVector<T,T,T> for BE
     where BE: Backend +

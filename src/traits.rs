@@ -217,6 +217,19 @@ pub trait SimdPromote<SS,SD>: SimdReg<SS> + SimdReg<SD> {
     type Output;
     fn promotion(&self, reg:<Self as SimdReg<SS>>::Reg) -> Self::Output;
 }
+pub trait SimdDemote<SS,SD>: SimdReg<SS> + SimdReg<SD> {
+    type Backend: Backend;
+    type Output;
+    fn demotion(&self, reg:<Self as SimdReg<SS>>::Reg) -> Self::Output;
+}
+pub trait SimdConvert<SS,SD>: SimdReg<SS> + SimdReg<SD> {
+    type Backend: Backend;
+    type Output;
+    fn convert(&self,reg:<Self as SimdReg<SS>>::Reg) -> Self::Output;
+}
+pub trait SimdConvertMask<SS,SD>: SimdReg<SS> + SimdReg<SD> {
+}
+pub trait SimdNeg<S>: SimdReg<S> {}
 pub trait SimdMulAdd<SL,SR,SO>: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> {
     type Backend: Backend;
     fn mul_add(&self,l:<Self as SimdReg<SL>>::Reg,r:<Self as SimdReg<SR>>::Reg,acc:<Self as SimdReg<SO>>::Reg) -> <Self as SimdReg<SO>>::Reg;
