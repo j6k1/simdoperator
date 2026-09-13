@@ -66,15 +66,15 @@ impl<'a,BE: Backend,T,const N: usize> Vector<'a,T,N,BE> {
     }
 }
 pub struct OwnedVector<T,const N: usize> {
-    data: [T; N]
+    data: Box<[T; N]>
 }
-impl<T,const N: usize> From<OwnedVector<T,N>> for [T;N] {
+impl<T,const N: usize> From<OwnedVector<T,N>> for Box<[T;N]> {
     fn from(value: OwnedVector<T,N>) -> Self {
         value.data
     }
 }
-impl<T,const N: usize> From<[T;N]> for OwnedVector<T,N> {
-    fn from(value: [T;N]) -> Self {
+impl<T,const N: usize> From<Box<[T;N]>> for OwnedVector<T,N> {
+    fn from(value: Box<[T;N]>) -> Self {
         OwnedVector {
             data: value
         }
@@ -229,9 +229,9 @@ impl<'a,T,const N: usize,const M: usize> From<&'a mut OwnedMatrix<T,N,M>> for Ma
     }
 }
 impl<'a,T,const M: usize> From<&'a mut OwnedVector<T,M>> for MatrixMut<'a,T,1,M> {
-    fn from(value: &'a mut OwnedVector<T, M>) -> Self {
+    fn from(value: &'a mut OwnedVector<T,M>) -> Self {
         MatrixMut {
-            data: &mut value.data
+            data: &mut *value.data
         }
     }
 }

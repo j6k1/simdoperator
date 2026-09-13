@@ -69,7 +69,7 @@ impl<T,BE> SimdAddVector<T,T,T> for BE
         -> OwnedVector<T,N> {
         let mut i = 0;
 
-        let mut rs = OwnedVector::from([T::default(); N]);
+        let mut rs = OwnedVector::from(Box::new([T::default(); N]));
 
         unsafe {
             let pa = l.as_ref().as_ptr();
@@ -113,7 +113,7 @@ impl<T,BE> SimdSubVector<T,T,T> for BE
                                      -> OwnedVector<T,N> {
         let mut i = 0;
 
-        let mut rs = OwnedVector::from([T::default(); N]);
+        let mut rs = OwnedVector::from(Box::new([T::default(); N]));
 
         unsafe {
             let pa = l.as_ref().as_ptr();
@@ -162,7 +162,7 @@ impl<SL,SR,SO,BE> SimdMulVector<SL,SR,SO> for BE
                                      -> OwnedVector<SO,N> {
         let mut i = 0;
 
-        let mut rs = OwnedVector::from([SO::default(); N]);
+        let mut rs = OwnedVector::from(Box::new([SO::default(); N]));
 
         unsafe {
             let pa = l.as_ref().as_ptr();
@@ -211,7 +211,7 @@ impl<SL,SR,SO,BE> SimdScalarMulVector<SL,SR,SO> for BE
     fn scalarmul_vector<'a, const N: usize>(&self, l:SL, r: &Vector<'a, SR, N, Self::Backend>) -> OwnedVector<SO, N> {
         let mut i = 0;
 
-        let mut rs = OwnedVector::from([SO::default(); N]);
+        let mut rs = OwnedVector::from(Box::new([SO::default(); N]));
 
         unsafe {
             let s = self.splat(l);
@@ -271,7 +271,7 @@ impl<T,BE> SimdBitAndVector<T> for BE
         -> OwnedVector<T,N> {
         let mut i = 0;
 
-        let mut rs = OwnedVector::from([T::default(); N]);
+        let mut rs = OwnedVector::from(Box::new([T::default(); N]));
 
         unsafe {
             let pa = l.as_ref().as_ptr();
@@ -318,7 +318,7 @@ impl<T,BE> SimdBitOrVector<T> for BE
                                         -> OwnedVector<T,N> {
         let mut i = 0;
 
-        let mut rs = OwnedVector::from([T::default(); N]);
+        let mut rs = OwnedVector::from(Box::new([T::default(); N]));
 
         unsafe {
             let pa = l.as_ref().as_ptr();
@@ -365,7 +365,7 @@ impl<T,BE> SimdBitXorVector<T> for BE
                                        -> OwnedVector<T,N> {
         let mut i = 0;
 
-        let mut rs = OwnedVector::from([T::default(); N]);
+        let mut rs = OwnedVector::from(Box::new([T::default(); N]));
 
         unsafe {
             let pa = l.as_ref().as_ptr();
@@ -409,7 +409,7 @@ impl<T,BE> SimdBitNotVector<T> for BE
         -> OwnedVector<T,N> {
         let mut i = 0;
 
-        let mut rs = OwnedVector::from([T::default(); N]);
+        let mut rs = OwnedVector::from(Box::new([T::default(); N]));
 
         unsafe {
             let pa = l.as_ref().as_ptr();
@@ -449,7 +449,7 @@ impl<T,BE> SimdShlVector<T> for BE
                                      -> OwnedVector<T,N> {
         let mut i = 0;
 
-        let mut rs = OwnedVector::from([T::default(); N]);
+        let mut rs = OwnedVector::from(Box::new([T::default(); N]));
 
         unsafe {
             let pa = v.as_ref().as_ptr();
@@ -488,7 +488,7 @@ impl<T,BE> SimdShrVector<T> for BE
                                      -> OwnedVector<T,N> {
         let mut i = 0;
 
-        let mut rs = OwnedVector::from([T::default(); N]);
+        let mut rs = OwnedVector::from(Box::new([T::default(); N]));
 
         unsafe {
             let pa = v.as_ref().as_ptr();

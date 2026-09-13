@@ -54,7 +54,6 @@ pub trait SimdSplat<S>: SimdReg<S> {
     type Backend: Backend;
     fn splat(&self,v:S) -> Self::Reg;
 }
-pub trait SimdSplatVector<S,const N: usize>: SimdReg<S> {}
 pub trait SimdAddVector<SL,SR,SO> {
     type Backend: Backend;
     fn add_vector<'a,const N: usize>(&self, l:&Vector<'a,SL,N,Self::Backend>, r:&Vector<'a,SR,N,Self::Backend>) -> OwnedVector<SO,N>;
