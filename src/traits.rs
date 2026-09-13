@@ -227,7 +227,17 @@ pub trait SimdConvert<SS,SD>: SimdReg<SS> + SimdReg<SD> {
     type Output;
     fn convert(&self,reg:<Self as SimdReg<SS>>::Reg) -> Self::Output;
 }
-pub trait SimdConvertMask<SS,SD>: SimdReg<SS> + SimdReg<SD> {
+pub trait SimdPromoteVector<SS,SD> {
+    type Backend: Backend;
+    fn promotion_vector<'a,const N: usize>(&self, s:&Vector<'a,SS,N,Self::Backend>) -> OwnedVector<SD,N>;
+}
+pub trait SimdDemoteVector<SS,SD> {
+    type Backend: Backend;
+    fn demotion_vector<'a,const N: usize>(&self, s:&Vector<'a,SS,N,Self::Backend>) -> OwnedVector<SD,N>;
+}
+pub trait SimdConvertVector<SS,SD> {
+    type Backend: Backend;
+    fn convert_vector<'a,const N: usize>(&self, s:&Vector<'a,SS,N,Self::Backend>) -> OwnedVector<SD,N>;
 }
 pub trait SimdNeg<S>: SimdReg<S> {}
 pub trait SimdMulAdd<SL,SR,SO>: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> {
@@ -290,4 +300,7 @@ pub trait BitsShl {
 }
 pub trait BitsShr {
     fn bits_shr(self,w:usize) -> Self;
+}
+pub trait Assume<T> {
+    fn assume(self) -> T;
 }

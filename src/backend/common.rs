@@ -1,7 +1,7 @@
 //! Common Backend Implementation
 
 use std::ops::{Add, Mul, Sub};
-use crate::traits::{SimdAddVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr };
+use crate::traits::{SimdAddVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert};
 use crate::{OwnedVector, Vector};
 
 pub trait Backend {
@@ -513,6 +513,135 @@ impl<T,BE> SimdShrVector<T> for BE
         rs
     }
 }
+impl<SS,SD,BE> SimdPromoteVector<SS,SD> for BE
+    where BE: Backend +
+              SimdReg<SS> +
+              SimdReg<SS> +
+              SimdLanes<SS> +
+              SimdPromote<SS,SD> +
+              SimdLoad<SS> +
+              SimdStoreSeq<SD,<Self as SimdPromote<SS,SD>>::Output> +
+              SimdStore<SD>,
+          SS: Copy,
+          SD: Default + Copy + From<SS>,
+          <Self as SimdReg<SS>>::Reg: Copy {
+    type Backend = BE;
+    #[inline]
+    fn promotion_vector<'a, const N: usize>(&self, s: &Vector<'a, SS, N, Self::Backend>) -> OwnedVector<SD, N> {
+        let mut i = 0;
+
+        let mut rs = OwnedVector::from(Box::new([SD::default(); N]));
+
+        unsafe {
+            let pb = s.as_ref().as_ptr();
+            let po = rs.as_mut().as_mut_ptr();
+
+            while i + <Self as SimdLanes<SS>>::LANES <= N {
+                let sr = self.load(pb.add(i));
+
+                let o = self.promotion(sr);
+
+                self.store_seq(po.add(i),o);
+
+                i += <Self as SimdLanes<SS>>::LANES;
+            }
+
+            if N % <Self as SimdLanes<SS>>::LANES != 0 {
+                for j in i..N {
+                    rs[j] = s[j].into();
+                }
+            }
+        }
+
+        rs
+    }
+}
+impl<SS,SD,BE> SimdDemoteVector<SS,SD> for BE
+    where BE: Backend +
+              SimdReg<SS> +
+              SimdReg<SS> +
+              SimdLanes<SS> +
+              SimdDemote<SS,SD> +
+              SimdLoad<SS> +
+              SimdStoreSeq<SD,<Self as SimdDemote<SS,SD>>::Output> +
+              SimdStore<SD>,
+          SS: Assume<SD> + Copy,
+          SD: Default + Copy,
+          <Self as SimdReg<SS>>::Reg: Copy {
+    type Backend = BE;
+    #[inline]
+    fn demotion_vector<'a, const N: usize>(&self, s: &Vector<'a, SS, N, Self::Backend>) -> OwnedVector<SD, N> {
+        let mut i = 0;
+
+        let mut rs = OwnedVector::from(Box::new([SD::default(); N]));
+
+        unsafe {
+            let pb = s.as_ref().as_ptr();
+            let po = rs.as_mut().as_mut_ptr();
+
+            while i + <Self as SimdLanes<SS>>::LANES <= N {
+                let sr = self.load(pb.add(i));
+
+                let o = self.demotion(sr);
+
+                self.store_seq(po.add(i),o);
+
+                i += <Self as SimdLanes<SS>>::LANES;
+            }
+
+            if N % <Self as SimdLanes<SS>>::LANES != 0 {
+                for j in i..N {
+                    rs[j] = s[j].assume();
+                }
+            }
+        }
+
+        rs
+    }
+}
+impl<SS,SD,BE> SimdConvertVector<SS,SD> for BE
+    where BE: Backend +
+              SimdReg<SS> +
+              SimdReg<SS> +
+              SimdLanes<SS> +
+              SimdConvert<SS,SD> +
+              SimdLoad<SS> +
+              SimdStoreSeq<SD,<Self as SimdConvert<SS,SD>>::Output> +
+              SimdStore<SD>,
+          SS: Assume<SD> + Copy,
+          SD: Default + Copy,
+          <Self as SimdReg<SS>>::Reg: Copy {
+    type Backend = BE;
+    #[inline]
+    fn convert_vector<'a, const N: usize>(&self, s: &Vector<'a, SS, N, Self::Backend>) -> OwnedVector<SD, N> {
+        let mut i = 0;
+
+        let mut rs = OwnedVector::from(Box::new([SD::default(); N]));
+
+        unsafe {
+            let pb = s.as_ref().as_ptr();
+            let po = rs.as_mut().as_mut_ptr();
+
+            while i + <Self as SimdLanes<SS>>::LANES <= N {
+                let sr = self.load(pb.add(i));
+
+                let o = self.convert(sr);
+
+                self.store_seq(po.add(i),o);
+
+                i += <Self as SimdLanes<SS>>::LANES;
+            }
+
+            if N % <Self as SimdLanes<SS>>::LANES != 0 {
+                for j in i..N {
+                    rs[j] = s[j].assume();
+                }
+            }
+        }
+
+        rs
+    }
+}
 impl BitsBitAnd for i8 {
     type Bits = i8;
 
@@ -724,5 +853,107 @@ impl BitsShr for f64 {
     #[inline(always)]
     fn bits_shr(self,w:usize) -> Self {
         f64::from_bits(self.to_bits() >> w as u64)
+    }
+}
+impl<T> Assume<T> for T {
+    #[inline(always)]
+    fn assume(self) -> T {
+        self
+    }
+}
+impl<T> Assume<T> for &T where T: Assume<T> + Copy {
+    #[inline(always)]
+    fn assume(self) -> T {
+        *self
+    }
+}
+impl Assume<f32> for f64 {
+    #[inline(always)]
+    fn assume(self) -> f32 {
+        self as f32
+    }
+}
+impl Assume<i8> for f64 {
+    #[inline(always)]
+    fn assume(self) -> i8 {
+        self as i8
+    }
+}
+impl Assume<i16> for f64 {
+    #[inline(always)]
+    fn assume(self) -> i16 {
+        self as i16
+    }
+}
+impl Assume<f64> for f32 {
+    #[inline(always)]
+    fn assume(self) -> f64 {
+        self as f64
+    }
+}
+impl Assume<i16> for f32 {
+    #[inline(always)]
+    fn assume(self) -> i16 {
+        self as i16
+    }
+}
+impl Assume<i8> for f32 {
+    #[inline(always)]
+    fn assume(self) -> i8 {
+        self as i8
+    }
+}
+impl Assume<f64> for i8 {
+    #[inline(always)]
+    fn assume(self) -> f64 {
+        self as f64
+    }
+}
+impl Assume<f32> for i8 {
+    #[inline(always)]
+    fn assume(self) -> f32 {
+        self as f32
+    }
+}
+impl Assume<i16> for i8 {
+    #[inline(always)]
+    fn assume(self) -> i16 {
+        self as i16
+    }
+}
+impl Assume<i32> for i8 {
+    #[inline(always)]
+    fn assume(self) -> i32 {
+        self as i32
+    }
+}
+impl Assume<f32> for i16 {
+    #[inline(always)]
+    fn assume(self) -> f32 {
+        self as f32
+    }
+}
+impl Assume<f64> for i16 {
+    #[inline(always)]
+    fn assume(self) -> f64 {
+        self as f64
+    }
+}
+impl Assume<i32> for i16 {
+    #[inline(always)]
+    fn assume(self) -> i32 {
+        self as i32
+    }
+}
+impl Assume<i8> for i16 {
+    #[inline(always)]
+    fn assume(self) -> i8 {
+        self as i8
+    }
+}
+impl Assume<i16> for i32 {
+    #[inline(always)]
+    fn assume(self) -> i16 {
+        self as i16
     }
 }
