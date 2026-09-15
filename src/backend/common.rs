@@ -1,11 +1,45 @@
 //! Common Backend Implementation
 
 use std::ops::{Add, Mul, Sub};
-use crate::traits::{SimdAddVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportMul};
+use std::process::Output;
+use crate::traits::{SimdAddVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportMul, FoldRegs};
 use crate::{OwnedVector, Vector};
 
 pub trait Backend {
     fn new() -> Self;
+}
+#[derive(Clone,Copy)]
+pub struct Regs<R,const N:usize> where R: Copy {
+    regs:[R;N]
+}
+impl<R,const N:usize> Regs<R,N> where R: Copy {
+    pub fn new(regs:[R;N]) -> Self {
+        Regs { regs }
+    }
+}
+impl<R,const N:usize> AsRef<[R;N]> for Regs<R,N>
+    where R: Copy {
+    fn as_ref(&self) -> &[R;N] {
+        &self.regs
+    }
+}
+impl<S,BE: SimdReg<S> + SimdAdd<S,S,S>> FoldRegs<S,BE> for Regs<<BE as SimdReg<S>>::Reg,1>
+    where <BE as SimdReg<S>>::Reg: Copy {
+    fn fold(&self,_: &BE) -> <BE as SimdReg<S>>::Reg {
+        self.regs[0]
+    }
+}
+impl<S,BE: SimdReg<S> + SimdAdd<S,S,S>> FoldRegs<S,BE> for Regs<<BE as SimdReg<S>>::Reg,2>
+    where <BE as SimdReg<S>>::Reg: Copy {
+    fn fold(&self,backend: &BE) -> <BE as SimdReg<S>>::Reg {
+        backend.add(self.regs[0],self.regs[1])
+    }
+}
+impl<S,BE: SimdReg<S> + SimdAdd<S,S,S>> FoldRegs<S,BE> for Regs<<BE as SimdReg<S>>::Reg,4>
+    where <BE as SimdReg<S>>::Reg: Copy {
+    fn fold(&self,backend: &BE) -> <BE as SimdReg<S>>::Reg {
+        backend.add(backend.add(self.regs[0],self.regs[1]),backend.add(self.regs[2],self.regs[3]))
+    }
 }
 impl<T,BE> SimdStoreSeq<T,(<Self as SimdReg<T>>::Reg,<Self as SimdReg<T>>::Reg,<Self as SimdReg<T>>::Reg,<Self as SimdReg<T>>::Reg)> for BE
     where BE: Backend +

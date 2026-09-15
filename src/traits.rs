@@ -11,9 +11,9 @@ pub trait SimdSub<SL,SR,SO>: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> {
     type Backend: Backend;
     fn sub(&self,l:<Self as SimdReg<SL>>::Reg,r:<Self as SimdReg<SR>>::Reg) -> <Self as SimdReg<SO>>::Reg;
 }
-pub trait SimdMul<SL,SR,SO>: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> {
+pub trait SimdMul<SL,SR,SO>: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> + SimdAdd<SO,SO,SO> + Sized {
     type Backend: Backend;
-    type Output;
+    type Output: FoldRegs<SO,Self>;
     fn mul(&self,l:<Self as SimdReg<SL>>::Reg,r:<Self as SimdReg<SR>>::Reg) -> Self::Output;
 }
 pub trait SimdScalarMul<SL,SR,SO>: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> + SimdMul<SL,SR,SO> {
@@ -186,9 +186,9 @@ pub trait SimdCols<S> {
     const COLS: usize;
 }
 pub trait SimdReg<S> {
-    type Reg;
-    type Mask;
-    type Bits;
+    type Reg: Copy;
+    type Mask: Copy;
+    type Bits: Copy;
 }
 pub trait SimdLoad<S>: SimdReg<S> {
     unsafe fn load(&self,ptr: *const S) -> Self::Reg;
@@ -212,19 +212,19 @@ pub trait SimdReinterpret<SS,SD>: SimdReg<SS> + SimdReg<SD> {
     type Backend: Backend;
     fn reinterpret(&self,reg:<Self as SimdReg<SS>>::Reg) -> <Self as SimdReg<SD>>::Reg;
 }
-pub trait SimdPromote<SS,SD>: SimdReg<SS> + SimdReg<SD> {
+pub trait SimdPromote<SS,SD>: SimdReg<SS> + SimdReg<SD> + SimdAdd<SD,SD,SD> + Sized {
     type Backend: Backend;
-    type Output;
+    type Output: FoldRegs<SD,Self>;
     fn promotion(&self, reg:<Self as SimdReg<SS>>::Reg) -> Self::Output;
 }
-pub trait SimdDemote<SS,SD>: SimdReg<SS> + SimdReg<SD> {
+pub trait SimdDemote<SS,SD>: SimdReg<SS> + SimdReg<SD> + SimdAdd<SD,SD,SD> + Sized {
     type Backend: Backend;
-    type Output;
+    type Output: FoldRegs<SD,Self>;
     fn demotion(&self, reg:<Self as SimdReg<SS>>::Reg) -> Self::Output;
 }
-pub trait SimdConvert<SS,SD>: SimdReg<SS> + SimdReg<SD> {
+pub trait SimdConvert<SS,SD>: SimdReg<SS> + SimdReg<SD> + SimdAdd<SD,SD,SD> + Sized {
     type Backend: Backend;
-    type Output;
+    type Output: FoldRegs<SD,Self>;
     fn convert(&self,reg:<Self as SimdReg<SS>>::Reg) -> Self::Output;
 }
 pub trait SimdPromoteVector<SS,SD> {
@@ -240,13 +240,22 @@ pub trait SimdConvertVector<SS,SD> {
     fn convert_vector<'a,const N: usize>(&self, s:&Vector<'a,SS,N,Self::Backend>) -> OwnedVector<SD,N>;
 }
 pub trait SimdNeg<S>: SimdReg<S> {}
-pub trait SimdMulAdd<SL,SR,SO>: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> {
+pub trait SimdMulAdd<SL,SR,SO>:
+    SimdReg<SL> +
+    SimdReg<SR> +
+    SimdReg<SO> + SimdMul<SL,SR,SO>
+    where <Self as SimdReg<SO>>::Reg: Copy {
     type Backend: Backend;
-    fn mul_add(&self,l:<Self as SimdReg<SL>>::Reg,r:<Self as SimdReg<SR>>::Reg,acc:<Self as SimdReg<SO>>::Reg) -> <Self as SimdReg<SO>>::Reg;
+    fn zero_acc(&self) -> <Self as SimdMul<SL,SR,SO>>::Output;
+    fn mul_add(&self,l:<Self as SimdReg<SL>>::Reg,
+               r:<Self as SimdReg<SR>>::Reg,
+               acc:<Self as SimdMul<SL,SR,SO>>::Output) -> <Self as SimdMul<SL,SR,SO>>::Output;
 }
-pub trait SimdPartialDot<SL,SR,SO>: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> {
+pub trait SimdPartialDot<SL,SR,SO>: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> + SimdAdd<SO,SO,SO> + Sized {
     type Backend: Backend;
-    fn partial_dot(&self,l:<Self as SimdReg<SL>>::Reg,r:<Self as SimdReg<SR>>::Reg,acc:<Self as SimdReg<SO>>::Reg) -> <Self as SimdReg<SO>>::Reg;
+    type Output: FoldRegs<SO,Self>;
+    fn zero_acc(&self) -> Self::Output;
+    fn partial_dot(&self,l:<Self as SimdReg<SL>>::Reg,r:<Self as SimdReg<SR>>::Reg,acc:Self::Output) -> Self::Output;
 }
 pub trait SimdZero<S>: SimdReg<S> {
     fn zero() -> <Self as SimdReg<S>>::Reg;
@@ -304,4 +313,7 @@ pub trait BitsShr {
 }
 pub trait Assume<T> {
     fn assume(self) -> T;
+}
+pub trait FoldRegs<S,BE: SimdReg<S> + SimdAdd<S,S,S>> where <BE as SimdReg<S>>::Reg: Copy {
+    fn fold(&self,backend: &BE) -> <BE as SimdReg<S>>::Reg;
 }
