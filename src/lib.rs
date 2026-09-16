@@ -51,6 +51,13 @@ impl<'a,BE: Backend,T,const N: usize> From<&'a OwnedVector<T,N>> for Vector<'a,T
         }
     }
 }
+impl<'a,BE: Backend,T,const N: usize> From<&'a Vector<'a,T,N,BE>> for Box<[T;N]>
+    where T: Clone + Copy {
+
+    fn from(value: &'a Vector<'a,T,N,BE>) -> Self {
+        Box::new(value.data.clone().into())
+    }
+}
 impl<'a,BE: Backend,T,const N: usize> Vector<'a,T,N,BE> {
     pub fn as_vertical(&self) -> Matrix<'a,T,N,1,BE> {
         Matrix {
@@ -64,6 +71,27 @@ impl<'a,BE: Backend,T,const N: usize> Vector<'a,T,N,BE> {
             data: self.data,
             backend: BE::new()
         }
+    }
+}
+pub struct VectorMut<'a,T,const N: usize> {
+    data: &'a mut [T;N]
+}
+impl<'a,T,const N: usize> From<&'a mut OwnedVector<T,N>> for VectorMut<'a,T,N> {
+     fn from(value: &'a mut OwnedVector<T,N>) -> Self {
+        VectorMut {
+            data: &mut value.data
+        }
+     }
+}
+impl<'a,T,const N: usize> Index<usize> for VectorMut<'a,T,N> {
+    type Output = T;
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.data[index]
+    }
+}
+impl<'a,T,const N: usize> IndexMut<usize> for VectorMut<'a,T,N> {
+    fn index_mut(&mut self, index: usize) -> &mut T {
+        &mut self.data[index]
     }
 }
 pub struct OwnedVector<T,const N: usize> {

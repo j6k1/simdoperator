@@ -1,6 +1,6 @@
 //! Trait and data type features for abstracting SIMD operations
 
-use crate::{ColumnMajorMatrix, Matrix, MatrixMut, OwnedMatrix, OwnedVector, Vector};
+use crate::{ColumnMajorMatrix, Matrix, MatrixMut, OwnedMatrix, OwnedVector, Vector, VectorMut};
 use crate::backend::common::{Backend};
 pub trait SimdAdd<SL,SR,SO>: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> {
     type Backend: Backend;
@@ -54,13 +54,25 @@ pub trait SimdSplat<S>: SimdReg<S> {
     type Backend: Backend;
     fn splat(&self,v:S) -> Self::Reg;
 }
+pub trait SimdAddAssignVector<SL,SR,SO> {
+    type Backend: Backend;
+    fn add_assign_vector<'a,const N: usize>(&self, l:&mut OwnedVector<SL,N>, r:&Vector<'a,SR,N,Self::Backend>);
+}
 pub trait SimdAddVector<SL,SR,SO> {
     type Backend: Backend;
     fn add_vector<'a,const N: usize>(&self, l:&Vector<'a,SL,N,Self::Backend>, r:&Vector<'a,SR,N,Self::Backend>) -> OwnedVector<SO,N>;
 }
+pub trait SimdSubAssignVector<SL,SR,SO> {
+    type Backend: Backend;
+    fn sub_assign_vector<'a,const N: usize>(&self, l:&mut OwnedVector<SL,N>, r:&Vector<'a,SR,N,Self::Backend>);
+}
 pub trait SimdSubVector<SL,SR,SO> {
     type Backend: Backend;
     fn sub_vector<'a,const N: usize>(&self, l:&Vector<'a,SL,N,Self::Backend>, r:&Vector<'a,SR,N,Self::Backend>) -> OwnedVector<SO,N>;
+}
+pub trait SimdMulAssignVector<SL,SR,SO> {
+    type Backend: Backend;
+    fn mul_assign_vector<'a,const N: usize>(&self, l:&mut OwnedVector<SL,N>, r:&Vector<'a,SR,N,Self::Backend>);
 }
 pub trait SimdMulVector<SL,SR,SO> {
     type Backend: Backend;
