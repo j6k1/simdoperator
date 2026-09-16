@@ -56,7 +56,7 @@ pub trait SimdSplat<S>: SimdReg<S> {
 }
 pub trait SimdAddAssignVector<SL,SR,SO> {
     type Backend: Backend;
-    fn add_assign_vector<'a,const N: usize>(&self, l:&mut OwnedVector<SL,N>, r:&Vector<'a,SR,N,Self::Backend>);
+    fn add_assign_vector<'a,const N: usize>(&self, l:&mut VectorMut<'a,SL,N>, r:&Vector<'a,SR,N,Self::Backend>);
 }
 pub trait SimdAddVector<SL,SR,SO> {
     type Backend: Backend;
@@ -64,7 +64,7 @@ pub trait SimdAddVector<SL,SR,SO> {
 }
 pub trait SimdSubAssignVector<SL,SR,SO> {
     type Backend: Backend;
-    fn sub_assign_vector<'a,const N: usize>(&self, l:&mut OwnedVector<SL,N>, r:&Vector<'a,SR,N,Self::Backend>);
+    fn sub_assign_vector<'a,const N: usize>(&self, l:&mut VectorMut<'a,SL,N>, r:&Vector<'a,SR,N,Self::Backend>);
 }
 pub trait SimdSubVector<SL,SR,SO> {
     type Backend: Backend;
@@ -72,7 +72,7 @@ pub trait SimdSubVector<SL,SR,SO> {
 }
 pub trait SimdMulAssignVector<SL,SR,SO> {
     type Backend: Backend;
-    fn mul_assign_vector<'a,const N: usize>(&self, l:&mut OwnedVector<SL,N>, r:&Vector<'a,SR,N,Self::Backend>);
+    fn mul_assign_vector<'a,const N: usize>(&self, l:&mut VectorMut<'a,SL,N>, r:&Vector<'a,SR,N,Self::Backend>);
 }
 pub trait SimdMulVector<SL,SR,SO> {
     type Backend: Backend;

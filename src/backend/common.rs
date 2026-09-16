@@ -2,8 +2,7 @@
 
 use std::ops::{Add, Mul, Sub};
 use crate::traits::{SimdAddVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportMul, FoldRegs, SimdOuterProduct, SimdMatMul, SimdMulAssignVector, SimdAddAssignVector, SimdSubAssignVector};
-use crate::{ColumnMajorMatrix, Matrix, OwnedMatrix, OwnedVector, Vector};
-use crate::backend::avx2::Avx2;
+use crate::{ColumnMajorMatrix, Matrix, OwnedMatrix, OwnedVector, Vector, VectorMut};
 
 pub trait Backend {
     fn new() -> Self;
@@ -105,7 +104,7 @@ impl<T,BE> SimdAddAssignVector<T,T,T> for BE
           T: Default + Add<Output=T> + Copy {
     type Backend = BE;
     #[inline]
-    fn add_assign_vector<'a,const N: usize>(&self, l: &mut OwnedVector<T,N>, r: &Vector<'a,T,N,Self::Backend>) {
+    fn add_assign_vector<'a,const N: usize>(&self, l: &mut VectorMut<'a,T,N>, r: &Vector<'a,T,N,Self::Backend>) {
         let mut i = 0;
 
         unsafe {
@@ -141,7 +140,9 @@ impl<T,BE> SimdAddVector<T,T,T> for BE
         -> OwnedVector<T,N> {
         let mut acc = OwnedVector::from(Box::<[T;N]>::from(l));
 
-        <Self as SimdAddAssignVector<T,T,T>>::add_assign_vector(self,&mut acc,r);
+        let mut l = VectorMut::<T,N>::from(&mut acc);
+
+        <Self as SimdAddAssignVector<T,T,T>>::add_assign_vector(self,&mut l,r);
 
         acc
     }
@@ -158,7 +159,7 @@ impl<T,BE> SimdSubAssignVector<T,T,T> for BE
           T: Default + Sub<Output=T> + Copy {
     type Backend = BE;
     #[inline]
-    fn sub_assign_vector<'a,const N: usize>(&self, l: &mut OwnedVector<T,N>, r: &Vector<'a,T,N,Self::Backend>) {
+    fn sub_assign_vector<'a,const N: usize>(&self, l: &mut VectorMut<'a,T,N>, r: &Vector<'a,T,N,Self::Backend>) {
         let mut i = 0;
 
         unsafe {
@@ -194,7 +195,9 @@ impl<T,BE> SimdSubVector<T,T,T> for BE
         -> OwnedVector<T,N> {
         let mut acc = OwnedVector::from(Box::<[T;N]>::from(l));
 
-        <Self as SimdSubAssignVector<T,T,T>>::sub_assign_vector(self,&mut acc,r);
+        let mut l = VectorMut::<T,N>::from(&mut acc);
+
+        <Self as SimdSubAssignVector<T,T,T>>::sub_assign_vector(self,&mut l,r);
 
         acc
     }
@@ -266,7 +269,7 @@ impl<SL,SR,SO,BE> SimdMulAssignVector<SL,SR,SO> for BE
           (SL,SO): SupportMul<Homogeneous> {
     type Backend = BE;
     #[inline]
-    fn mul_assign_vector<'a,const N: usize>(&self, l: &mut OwnedVector<SL,N>, r: &Vector<'a,SR,N,Self::Backend>) {
+    fn mul_assign_vector<'a,const N: usize>(&self, l: &mut VectorMut<'a,SL,N>, r: &Vector<'a,SR,N,Self::Backend>) {
         let mut i = 0;
 
         unsafe {

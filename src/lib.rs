@@ -94,6 +94,16 @@ impl<'a,T,const N: usize> IndexMut<usize> for VectorMut<'a,T,N> {
         &mut self.data[index]
     }
 }
+impl<'a,T,const N: usize> AsRef<[T;N]> for VectorMut<'a,T,N> {
+    fn as_ref(&self) -> &[T; N] {
+        &self.data
+    }
+}
+impl<'a,T,const N: usize> AsMut<[T;N]> for VectorMut<'a,T,N> {
+    fn as_mut(&mut self) -> &mut [T; N] {
+        &mut self.data
+    }
+}
 pub struct OwnedVector<T,const N: usize> {
     data: Box<[T; N]>
 }
