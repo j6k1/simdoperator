@@ -42,13 +42,17 @@ pub trait SimdBitNot<S>: SimdReg<S> {
     type Backend: Backend;
     fn bitnot(&self,v:Self::Reg) -> Self::Reg;
 }
+pub trait SimdShiftWidth<S>: SimdReg<S> {
+    type Backend: Backend;
+    fn shift_width(&self,w:usize) -> Self::ShiftWidth;
+}
 pub trait SimdShl<S>: SimdReg<S> {
     type Backend: Backend;
-    fn shl(&self,v:Self::Reg,w:usize) -> Self::Reg;
+    fn shl(&self,v:Self::Reg,w:<Self as SimdReg<S>>::ShiftWidth) -> Self::Reg;
 }
 pub trait SimdShr<S>: SimdReg<S> {
     type Backend: Backend;
-    fn shr(&self,v:Self::Reg,w:usize) -> Self::Reg;
+    fn shr(&self,v:Self::Reg,w:<Self as SimdReg<S>>::ShiftWidth) -> Self::Reg;
 }
 pub trait SimdSplat<S>: SimdReg<S> {
     type Backend: Backend;
@@ -201,6 +205,7 @@ pub trait SimdReg<S> {
     type Reg: Copy;
     type Mask: Copy;
     type Bits: Copy;
+    type ShiftWidth: Copy;
 }
 pub trait SimdLoad<S>: SimdReg<S> {
     unsafe fn load(&self,ptr: *const S) -> Self::Reg;

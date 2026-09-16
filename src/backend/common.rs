@@ -1,7 +1,7 @@
 //! Common Backend Implementation
 
 use std::ops::{Add, Mul, Sub};
-use crate::traits::{SimdAddVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportMul, FoldRegs, SimdOuterProduct, SimdMatMul, SimdMulAssignVector, SimdAddAssignVector, SimdSubAssignVector};
+use crate::traits::{SimdAddVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportMul, FoldRegs, SimdOuterProduct, SimdMatMul, SimdMulAssignVector, SimdAddAssignVector, SimdSubAssignVector, SimdShiftWidth};
 use crate::{ColumnMajorMatrix, Matrix, OwnedMatrix, OwnedVector, Vector, VectorMut};
 
 pub trait Backend {
@@ -660,7 +660,8 @@ impl<T,BE> SimdShlVector<T> for BE
               SimdLoad<T> +
               SimdStore<T> +
               SimdShl<T> +
-              SimdLanes<T>,
+              SimdLanes<T> +
+              SimdShiftWidth<T>,
               T: BitsShl + Default + Copy {
     type Backend = BE;
     #[inline]
@@ -670,13 +671,15 @@ impl<T,BE> SimdShlVector<T> for BE
 
         let mut rs = OwnedVector::from(Box::new([T::default(); N]));
 
+        let rw = <BE as SimdShiftWidth<T>>::shift_width(self,w);
+
         unsafe {
             let pa = v.as_ref().as_ptr();
             let po = rs.as_mut().as_mut_ptr();
 
             while i + <Self as SimdLanes<T>>::LANES <= N {
                 let vr = self.load(pa.add(i));
-                let rr = self.shl(vr,w);
+                let rr = self.shl(vr,rw);
 
                 self.store(po.add(i),rr);
 
@@ -699,7 +702,8 @@ impl<T,BE> SimdShrVector<T> for BE
               SimdLoad<T> +
               SimdStore<T> +
               SimdShr<T> +
-              SimdLanes<T>,
+              SimdLanes<T> +
+              SimdShiftWidth<T>,
               T: BitsShr + Default + Copy {
     type Backend = BE;
     #[inline]
@@ -709,13 +713,15 @@ impl<T,BE> SimdShrVector<T> for BE
 
         let mut rs = OwnedVector::from(Box::new([T::default(); N]));
 
+        let rw = <BE as SimdShiftWidth<T>>::shift_width(self,w);
+
         unsafe {
             let pa = v.as_ref().as_ptr();
             let po = rs.as_mut().as_mut_ptr();
 
             while i + <Self as SimdLanes<T>>::LANES <= N {
                 let vr = self.load(pa.add(i));
-                let rr = self.shr(vr,w);
+                let rr = self.shr(vr,rw);
 
                 self.store(po.add(i),rr);
 
