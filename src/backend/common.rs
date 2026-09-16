@@ -1,9 +1,9 @@
 //! Common Backend Implementation
 
 use std::ops::{Add, Mul, Sub};
-use std::process::Output;
-use crate::traits::{SimdAddVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportMul, FoldRegs};
-use crate::{OwnedVector, Vector};
+use crate::traits::{SimdAddVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportMul, FoldRegs, SimdOuterProduct, SimdMatMul};
+use crate::{ColumnMajorMatrix, Matrix, OwnedMatrix, OwnedVector, Vector};
+use crate::backend::avx2::Avx2;
 
 pub trait Backend {
     fn new() -> Self;
@@ -41,13 +41,15 @@ impl<S,BE: SimdReg<S> + SimdAdd<S,S,S>> FoldRegs<S,BE> for Regs<<BE as SimdReg<S
         backend.add(backend.add(self.regs[0],self.regs[1]),backend.add(self.regs[2],self.regs[3]))
     }
 }
-impl<T,BE> SimdStoreSeq<T,(<Self as SimdReg<T>>::Reg,<Self as SimdReg<T>>::Reg,<Self as SimdReg<T>>::Reg,<Self as SimdReg<T>>::Reg)> for BE
+impl<T,BE> SimdStoreSeq<T,Regs<<Self as SimdReg<T>>::Reg,4>> for BE
     where BE: Backend +
               SimdLanes<T> +
               SimdReg<T> +
               SimdStore<T> {
     #[inline(always)]
-    unsafe fn store_seq(&self, ptr: *mut T, (a,b,c,d): (<Self as SimdReg<T>>::Reg,<Self as SimdReg<T>>::Reg,<Self as SimdReg<T>>::Reg,<Self as SimdReg<T>>::Reg)) {
+    unsafe fn store_seq(&self, ptr: *mut T, regs: Regs<<Self as SimdReg<T>>::Reg,4>) {
+        let &[a,b,c,d] = regs.as_ref();
+
         unsafe {
             self.store(ptr, a);
             self.store(ptr.add(1 * <Self as SimdLanes<T>>::LANES),b);
@@ -56,7 +58,7 @@ impl<T,BE> SimdStoreSeq<T,(<Self as SimdReg<T>>::Reg,<Self as SimdReg<T>>::Reg,<
         }
     }
 }
-impl<T,BE> SimdStoreSeq<T,(<Self as SimdReg<T>>::Reg,<Self as SimdReg<T>>::Reg)> for BE
+impl<T,BE> SimdStoreSeq<T,Regs<<Self as SimdReg<T>>::Reg,2>> for BE
     where BE: Backend +
               SimdLanes<T> +
               SimdReg<T> +
@@ -65,14 +67,16 @@ impl<T,BE> SimdStoreSeq<T,(<Self as SimdReg<T>>::Reg,<Self as SimdReg<T>>::Reg)>
               SimdReg<T> +
               SimdStore<T> {
     #[inline(always)]
-    unsafe fn store_seq(&self, ptr: *mut T, (a,b): (<Self as SimdReg<T>>::Reg,<Self as SimdReg<T>>::Reg)) {
+    unsafe fn store_seq(&self, ptr: *mut T, regs: Regs<<Self as SimdReg<T>>::Reg,2>) {
+        let &[a,b] = regs.as_ref();
+
         unsafe {
             self.store(ptr, a);
             self.store(ptr.add(1 * <Self as SimdLanes<T>>::LANES),b);
         }
     }
 }
-impl<T,BE> SimdStoreSeq<T,(<Self as SimdReg<T>>::Reg,)> for BE
+impl<T,BE> SimdStoreSeq<T,Regs<<Self as SimdReg<T>>::Reg,1>> for BE
     where BE: Backend +
               SimdLanes<T> +
               SimdReg<T> +
@@ -81,9 +85,11 @@ impl<T,BE> SimdStoreSeq<T,(<Self as SimdReg<T>>::Reg,)> for BE
               SimdReg<T> +
               SimdStore<T> {
     #[inline(always)]
-    unsafe fn store_seq(&self, ptr: *mut T, reg:(<Self as SimdReg<T>>::Reg,)) {
+    unsafe fn store_seq(&self, ptr: *mut T, regs: Regs<<Self as SimdReg<T>>::Reg,1>) {
+        let &[reg] = regs.as_ref();
+
         unsafe {
-            self.store(ptr, reg.0);
+            self.store(ptr, reg);
         }
     }
 }
@@ -189,6 +195,7 @@ impl<SL,SR,SO,BE> SimdMulVector<SL,SR,SO> for BE
               SO: Default + Copy,
               SL: Mul<SR,Output=SO> + Copy,
               SR: Copy,
+              <Self as SimdMul<SL,SR,SO>>::Output: Copy,
               (SL,SO): SupportMul<Heterogeneous> {
     type Backend = BE;
     #[inline]
@@ -289,6 +296,7 @@ impl<SL,SR,SO,BE> SimdScalarMulVector<SL,SR,SO> for BE
               SL: Mul<SR,Output=SO> + Copy,
               SR: Copy,
               <Self as SimdReg<SL>>::Reg: Copy,
+              <Self as SimdMul<SL,SR,SO>>::Output: Copy,
               (SL,SO): SupportMul<Heterogeneous> {
     type Backend = BE;
     #[inline]
@@ -671,6 +679,7 @@ impl<SS,SD,BE> SimdPromoteVector<SS,SD> for BE
               SimdStore<SD>,
           SS: Copy,
           SD: Default + Copy + From<SS>,
+          <Self as SimdPromote<SS,SD>>::Output: Copy,
           <Self as SimdReg<SS>>::Reg: Copy {
     type Backend = BE;
     #[inline]
@@ -714,6 +723,7 @@ impl<SS,SD,BE> SimdDemoteVector<SS,SD> for BE
               SimdStore<SD>,
           SS: Assume<SD> + Copy,
           SD: Default + Copy,
+          <Self as SimdDemote<SS,SD>>::Output: Copy,
           <Self as SimdReg<SS>>::Reg: Copy {
     type Backend = BE;
     #[inline]
@@ -757,6 +767,7 @@ impl<SS,SD,BE> SimdConvertVector<SS,SD> for BE
               SimdStore<SD>,
           SS: Assume<SD> + Copy,
           SD: Default + Copy,
+          <Self as SimdConvert<SS,SD>>::Output: Copy,
           <Self as SimdReg<SS>>::Reg: Copy {
     type Backend = BE;
     #[inline]
@@ -787,6 +798,21 @@ impl<SS,SD,BE> SimdConvertVector<SS,SD> for BE
         }
 
         rs
+    }
+}
+impl<SL,SR,SO,BE> SimdOuterProduct<SL,SR,SO> for BE
+    where BE: Backend +
+              SimdMatMul<SL,SR,SO,Backend=BE> {
+    type Backend = BE;
+
+    fn outer_product<'a, const N: usize, const M: usize>(&self, l: &Vector<'a, SL, N, Self::Backend>,
+                                                         r: &Vector<'a, SR, M, Self::Backend>,
+                                                         o: &mut OwnedMatrix<SO, N, M>) {
+        let mut o = o.into();
+        let l = Matrix::from(l);
+        let r = ColumnMajorMatrix::from(r);
+
+        <Self as SimdMatMul<SL,SR,SO>>::matmul::<N,M,1>(self,&l,&r,&mut o)
     }
 }
 impl BitsBitAnd for i8 {

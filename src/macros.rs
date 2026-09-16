@@ -1,5 +1,3 @@
-use crate::traits::SimdPartialDot;
-
 #[macro_export]
 macro_rules! matmul_tile {
     ($func_name:ident,$ROWS:expr,$COLS:expr,$SL:ty,$SR:ty,$SO:ty) => {

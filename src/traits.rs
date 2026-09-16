@@ -1,7 +1,7 @@
 //! Trait and data type features for abstracting SIMD operations
 
 use crate::{ColumnMajorMatrix, Matrix, MatrixMut, OwnedMatrix, OwnedVector, Vector};
-use crate::backend::common::Backend;
+use crate::backend::common::{Backend};
 pub trait SimdAdd<SL,SR,SO>: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> {
     type Backend: Backend;
 
@@ -197,8 +197,9 @@ pub trait SimdStore<S>: SimdReg<S> {
     unsafe fn store(&self, ptr: *mut S, reg: Self::Reg);
 }
 
-pub trait SimdStoreSeq<S,I> {
-    unsafe fn store_seq(&self, ptr: *mut S, reg: I);
+pub trait SimdStoreSeq<S,R>
+    where R: Copy {
+    unsafe fn store_seq(&self, ptr: *mut S, reg: R);
 }
 pub trait SimdMask<S>: SimdReg<S> {
 

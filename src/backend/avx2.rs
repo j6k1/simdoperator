@@ -1218,18 +1218,16 @@ impl SimdMulAdd<i8,i8,i32> for Avx2
     #[inline(always)]
     fn mul_add(&self, l: <Self as SimdReg<i8>>::Reg, r: <Self as SimdReg<i8>>::Reg,
                 acc: <Self as SimdMul<i8,i8,i32>>::Output) -> <Self as SimdMul<i8,i8,i32>>::Output {
-        unsafe {
-            let &[r0,r1,r2,r3] = <Self as SimdMul<i8,i8,i32>>::mul(self,l,r).as_ref();
+        let &[r0,r1,r2,r3] = <Self as SimdMul<i8,i8,i32>>::mul(self,l,r).as_ref();
 
-            let &[acc0,acc1,acc2,acc3] = acc.as_ref();
+        let &[acc0,acc1,acc2,acc3] = acc.as_ref();
 
-            Regs::new([
-                <Self as SimdAdd<i32,i32,i32>>::add(self,acc0,r0),
-                <Self as SimdAdd<i32,i32,i32>>::add(self,acc1,r1),
-                <Self as SimdAdd<i32,i32,i32>>::add(self,acc2,r2),
-                <Self as SimdAdd<i32,i32,i32>>::add(self,acc3,r3)
-            ])
-        }
+        Regs::new([
+            <Self as SimdAdd<i32,i32,i32>>::add(self,acc0,r0),
+            <Self as SimdAdd<i32,i32,i32>>::add(self,acc1,r1),
+            <Self as SimdAdd<i32,i32,i32>>::add(self,acc2,r2),
+            <Self as SimdAdd<i32,i32,i32>>::add(self,acc3,r3)
+        ])
     }
 }
 impl SimdMulAdd<i8,i16,i32> for Avx2
@@ -1243,18 +1241,16 @@ impl SimdMulAdd<i8,i16,i32> for Avx2
     #[inline(always)]
     fn mul_add(&self, l: <Self as SimdReg<i8>>::Reg, r: <Self as SimdReg<i8>>::Reg,
                 acc: <Self as SimdMul<i8,i16,i32>>::Output) -> <Self as SimdMul<i8,i16,i32>>::Output {
-        unsafe {
-            let &[r0,r1,r2,r3] = <Self as SimdMul<i8,i16,i32>>::mul(self,l,r).as_ref();
+        let &[r0,r1,r2,r3] = <Self as SimdMul<i8,i16,i32>>::mul(self,l,r).as_ref();
 
-            let &[acc0,acc1,acc2,acc3] = acc.as_ref();
+        let &[acc0,acc1,acc2,acc3] = acc.as_ref();
 
-            Regs::new([
-                <Self as SimdAdd<i32,i32,i32>>::add(self,acc0,r0),
-                <Self as SimdAdd<i32,i32,i32>>::add(self,acc1,r1),
-                <Self as SimdAdd<i32,i32,i32>>::add(self,acc2,r2),
-                <Self as SimdAdd<i32,i32,i32>>::add(self,acc3,r3)
-            ])
-        }
+        Regs::new([
+            <Self as SimdAdd<i32,i32,i32>>::add(self,acc0,r0),
+            <Self as SimdAdd<i32,i32,i32>>::add(self,acc1,r1),
+            <Self as SimdAdd<i32,i32,i32>>::add(self,acc2,r2),
+            <Self as SimdAdd<i32,i32,i32>>::add(self,acc3,r3)
+        ])
     }
 }
 impl SimdMulAdd<i16,i16,i32> for Avx2
@@ -1268,16 +1264,14 @@ impl SimdMulAdd<i16,i16,i32> for Avx2
     #[inline(always)]
     fn mul_add(&self, l: <Self as SimdReg<i16>>::Reg, r: <Self as SimdReg<i16>>::Reg,
                 acc: <Self as SimdMul<i16,i16,i32>>::Output) -> <Self as SimdMul<i16,i16,i32>>::Output {
-        unsafe {
-            let &[r0,r1] = <Self as SimdMul<i16,i16,i32>>::mul(self,l,r).as_ref();
+        let &[r0,r1] = <Self as SimdMul<i16,i16,i32>>::mul(self,l,r).as_ref();
 
-            let &[acc0,acc1] = acc.as_ref();
+        let &[acc0,acc1] = acc.as_ref();
 
-            Regs::new([
-                <Self as SimdAdd<i32,i32,i32>>::add(self,acc0,r0),
-                <Self as SimdAdd<i32,i32,i32>>::add(self,acc1,r1)
-            ])
-        }
+        Regs::new([
+            <Self as SimdAdd<i32,i32,i32>>::add(self,acc0,r0),
+            <Self as SimdAdd<i32,i32,i32>>::add(self,acc1,r1)
+        ])
     }
 }
 impl SimdMulAdd<i32,i32,i32> for Avx2
@@ -1291,13 +1285,11 @@ impl SimdMulAdd<i32,i32,i32> for Avx2
     #[inline(always)]
     fn mul_add(&self, l: <Self as SimdReg<i32>>::Reg, r: <Self as SimdReg<i32>>::Reg,
                acc: <Self as SimdMul<i32,i32,i32>>::Output) -> <Self as SimdMul<i32,i32,i32>>::Output {
-        unsafe {
-            let &[r] = <Self as SimdMul<i32,i32,i32>>::mul(self,l,r).as_ref();
+        let &[r] = <Self as SimdMul<i32,i32,i32>>::mul(self,l,r).as_ref();
 
-            let &[acc] = acc.as_ref();
+        let &[acc] = acc.as_ref();
 
-            Regs::new([<Self as SimdAdd<i32,i32,i32>>::add(self,acc,r)])
-        }
+        Regs::new([<Self as SimdAdd<i32,i32,i32>>::add(self,acc,r)])
     }
 }
 impl SimdMulAdd<f32,f32,f32> for Avx2 {
@@ -1309,9 +1301,9 @@ impl SimdMulAdd<f32,f32,f32> for Avx2 {
     #[inline(always)]
     fn mul_add(&self, l: <Self as SimdReg<f32>>::Reg, r: <Self as SimdReg<f32>>::Reg,
                acc:<Self as SimdMul<f32,f32,f32>>::Output) -> <Self as SimdMul<f32,f32,f32>>::Output {
-        unsafe {
-            let &[acc] = acc.as_ref();
+        let &[acc] = acc.as_ref();
 
+        unsafe {
             Regs::new([_mm256_fmadd_ps(acc,l,r)])
         }
     }
@@ -1470,20 +1462,6 @@ derive_matmul! { Avx2,i8,i16,i32 }
 derive_matmul! { Avx2,i16,i16,i32 }
 derive_matmul! { Avx2,f32,f32,f32 }
 derive_matmul! { Avx2,f64,f64,f64 }
-impl<SL,SR,SO> SimdOuterProduct<SL,SR,SO> for Avx2
-    where Self: SimdMatMul<SL,SR,SO,Backend=Avx2> {
-    type Backend = Avx2;
-
-    fn outer_product<'a, const N: usize, const M: usize>(&self, l: &Vector<'a, SL, N, Self::Backend>,
-                                                         r: &Vector<'a, SR, M, Self::Backend>,
-                                                         o: &mut OwnedMatrix<SO, N, M>) {
-        let mut o = o.into();
-        let l = Matrix::from(l);
-        let r = ColumnMajorMatrix::from(r);
-
-        <Self as SimdMatMul<SL,SR,SO>>::matmul::<N,M,1>(self,&l,&r,&mut o)
-    }
-}
 impl<SL,SR,SO> SimdVMat<SL,SR,SO> for Avx2
     where Self: SimdMatMul<SL,SR,SO,Backend=Avx2> {
     type Backend = Avx2;
