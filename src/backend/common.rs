@@ -258,12 +258,13 @@ impl<SL,SR,BE> SimdMulAssignVector<SL,SR> for BE
               SimdReg<SR> +
               SimdLanes<SL> +
               SimdRows<SL> +
-              SimdMul<SL,SR,SL,Output=<Self as SimdReg<SL>>::Reg> +
+              SimdMul<SL,SR,SL> +
               SimdLoad<SL> +
               SimdLoad<SR> +
-              SimdStore<SL>,
+              SimdStoreSeq<SL,<Self as SimdMul<SL,SR,SL>>::Output>,
           SL: Mul<SR,Output=SL> + Copy,
           SR: Copy,
+          <Self as SimdMul<SL,SR,SL>>::Output: Copy,
           (SL,SL): SupportMul<Homogeneous> {
     type Backend = BE;
     #[inline]
@@ -280,7 +281,7 @@ impl<SL,SR,BE> SimdMulAssignVector<SL,SR> for BE
 
                 let prod = self.mul(ra,rb);
 
-                self.store(pa.add(i),prod);
+                self.store_seq(pa.add(i),prod);
 
                 i += <Self as SimdLanes<SL>>::LANES;
             }
@@ -300,13 +301,14 @@ impl<SL,SR,SO,BE> SimdMulVector<SL,SR,SO> for BE
               SimdReg<SO> +
               SimdLanes<SL> +
               SimdRows<SL> +
-              SimdMul<SL,SR,SO,Output=<Self as SimdReg<SO>>::Reg> +
+              SimdMul<SL,SR,SO> +
               SimdLoad<SL> +
               SimdLoad<SR> +
-              SimdStore<SO>,
+              SimdStoreSeq<SO,<Self as SimdMul<SL,SR,SO>>::Output>,
               SO: Default + Copy,
               SL: Mul<SR,Output=SO> + Copy,
               SR: Copy,
+              <Self as SimdMul<SL,SR,SO>>::Output: Copy,
               (SL,SO): SupportMul<Homogeneous> {
     type Backend = BE;
     #[inline]
@@ -327,7 +329,7 @@ impl<SL,SR,SO,BE> SimdMulVector<SL,SR,SO> for BE
 
                 let prod = self.mul(ra,rb);
 
-                self.store(po.add(i),prod);
+                self.store_seq(po.add(i),prod);
 
                 i += <Self as SimdLanes<SL>>::LANES;
             }
