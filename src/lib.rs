@@ -274,6 +274,11 @@ impl<'a,T,const M: usize> From<&'a mut OwnedVector<T,M>> for MatrixMut<'a,T,1,M>
         }
     }
 }
+impl<'a,T,const N: usize,const M: usize> AsMut<[T]> for MatrixMut<'a,T,N,M> {
+    fn as_mut(&mut self) -> &mut [T] {
+        &mut self.data
+    }
+}
 pub struct OwnedMatrix<T,const N: usize,const M: usize> {
     data: Box<[T]>
 }

@@ -1,8 +1,8 @@
 //! Common Backend Implementation
 
 use std::ops::{Add, Mul, Sub};
-use crate::traits::{SimdAddVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportMul, FoldRegs, SimdOuterProduct, SimdMatMul, SimdMulAssignVector, SimdAddAssignVector, SimdSubAssignVector, SimdShiftWidth};
-use crate::{ColumnMajorMatrix, Matrix, OwnedMatrix, OwnedVector, Vector, VectorMut};
+use crate::traits::{SimdAddVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportMul, FoldRegs, SimdOuterProduct, SimdMatMul, SimdMulAssignVector, SimdAddAssignVector, SimdSubAssignVector, SimdShiftWidth, SimdScalarMulAssignVector, SimdAddAssignMatrix};
+use crate::{ColumnMajorMatrix, Matrix, MatrixMut, OwnedMatrix, OwnedVector, Vector, VectorMut};
 
 pub trait Backend {
     fn new() -> Self;
@@ -92,7 +92,7 @@ impl<T,BE> SimdStoreSeq<T,Regs<<Self as SimdReg<T>>::Reg,1>> for BE
         }
     }
 }
-impl<T,BE> SimdAddAssignVector<T,T,T> for BE
+impl<T,BE> SimdAddAssignVector<T,T> for BE
     where BE: Backend +
               SimdReg<T> +
               SimdLanes<T> +
@@ -132,7 +132,7 @@ impl<T,BE> SimdAddAssignVector<T,T,T> for BE
 }
 impl<T,BE> SimdAddVector<T,T,T> for BE
     where BE: Backend +
-              SimdAddAssignVector<T,T,T,Backend=BE>,
+              SimdAddAssignVector<T,T,Backend=BE>,
               T: Copy {
     type Backend = BE;
     #[inline]
@@ -142,12 +142,12 @@ impl<T,BE> SimdAddVector<T,T,T> for BE
 
         let mut l = VectorMut::<T,N>::from(&mut acc);
 
-        <Self as SimdAddAssignVector<T,T,T>>::add_assign_vector(self,&mut l,r);
+        <Self as SimdAddAssignVector<T,T>>::add_assign_vector(self,&mut l,r);
 
         acc
     }
 }
-impl<T,BE> SimdSubAssignVector<T,T,T> for BE
+impl<T,BE> SimdSubAssignVector<T,T> for BE
     where BE: Backend +
               SimdReg<T> +
               SimdLanes<T> +
@@ -187,7 +187,7 @@ impl<T,BE> SimdSubAssignVector<T,T,T> for BE
 }
 impl<T,BE> SimdSubVector<T,T,T> for BE
     where BE: Backend +
-              SimdSubAssignVector<T,T,T,Backend=BE>,
+              SimdSubAssignVector<T,T,Backend=BE>,
       T: Copy {
     type Backend = BE;
     #[inline]
@@ -197,7 +197,7 @@ impl<T,BE> SimdSubVector<T,T,T> for BE
 
         let mut l = VectorMut::<T,N>::from(&mut acc);
 
-        <Self as SimdSubAssignVector<T,T,T>>::sub_assign_vector(self,&mut l,r);
+        <Self as SimdSubAssignVector<T,T>>::sub_assign_vector(self,&mut l,r);
 
         acc
     }
@@ -252,21 +252,19 @@ impl<SL,SR,SO,BE> SimdMulVector<SL,SR,SO> for BE
         rs
     }
 }
-impl<SL,SR,SO,BE> SimdMulAssignVector<SL,SR,SO> for BE
+impl<SL,SR,BE> SimdMulAssignVector<SL,SR> for BE
     where BE: Backend +
               SimdReg<SL> +
               SimdReg<SR> +
-              SimdReg<SO> +
               SimdLanes<SL> +
               SimdRows<SL> +
-              SimdMul<SL,SR,SO,Output=<Self as SimdReg<SL>>::Reg> +
+              SimdMul<SL,SR,SL,Output=<Self as SimdReg<SL>>::Reg> +
               SimdLoad<SL> +
               SimdLoad<SR> +
               SimdStore<SL>,
-          SO: Default + Copy,
           SL: Mul<SR,Output=SL> + Copy,
           SR: Copy,
-          (SL,SO): SupportMul<Homogeneous> {
+          (SL,SL): SupportMul<Homogeneous> {
     type Backend = BE;
     #[inline]
     fn mul_assign_vector<'a,const N: usize>(&self, l: &mut VectorMut<'a,SL,N>, r: &Vector<'a,SR,N,Self::Backend>) {
@@ -406,6 +404,61 @@ impl<SL,SR,SO,BE> SimdScalarMulVector<SL,SR,SO> for BE
         }
 
         rs
+    }
+}
+impl<SL,SR,BE> SimdScalarMulAssignVector<SL,SR> for BE
+    where BE: Backend +
+              SimdReg<SL> +
+              SimdReg<SR> +
+              SimdLanes<SL> +
+              SimdCols<SL> +
+              SimdMul<SL,SR,SR,Output=<Self as SimdReg<SR>>::Reg> +
+              SimdSplat<SL> +
+              SimdLoad<SR> +
+              SimdStore<SR>,
+      SL: Mul<SR,Output=SR> + Copy,
+      SR: Copy,
+      <Self as SimdReg<SR>>::Reg: Copy,
+      (SL,SR): SupportMul<Homogeneous> {
+    type Backend = BE;
+    #[inline]
+    fn scalarmul_assign_vector<'a, const N: usize>(&self, l:SL, r: &mut VectorMut<'a, SR, N>) {
+        let mut i = 0;
+
+        unsafe {
+            let s = self.splat(l);
+            let pb = r.as_mut().as_mut_ptr();
+
+            while i + <Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS <= N {
+                for j in 0..<Self as SimdCols<SL>>::COLS {
+                    let rr = self.load(pb.add(i + j * <Self as SimdLanes<SL>>::LANES));
+
+                    let o = self.mul(s,rr);
+
+                    self.store(pb.add(i + j * <Self as SimdLanes<SL>>::LANES),o);
+                }
+
+                i += <Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS;
+            }
+
+            if N % (<Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS) != 0 {
+                while i + <Self as SimdLanes<SL>>::LANES <= N {
+                    let rr = self.load(pb.add(i));
+
+                    let o = self.mul(s,rr);
+
+                    self.store(pb.add(i),o);
+
+                    i += <Self as SimdLanes<SL>>::LANES;
+                }
+            }
+
+            if N % <Self as SimdLanes<SL>>::LANES != 0 {
+                for j in i..N {
+                    r[j] = l * r[j];
+                }
+            }
+        }
     }
 }
 impl<SL,SR,SO,BE> SimdScalarMulVector<SL,SR,SO> for BE
@@ -868,6 +921,47 @@ impl<SS,SD,BE> SimdConvertVector<SS,SD> for BE
         }
 
         rs
+    }
+}
+impl<T,BE> SimdAddAssignMatrix<T,T> for BE
+    where BE: Backend +
+              SimdReg<T> +
+              SimdLanes<T> +
+              SimdRows<T> +
+              SimdMask<T> +
+              SimdAdd<T,T,T> +
+              SimdLoad<T> +
+              SimdStore<T>,
+          T: Default + Add<Output=T> + Copy {
+    type Backend = BE;
+    #[inline]
+    fn add_assign_matrix<'a,const N: usize,const M: usize>(&self, l: &'a mut MatrixMut<'a,T,N,M>, r: &Matrix<'a,T,N,M,Self::Backend>) {
+        unsafe {
+            for i in 0..N {
+                let rb = r.row(i);
+                let pa = l.as_mut().as_mut_ptr().add(i * M);
+                let pb = rb.as_ref().as_ptr();
+
+                let mut j = 0;
+
+                while j + <Self as SimdLanes<T>>::LANES <= M {
+                    let ra = self.load(pa.add(j));
+                    let rb = self.load(pb.add(j));
+
+                    let rr = self.add(ra,rb);
+
+                    self.store(pa.add(j),rr);
+
+                    j += <Self as SimdLanes<T>>::LANES;
+                }
+
+                if M % <Self as SimdLanes<T>>::LANES != 0 {
+                    for k in j..M {
+                        l[(i,k)] = l[(i,k)] + r[i][k];
+                    }
+                }
+            }
+        }
     }
 }
 impl<SL,SR,SO,BE> SimdOuterProduct<SL,SR,SO> for BE

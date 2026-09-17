@@ -3,6 +3,37 @@
 use std::{error, fmt};
 
 #[derive(Debug)]
+pub enum InstantiationError {
+    TryFromSliceError(TryFromSliceError),
+    NotSupportingError
+}
+
+impl fmt::Display for InstantiationError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            InstantiationError::TryFromSliceError(e) => write!(f, "{}", e),
+            InstantiationError::NotSupportingError => write!(f, "This environment is not supported."),
+        }
+    }
+}
+impl error::Error for InstantiationError {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        None
+    }
+    fn description(&self) -> &str {
+        match self {
+            InstantiationError::TryFromSliceError(_) => "Could not convert slice to SIMD vector",
+            InstantiationError::NotSupportingError => "This environment is not supported.",
+        }
+    }
+}
+impl From<TryFromSliceError> for InstantiationError {
+    fn from(err: TryFromSliceError) -> InstantiationError {
+        InstantiationError::TryFromSliceError(err)
+    }
+}
+
+#[derive(Debug)]
 pub struct TryFromSliceError;
 
 impl fmt::Display for TryFromSliceError {

@@ -58,7 +58,7 @@ pub trait SimdSplat<S>: SimdReg<S> {
     type Backend: Backend;
     fn splat(&self,v:S) -> Self::Reg;
 }
-pub trait SimdAddAssignVector<SL,SR,SO> {
+pub trait SimdAddAssignVector<SL,SR> {
     type Backend: Backend;
     fn add_assign_vector<'a,const N: usize>(&self, l:&mut VectorMut<'a,SL,N>, r:&Vector<'a,SR,N,Self::Backend>);
 }
@@ -66,7 +66,7 @@ pub trait SimdAddVector<SL,SR,SO> {
     type Backend: Backend;
     fn add_vector<'a,const N: usize>(&self, l:&Vector<'a,SL,N,Self::Backend>, r:&Vector<'a,SR,N,Self::Backend>) -> OwnedVector<SO,N>;
 }
-pub trait SimdSubAssignVector<SL,SR,SO> {
+pub trait SimdSubAssignVector<SL,SR> {
     type Backend: Backend;
     fn sub_assign_vector<'a,const N: usize>(&self, l:&mut VectorMut<'a,SL,N>, r:&Vector<'a,SR,N,Self::Backend>);
 }
@@ -74,13 +74,17 @@ pub trait SimdSubVector<SL,SR,SO> {
     type Backend: Backend;
     fn sub_vector<'a,const N: usize>(&self, l:&Vector<'a,SL,N,Self::Backend>, r:&Vector<'a,SR,N,Self::Backend>) -> OwnedVector<SO,N>;
 }
-pub trait SimdMulAssignVector<SL,SR,SO> {
+pub trait SimdMulAssignVector<SL,SR> {
     type Backend: Backend;
     fn mul_assign_vector<'a,const N: usize>(&self, l:&mut VectorMut<'a,SL,N>, r:&Vector<'a,SR,N,Self::Backend>);
 }
 pub trait SimdMulVector<SL,SR,SO> {
     type Backend: Backend;
     fn mul_vector<'a,const N: usize>(&self, l:&Vector<'a,SL,N,Self::Backend>, r:&Vector<'a,SR,N,Self::Backend>) -> OwnedVector<SO,N>;
+}
+pub trait SimdScalarMulAssignVector<SL,SR> {
+    type Backend: Backend;
+    fn scalarmul_assign_vector<'a,const N: usize>(&self, l:SL, r:&mut VectorMut<'a,SR,N>);
 }
 pub trait SimdScalarMulVector<SL,SR,SO> {
     type Backend: Backend;
@@ -111,6 +115,10 @@ pub trait SimdShlVector<S> {
 pub trait SimdShrVector<S> {
     type Backend: Backend;
     fn shr_vector<'a,const N: usize>(&self, v:&Vector<'a,S,N,Self::Backend>, w:usize) -> OwnedVector<S,N>;
+}
+pub trait SimdAddAssignMatrix<SL,SR> {
+    type Backend: Backend;
+    fn add_assign_matrix<'a,const N: usize,const M: usize>(&self, l:&'a mut MatrixMut<'a,SL,N,M>, r:& Matrix<'a,SR,N,M,Self::Backend>);
 }
 pub trait SimdDot<SL,SR,SO> {
     type Backend: Backend;
