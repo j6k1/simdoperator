@@ -120,6 +120,14 @@ pub trait SimdAddAssignMatrix<SL,SR> {
     type Backend: Backend;
     fn add_assign_matrix<'a,const N: usize,const M: usize>(&self, l:&'a mut MatrixMut<'a,SL,N,M>, r:& Matrix<'a,SR,N,M,Self::Backend>);
 }
+pub trait SimdScalarMulAssignMatrix<SL,SR> {
+    type Backend: Backend;
+    fn scalar_mul_assign_matrix<'a,const N: usize,const M: usize>(&self, l: SL, r:&'a mut MatrixMut<'a,SR,N,M>);
+}
+pub trait SimdScalarMulMatrix<SL,SR,SO> {
+    type Backend: Backend;
+    fn scalar_mul_matrix<'a,const N: usize,const M: usize>(&self, l: SL, r:&Matrix<'a,SR,N,M,Self::Backend>) -> OwnedMatrix<SO,N,M>;
+}
 pub trait SimdDot<SL,SR,SO> {
     type Backend: Backend;
     fn dot<'a,const N: usize>(&self,l:&Vector<'a,SL,N,Self::Backend>,r:&Vector<'a,SR,N,Self::Backend>) -> SO;
