@@ -1,7 +1,7 @@
 //! Common Backend Implementation
 
 use std::ops::{Add, Mul, Sub};
-use crate::traits::{SimdAddVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportMul, FoldRegs, SimdOuterProduct, SimdMatMul, SimdMulAssignVector, SimdAddAssignVector, SimdSubAssignVector, SimdShiftWidth, SimdScalarMulAssignVector, SimdAddAssignMatrix, SimdScalarMulAssignMatrix, SimdScalarMulMatrix};
+use crate::traits::{SimdAddVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportMul, FoldRegs, SimdOuterProduct, SimdMatMul, SimdMulAssignVector, SimdAddAssignVector, SimdSubAssignVector, SimdShiftWidth, SimdScalarMulAssignVector, SimdAddAssignMatrix, SimdScalarMulAssignMatrix, SimdScalarMulMatrix, SimdConvertMatrix};
 use crate::{ColumnMajorMatrix, Matrix, MatrixMut, OwnedMatrix, OwnedVector, Vector, VectorMut};
 
 pub trait Backend {
@@ -1030,10 +1030,8 @@ impl<SL,SR,SO,BE> SimdScalarMulMatrix<SL,SR,SO> for BE
           (SL,SO): SupportMul<Homogeneous> {
     type Backend = BE;
     #[inline]
-    fn scalar_mul_matrix<'a,const N: usize,const M: usize>(&self, l: SL, r: &Matrix<'a,SR,N,M,BE>) -> OwnedMatrix<SO,N,M> {
+    fn scalar_mul_matrix<'a,const N: usize,const M: usize>(&self, l: SL, r: &Matrix<'a,SR,N,M,BE>, acc:&'a mut MatrixMut<'a,SO,N,M>) {
         unsafe {
-            let mut acc = OwnedMatrix::<SO,N,M>::default();
-
             let rl = <Self as SimdSplat<SL>>::splat(self,l);
 
             for i in 0..N {
@@ -1058,12 +1056,53 @@ impl<SL,SR,SO,BE> SimdScalarMulMatrix<SL,SR,SO> for BE
                     }
                 }
             }
-
-            acc
         }
     }
 }
-impl<SL,SR,SO,BE> SimdOuterProduct<SL,SR,SO> for BE
+impl<SS,SD,BE> SimdConvertMatrix<SS,SD> for BE
+    where BE: Backend +
+              SimdReg<SS> +
+              SimdReg<SS> +
+              SimdLanes<SS> +
+              SimdConvert<SS,SD> +
+              SimdLoad<SS> +
+              SimdStoreSeq<SD,<Self as SimdConvert<SS,SD>>::Output> +
+              SimdStore<SD>,
+          SS: Assume<SD> + Copy,
+          SD: Default + Copy,
+          <Self as SimdConvert<SS,SD>>::Output: Copy,
+          <Self as SimdReg<SS>>::Reg: Copy {
+    type Backend = BE;
+    #[inline]
+    fn convert_matrix<'a, const N: usize,const M: usize>(&self, s: &Matrix<'a, SS, N, M, Self::Backend>, acc:&'a mut MatrixMut<'a,SD,N,M>) {
+        unsafe {
+            for i in 0..N {
+                let lr = s.row(i);
+                let pa = lr.as_ref().as_ptr();
+                let mut po = acc.as_mut().as_mut_ptr().add(i * M);
+
+                let mut j = 0;
+
+                while j + <Self as SimdLanes<SS>>::LANES <= N {
+                    let sr = self.load(pa.add(j));
+
+                    let o = self.convert(sr);
+
+                    self.store_seq(po.add(i),o);
+
+                    j += <Self as SimdLanes<SS>>::LANES;
+                }
+
+                if M % <Self as SimdLanes<SS>>::LANES != 0 {
+                    for k in j..M {
+                        acc[(i,k)] = lr[k].assume();
+                    }
+                }
+            }
+        }
+    }
+}
+impl<SL, SR,SO,BE> SimdOuterProduct<SL,SR,SO> for BE
     where BE: Backend +
               SimdMatMul<SL,SR,SO,Backend=BE> {
     type Backend = BE;

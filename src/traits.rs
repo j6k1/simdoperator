@@ -126,7 +126,11 @@ pub trait SimdScalarMulAssignMatrix<SL,SR> {
 }
 pub trait SimdScalarMulMatrix<SL,SR,SO> {
     type Backend: Backend;
-    fn scalar_mul_matrix<'a,const N: usize,const M: usize>(&self, l: SL, r:&Matrix<'a,SR,N,M,Self::Backend>) -> OwnedMatrix<SO,N,M>;
+    fn scalar_mul_matrix<'a,const N: usize,const M: usize>(&self, l: SL, r:&Matrix<'a,SR,N,M,Self::Backend>, acc:&'a mut MatrixMut<'a,SO,N,M>);
+}
+pub trait SimdConvertMatrix<SS,SD> {
+    type Backend: Backend;
+    fn convert_matrix<'a,const N: usize,const M: usize>(&self, s:&Matrix<'a,SS,N,M,Self::Backend>, acc:&'a mut MatrixMut<'a,SD,N,M>);
 }
 pub trait SimdDot<SL,SR,SO> {
     type Backend: Backend;
