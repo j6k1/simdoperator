@@ -2,7 +2,7 @@
 
 use std::marker::PhantomData;
 use std::ops::{Add, BitAnd, BitOr, BitXor, Index, IndexMut, Mul, Not, Shl, Shr, Sub};
-use crate::error::TryFromSliceError;
+use crate::error::{InstantiationError, TryFromSliceError};
 use crate::backend::common::{Backend};
 use crate::traits::{BitsBitAnd, BitsBitOr, BitsBitXor, Dims, Dot, Product, SimdAddVector, SimdBitAndVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdDot, SimdMatMul, SimdMatVec, SimdMulVector, SimdOuterProduct, SimdReg, SimdScalarMulVector, SimdShlVector, SimdShrVector, SimdSubVector, SimdVMat, ToColumnMajor, Transpose};
 
@@ -17,16 +17,16 @@ pub struct Vector<'a,T,const N: usize,BE: Backend> {
     backend: BE
 }
 impl<'a,BE: Backend,T,const N: usize> TryFrom<&'a [T]> for Vector<'a,T,N,BE> {
-    type Error = TryFromSliceError;
+    type Error = InstantiationError;
 
     #[inline]
     fn try_from(value: &'a [T]) -> Result<Self,Self::Error> {
         if value.len() != N {
-            Err(TryFromSliceError)
+            Err(InstantiationError::from(TryFromSliceError))
         } else {
             Ok(Vector {
                 data: value.try_into()?,
-                backend: BE::new()
+                backend: BE::new()?
             })
         }
     }
@@ -43,12 +43,13 @@ impl<T,BE: Backend,const N: usize> AsRef<[T;N]> for Vector<'_,T,N,BE> {
         &self.data
     }
 }
-impl<'a,BE: Backend,T,const N: usize> From<&'a OwnedVector<T,N>> for Vector<'a,T,N,BE> {
-    fn from(value: &'a OwnedVector<T,N>) -> Self {
-        Vector {
+impl<'a,BE: Backend,T,const N: usize> TryFrom<&'a OwnedVector<T,N>> for Vector<'a,T,N,BE> {
+    type Error = InstantiationError;
+    fn try_from(value: &'a OwnedVector<T,N>) -> Result<Self,Self::Error> {
+        Ok(Vector {
             data: &value.data,
-            backend: BE::new()
-        }
+            backend: BE::new()?
+        })
     }
 }
 impl<'a,BE: Backend,T,const N: usize> From<&'a Vector<'a,T,N,BE>> for Box<[T;N]>
@@ -62,14 +63,14 @@ impl<'a,BE: Backend,T,const N: usize> Vector<'a,T,N,BE> {
     pub fn as_vertical(&self) -> Matrix<'a,T,N,1,BE> {
         Matrix {
             data: self.data,
-            backend: BE::new()
+            backend: BE::new().unwrap()
         }
     }
 
     pub fn as_horizontal(&self) -> Matrix<'a,T,1,N,BE> {
         Matrix {
             data: self.data,
-            backend: BE::new()
+            backend: BE::new().unwrap()
         }
     }
 }
@@ -154,7 +155,7 @@ impl<'a,BE: Backend,T,const N: usize,const M: usize> Matrix<'a,T,N,M,BE> {
 
         Vector {
             data: view.try_into().unwrap(),
-            backend: BE::new()
+            backend: BE::new().unwrap()
         }
     }
 }
@@ -168,7 +169,7 @@ impl<'a,BE: Backend,T,const N: usize,const M: usize> TryFrom<&'a [T]> for Matrix
         } else {
             Ok(Matrix {
                 data: value,
-                backend: BE::new()
+                backend: BE::new().unwrap()
             })
         }
     }
@@ -228,19 +229,20 @@ impl<'a,T,BE: Backend,const N: usize,const M: usize> ToColumnMajor<T,N,M> for Ma
         OwnedColumnMajorMatrix { data: r }
     }
 }
-impl<'a,BE: Backend,T,const N: usize,const M: usize> From<&'a OwnedMatrix<T,N,M>> for Matrix<'a,T,N,M,BE> {
-    fn from(value: &'a OwnedMatrix<T,N,M>) -> Self {
-        Matrix {
+impl<'a,BE: Backend,T,const N: usize,const M: usize> TryFrom<&'a OwnedMatrix<T,N,M>> for Matrix<'a,T,N,M,BE> {
+    type Error = InstantiationError;
+    fn try_from(value: &'a OwnedMatrix<T,N,M>) -> Result<Self,Self::Error> {
+        Ok(Matrix {
             data: &value.data,
-            backend: BE::new()
-        }
+            backend: BE::new()?
+        })
     }
 }
 impl<'a,BE: Backend,T,const N: usize> From<&'a Vector<'a,T,N,BE>> for Matrix<'a,T,N,1,BE> {
     fn from(value: &'a Vector<'a, T, N, BE>) -> Self {
         Matrix {
             data: value.data,
-            backend: BE::new()
+            backend: BE::new().unwrap()
         }
     }
 }
@@ -324,7 +326,7 @@ impl<'a,BE: Backend,T,const N: usize,const M: usize> ColumnMajorMatrix<'a,T,N,M,
 
         Vector {
             data: view.try_into().unwrap(),
-            backend: BE::new()
+            backend: BE::new().unwrap()
         }
     }
 }

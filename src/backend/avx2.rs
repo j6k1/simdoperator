@@ -5,13 +5,15 @@ use std::ops::{Add, AddAssign, Mul};
 use crate::backend::common::{Backend, Regs};
 use crate::traits::{SimdCols, SimdDot, SimdHSum, SimdLanes, SimdLoad, SimdMask, SimdMatMul, SimdMatVec, SimdMulAdd, SimdOuterProduct, SimdPartialDot, SimdReg, SimdRows, SimdStore, SimdTranspose, SimdVMat, SimdZero, SimdAdd, SimdSub, SimdMul, SimdPromote, SimdScalarMul, SimdSplat, SimdBitOr, SimdBitAnd, SimdReinterpret, SimdBitXor, SimdBitNot, BitsBitAnd, BitsBitOr, BitsBitXor, SimdShl, SimdShr, SimdDemote, SimdConvert, FoldRegs, SimdShiftWidth};
 use crate::{derive_matmul, matmul_tile, ColumnMajorMatrix, Matrix, MatrixMut, OwnedMatrix, OwnedVector, Vector};
+use crate::error::InstantiationError;
+
 pub struct Avx2 {
 
 }
 impl Backend for Avx2 {
     #[inline(always)]
-    fn new() -> Self {
-        Avx2 {}
+    fn new() -> Result<Self,InstantiationError> {
+        Ok(Avx2 {})
     }
 }
 impl SimdLanes<f32> for Avx2 {

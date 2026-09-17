@@ -32,6 +32,11 @@ impl From<TryFromSliceError> for InstantiationError {
         InstantiationError::TryFromSliceError(err)
     }
 }
+impl From<std::array::TryFromSliceError> for InstantiationError {
+    fn from(_: std::array::TryFromSliceError) -> InstantiationError {
+        InstantiationError::TryFromSliceError(TryFromSliceError)
+    }
+}
 
 #[derive(Debug)]
 pub struct TryFromSliceError;
