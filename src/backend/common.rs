@@ -215,8 +215,8 @@ impl<SL,SR,SO,BE> SimdMulVector<SL,SR,SO> for BE
               SimdLoad<SL> +
               SimdLoad<SR> +
               SimdStoreSeq<SO,<Self as SimdMul<SL,SR,SO>>::Output>,
-              SO: Default + Copy,
-              SL: Mul<SR,Output=SO> + Copy,
+              SO: Default + From<SL> + From<SR> + Mul<SO,Output=SO> + Copy,
+              SL: Copy,
               SR: Copy,
               <Self as SimdMul<SL,SR,SO>>::Output: Copy,
               (SL,SO): SupportMul<Heterogeneous> {
@@ -246,7 +246,7 @@ impl<SL,SR,SO,BE> SimdMulVector<SL,SR,SO> for BE
 
             if N % <Self as SimdLanes<SL>>::LANES != 0 {
                 for j in i..N {
-                    rs[j] = l[j] * r[j];
+                    rs[j] = SO::from(l[j]) * SO::from(r[j]);
                 }
             }
         }
