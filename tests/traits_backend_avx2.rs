@@ -481,6 +481,118 @@ where
     assert_eq!(owned_matrix_vec(acc), expected);
 }
 
+fn check_outer_product<BE, SL, SR, SO, const N: usize, const M: usize>()
+where
+    BE: Backend + SimdOuterProduct<SL, SR, SO, Backend = BE>,
+    SL: Copy + From<i8>,
+    SR: Copy + From<i8>,
+    SO: Copy
+        + Default
+        + From<SL>
+        + From<SR>
+        + Add<Output = SO>
+        + AddAssign
+        + Mul<Output = SO>
+        + PartialEq
+        + Debug,
+{
+    let l_data: [SL; N] = std::array::from_fn(|i| SL::from(((i % 5) + 1) as i8));
+    let r_data: [SR; M] = std::array::from_fn(|i| SR::from(3 - (i as i8 % 5)));
+    let mut expected = vec![SO::default(); N * M];
+
+    for row in 0..N {
+        for col in 0..M {
+            expected[row * M + col] = SO::from(l_data[row]) * SO::from(r_data[col]);
+        }
+    }
+
+    let be = BE::new().unwrap();
+    let mut actual = OwnedMatrix::<SO, N, M>::default();
+    be.outer_product(
+        &vector::<SL, BE, N>(&l_data),
+        &vector::<SR, BE, M>(&r_data),
+        &mut actual,
+    );
+
+    assert_eq!(owned_matrix_vec(actual), expected);
+}
+
+fn check_matvec<BE, SL, SR, SO, const N: usize, const K: usize>()
+where
+    BE: Backend + SimdMatVec<SL, SR, SO, Backend = BE>,
+    SL: Copy + From<i8>,
+    SR: Copy + From<i8>,
+    SO: Copy
+        + Default
+        + From<SL>
+        + From<SR>
+        + Add<Output = SO>
+        + AddAssign
+        + Mul<Output = SO>
+        + PartialEq
+        + Debug,
+{
+    let l_data: Vec<SL> = (0..N * K).map(|i| SL::from(((i % 5) + 1) as i8)).collect();
+    let r_data: [SR; K] = std::array::from_fn(|i| SR::from(3 - (i as i8 % 5)));
+    let mut expected = [SO::default(); N];
+
+    for row in 0..N {
+        let mut acc = SO::default();
+        for k in 0..K {
+            acc += SO::from(l_data[row * K + k]) * SO::from(r_data[k]);
+        }
+        expected[row] = acc;
+    }
+
+    let be = BE::new().unwrap();
+    let mut actual = OwnedVector::<SO, N>::default();
+    be.matvec(
+        &matrix::<SL, BE, N, K>(&l_data),
+        &vector::<SR, BE, K>(&r_data),
+        &mut actual,
+    );
+
+    assert_eq!(owned_vector_array(actual), expected);
+}
+
+fn check_vmat<BE, SL, SR, SO, const M: usize, const K: usize>()
+where
+    BE: Backend + SimdVMat<SL, SR, SO, Backend = BE>,
+    SL: Copy + From<i8>,
+    SR: Copy + From<i8>,
+    SO: Copy
+        + Default
+        + From<SL>
+        + From<SR>
+        + Add<Output = SO>
+        + AddAssign
+        + Mul<Output = SO>
+        + PartialEq
+        + Debug,
+{
+    let l_data: [SL; K] = std::array::from_fn(|i| SL::from(((i % 5) + 1) as i8));
+    let r_data: Vec<SR> = (0..K * M).map(|i| SR::from(3 - (i as i8 % 5))).collect();
+    let mut expected = [SO::default(); M];
+
+    for col in 0..M {
+        let mut acc = SO::default();
+        for k in 0..K {
+            acc += SO::from(l_data[k]) * SO::from(r_data[col * K + k]);
+        }
+        expected[col] = acc;
+    }
+
+    let be = BE::new().unwrap();
+    let mut actual = OwnedVector::<SO, M>::default();
+    be.vmat(
+        &vector::<SL, BE, K>(&l_data),
+        &column_major::<SR, BE, K, M>(&r_data),
+        &mut actual,
+    );
+
+    assert_eq!(owned_vector_array(actual), expected);
+}
+
 #[test]
 fn common_vector_add_sub_all_lane_boundaries() {
     if !avx2_available() {
@@ -1050,9 +1162,9 @@ fn compile_probe_avx2_widening_dot_type_combinations() {
     check_dot::<Avx2, i16, i16, i32, 15>();
     check_dot::<Avx2, i16, i16, i32, 16>();
     check_dot::<Avx2, i16, i16, i32, 17>();
-    check_dot::<Avx2, f32, f64, f64, 3>();
-    check_dot::<Avx2, f32, f64, f64, 4>();
-    check_dot::<Avx2, f32, f64, f64, 5>();
+    check_dot::<Avx2, f64, f64, f64, 3>();
+    check_dot::<Avx2, f64, f64, f64, 4>();
+    check_dot::<Avx2, f64, f64, f64, 5>();
 }
 
 #[test]
@@ -1064,7 +1176,26 @@ fn compile_probe_avx2_matmul_missing_type_combinations() {
     check_matmul::<Avx2, i32, i32, i32, 1, 7, 7>();
     check_matmul::<Avx2, i32, i32, i32, 2, 8, 8>();
     check_matmul::<Avx2, i32, i32, i32, 3, 9, 9>();
-    check_matmul::<Avx2, f32, f64, f64, 1, 1, 3>();
-    check_matmul::<Avx2, f32, f64, f64, 2, 2, 4>();
-    check_matmul::<Avx2, f32, f64, f64, 3, 3, 5>();
+    check_matmul::<Avx2, f64, f64, f64, 1, 1, 3>();
+    check_matmul::<Avx2, f64, f64, f64, 2, 2, 4>();
+    check_matmul::<Avx2, f64, f64, f64, 3, 3, 5>();
+}
+
+#[test]
+fn compile_probe_avx2_outer_matvec_vmat_f64_type_combinations() {
+    if !avx2_available() {
+        return;
+    }
+
+    check_outer_product::<Avx2, f64, f64, f64, 1, 3>();
+    check_outer_product::<Avx2, f64, f64, f64, 2, 4>();
+    check_outer_product::<Avx2, f64, f64, f64, 3, 5>();
+
+    check_matvec::<Avx2, f64, f64, f64, 1, 3>();
+    check_matvec::<Avx2, f64, f64, f64, 2, 4>();
+    check_matvec::<Avx2, f64, f64, f64, 3, 5>();
+
+    check_vmat::<Avx2, f64, f64, f64, 1, 3>();
+    check_vmat::<Avx2, f64, f64, f64, 2, 4>();
+    check_vmat::<Avx2, f64, f64, f64, 3, 5>();
 }
