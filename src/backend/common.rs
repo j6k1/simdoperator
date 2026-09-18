@@ -1085,7 +1085,7 @@ impl<SS,SD,BE> SimdConvertMatrix<SS,SD> for BE
 
                 let mut j = 0;
 
-                while j + <Self as SimdLanes<SS>>::LANES <= N {
+                while j + <Self as SimdLanes<SS>>::LANES <= M {
                     let sr = self.load(pa.add(j));
 
                     let o = self.convert(sr);
