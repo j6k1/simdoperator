@@ -1090,7 +1090,7 @@ impl<SS,SD,BE> SimdConvertMatrix<SS,SD> for BE
 
                     let o = self.convert(sr);
 
-                    self.store_seq(po.add(i),o);
+                    self.store_seq(po.add(j),o);
 
                     j += <Self as SimdLanes<SS>>::LANES;
                 }
