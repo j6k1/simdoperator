@@ -596,21 +596,6 @@ impl SimdMul<i8,i8,i32> for Avx2 where Self: SimdReg<i8> + SimdReg<i32> {
         Regs::new([lo32_lo,lo32_hi,hi32_lo,hi32_hi])
     }
 }
-impl SimdMul<i8,i16,i32> for Avx2 where Self: SimdReg<i8> + SimdReg<i16> + SimdReg<i32> {
-    type Backend = Avx2;
-    type Output = Regs<<Self as SimdReg<i32>>::Reg,4>;
-
-    #[inline(always)]
-    fn mul(&self, l: <Self as SimdReg<i8>>::Reg, r: <Self as SimdReg<i16>>::Reg)
-        ->Regs<<Self as SimdReg<i32>>::Reg,4> {
-        let &[lo,hi] = <Self as SimdPromote<i8,i16>>::promotion(self,l).as_ref();
-
-        let &[lo32_lo,lo32_hi] = <Self as SimdMul<i16,i16,i32>>::mul(self,lo,r).as_ref();
-        let &[hi32_lo,hi32_hi] = <Self as SimdMul<i16,i16,i32>>::mul(self,hi,r).as_ref();
-
-        Regs::new([lo32_lo,lo32_hi,hi32_lo,hi32_hi])
-    }
-}
 impl SimdMul<i16,i16,i32> for Avx2 where Self: SimdReg<i16> + SimdReg<i32> {
     type Backend = Avx2;
     type Output = Regs<<Self as SimdReg<i32>>::Reg,2>;
@@ -1275,29 +1260,6 @@ impl SimdMulAdd<i8,i8,i32> for Avx2
         ])
     }
 }
-impl SimdMulAdd<i8,i16,i32> for Avx2
-    where Self: SimdMul<i8,i16,i32> +
-                SimdAdd<i32,i32,i32> {
-    type Backend = Avx2;
-    #[inline(always)]
-    fn zero_acc(&self) -> <Self as SimdMul<i8, i16, i32>>::Output {
-        Regs::new([<Self as SimdZero<i32>>::zero();4])
-    }
-    #[inline(always)]
-    fn mul_add(&self, l: <Self as SimdReg<i8>>::Reg, r: <Self as SimdReg<i8>>::Reg,
-                acc: <Self as SimdMul<i8,i16,i32>>::Output) -> <Self as SimdMul<i8,i16,i32>>::Output {
-        let &[r0,r1,r2,r3] = <Self as SimdMul<i8,i16,i32>>::mul(self,l,r).as_ref();
-
-        let &[acc0,acc1,acc2,acc3] = acc.as_ref();
-
-        Regs::new([
-            <Self as SimdAdd<i32,i32,i32>>::add(self,acc0,r0),
-            <Self as SimdAdd<i32,i32,i32>>::add(self,acc1,r1),
-            <Self as SimdAdd<i32,i32,i32>>::add(self,acc2,r2),
-            <Self as SimdAdd<i32,i32,i32>>::add(self,acc3,r3)
-        ])
-    }
-}
 impl SimdMulAdd<i16,i16,i32> for Avx2
     where Self: SimdMul<i16,i16,i32> +
                 SimdAdd<i32,i32,i32> {
@@ -1349,7 +1311,7 @@ impl SimdMulAdd<f32,f32,f32> for Avx2 {
         let &[acc] = acc.as_ref();
 
         unsafe {
-            Regs::new([_mm256_fmadd_ps(acc,l,r)])
+            Regs::new([_mm256_fmadd_ps(l,r,acc)])
         }
     }
 }
@@ -1365,7 +1327,7 @@ impl SimdMulAdd<f64,f64,f64> for Avx2 {
         unsafe {
             let &[acc] = acc.as_ref();
 
-            Regs::new([_mm256_fmadd_pd(acc,l,r)])
+            Regs::new([_mm256_fmadd_pd(l,r,acc)])
         }
     }
 }
@@ -1503,7 +1465,6 @@ impl<SL,SR,SO> SimdMatVec<SL,SR,SO> for Avx2
     }
 }
 derive_matmul! { Avx2,i8,i8,i32 }
-derive_matmul! { Avx2,i8,i16,i32 }
 derive_matmul! { Avx2,i16,i16,i32 }
 derive_matmul! { Avx2,i32,i32,i32 }
 derive_matmul! { Avx2,f32,f32,f32 }
