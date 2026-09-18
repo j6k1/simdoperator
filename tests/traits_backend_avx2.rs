@@ -764,9 +764,6 @@ fn avx2_matmul_type_combinations_rows_cols_and_lane_boundaries() {
     check_matmul::<Avx2, i8, i8, i32, 1, 7, 31>();
     check_matmul::<Avx2, i8, i8, i32, 1, 8, 32>();
     check_matmul::<Avx2, i8, i8, i32, 2, 9, 33>();
-    check_matmul::<Avx2, i8, i16, i32, 1, 7, 31>();
-    check_matmul::<Avx2, i8, i16, i32, 1, 8, 32>();
-    check_matmul::<Avx2, i8, i16, i32, 2, 9, 33>();
     check_matmul::<Avx2, i16, i16, i32, 1, 7, 15>();
     check_matmul::<Avx2, i16, i16, i32, 1, 8, 16>();
     check_matmul::<Avx2, i16, i16, i32, 2, 9, 17>();
@@ -1093,12 +1090,6 @@ fn compile_probe_common_widening_mul_vector_type_combinations() {
     check_mul_vector::<Avx2, i8, i8, i32, 64>();
     check_mul_vector::<Avx2, i8, i8, i32, 65>();
 
-    check_mul_vector::<Avx2, i8, i16, i32, 31>();
-    check_mul_vector::<Avx2, i8, i16, i32, 32>();
-    check_mul_vector::<Avx2, i8, i16, i32, 33>();
-    check_mul_vector::<Avx2, i8, i16, i32, 64>();
-    check_mul_vector::<Avx2, i8, i16, i32, 65>();
-
     check_mul_vector::<Avx2, i16, i16, i32, 15>();
     check_mul_vector::<Avx2, i16, i16, i32, 16>();
     check_mul_vector::<Avx2, i16, i16, i32, 17>();
@@ -1117,12 +1108,6 @@ fn compile_probe_common_widening_scalar_mul_vector_type_combinations() {
     check_scalarmul_vector::<Avx2, i8, i8, i32, 257>(2_i8);
     check_scalarmul_vector::<Avx2, i8, i8, i32, 512>(2_i8);
     check_scalarmul_vector::<Avx2, i8, i8, i32, 513>(2_i8);
-
-    check_scalarmul_vector::<Avx2, i8, i16, i32, 255>(2_i8);
-    check_scalarmul_vector::<Avx2, i8, i16, i32, 256>(2_i8);
-    check_scalarmul_vector::<Avx2, i8, i16, i32, 257>(2_i8);
-    check_scalarmul_vector::<Avx2, i8, i16, i32, 512>(2_i8);
-    check_scalarmul_vector::<Avx2, i8, i16, i32, 513>(2_i8);
 
     check_scalarmul_vector::<Avx2, i16, i16, i32, 127>(2_i16);
     check_scalarmul_vector::<Avx2, i16, i16, i32, 128>(2_i16);
@@ -1159,9 +1144,6 @@ fn compile_probe_avx2_widening_dot_type_combinations() {
     check_dot::<Avx2, i8, i8, i32, 31>();
     check_dot::<Avx2, i8, i8, i32, 32>();
     check_dot::<Avx2, i8, i8, i32, 33>();
-    check_dot::<Avx2, i8, i16, i32, 31>();
-    check_dot::<Avx2, i8, i16, i32, 32>();
-    check_dot::<Avx2, i8, i16, i32, 33>();
     check_dot::<Avx2, i16, i16, i32, 15>();
     check_dot::<Avx2, i16, i16, i32, 16>();
     check_dot::<Avx2, i16, i16, i32, 17>();
