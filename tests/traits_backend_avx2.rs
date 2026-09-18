@@ -172,13 +172,13 @@ where
 fn check_mul_vector<BE, SL, SR, SO, const N: usize>()
 where
     BE: Backend + SimdMulVector<SL, SR, SO, Backend = BE>,
-    SL: Copy + From<i8> + Mul<SR, Output = SO>,
+    SL: Copy + From<i8>,
     SR: Copy + From<i8>,
-    SO: Copy + Default + PartialEq + Debug,
+    SO: Copy + Default + From<SL> + From<SR> + Mul<Output = SO> + PartialEq + Debug,
 {
     let l_data: [SL; N] = std::array::from_fn(|i| SL::from(((i % 5) + 1) as i8));
     let r_data: [SR; N] = std::array::from_fn(|i| SR::from(3 - (i as i8 % 5)));
-    let expected = std::array::from_fn(|i| l_data[i] * r_data[i]);
+    let expected = std::array::from_fn(|i| SO::from(l_data[i]) * SO::from(r_data[i]));
     let be = BE::new().unwrap();
     let actual = be.mul_vector(&vector::<SL, BE, N>(&l_data), &vector::<SR, BE, N>(&r_data));
 
