@@ -358,8 +358,8 @@ impl<SL,SR,SO,BE> SimdScalarMulVector<SL,SR,SO> for BE
               SimdLoad<SR> +
               SimdStoreSeq<SO,<Self as SimdMul<SL,SR,SO>>::Output> +
               SimdStore<SO>,
-              SO: Default + Copy,
-              SL: Mul<SR,Output=SO> + Copy,
+              SO: Default + From<SL> + From<SR> + Mul<SO,Output=SO> + Copy,
+              SL: Copy,
               SR: Copy,
               <Self as SimdReg<SL>>::Reg: Copy,
               <Self as SimdMul<SL,SR,SO>>::Output: Copy,
@@ -402,7 +402,7 @@ impl<SL,SR,SO,BE> SimdScalarMulVector<SL,SR,SO> for BE
 
             if N % <Self as SimdLanes<SL>>::LANES != 0 {
                 for j in i..N {
-                    rs[j] = l * r[j];
+                    rs[j] = SO::from(l) * SO::from(r[j]);
                 }
             }
         }
