@@ -1505,6 +1505,7 @@ impl<SL,SR,SO> SimdMatVec<SL,SR,SO> for Avx2
 derive_matmul! { Avx2,i8,i8,i32 }
 derive_matmul! { Avx2,i8,i16,i32 }
 derive_matmul! { Avx2,i16,i16,i32 }
+derive_matmul! { Avx2,i32,i32,i32 }
 derive_matmul! { Avx2,f32,f32,f32 }
 derive_matmul! { Avx2,f64,f64,f64 }
 impl<SL,SR,SO> SimdVMat<SL,SR,SO> for Avx2
