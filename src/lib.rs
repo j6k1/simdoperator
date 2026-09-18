@@ -150,7 +150,7 @@ pub struct Matrix<'a,T,const N: usize,const M: usize,BE: Backend> {
 impl<'a,BE: Backend,T,const N: usize,const M: usize> Dims<N,M> for Matrix<'a,T,N,M,BE> {}
 impl<'a,BE: Backend,T,const N: usize,const M: usize> Matrix<'a,T,N,M,BE> {
     #[inline]
-    pub fn row(&self,index:usize) -> Vector<'a,T,N,BE> {
+    pub fn row(&self,index:usize) -> Vector<'a,T,M,BE> {
         let view = &self.data[index * M..(index + 1) * M];
 
         Vector {

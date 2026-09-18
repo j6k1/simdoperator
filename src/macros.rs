@@ -73,31 +73,32 @@ macro_rules! derive_matmul {
             type Backend = $BE;
 
             fn matmul<'a, const N: usize, const M: usize, const K: usize>(&self, l: &Matrix<'a, $SL, N, K, Self::Backend>, r: &ColumnMajorMatrix<'a, $SR, K, M, Self::Backend>, acc: &mut MatrixMut<'a,$SO, N, M>) {
-                for i in (0..N).step_by(<Self as SimdRows<$SL>>::ROWS) {
-                    for j in (0..M).step_by(<Self as SimdCols<$SR>>::COLS) {
+                for i in (0..(N - N % <Self as SimdRows<$SL>>::ROWS)).step_by(<Self as SimdRows<$SL>>::ROWS) {
+                    for j in (0..(M - M % <Self as SimdCols<$SR>>::COLS)).step_by(<Self as SimdCols<$SR>>::COLS) {
                         self.matmul_tile::<N,M,K,{ <Self as SimdRows<$SL>>::ROWS }, { <Self as SimdCols<$SR>>::COLS }>(
                             l, r, i, j, acc
                         );
                     }
                 }
 
-                for i in (0..N).step_by(<Self as SimdRows<$SL>>::ROWS) {
+                for j in (0..(M - M % <Self as SimdCols<$SR>>::COLS)).step_by(<Self as SimdCols<$SR>>::COLS) {
                     self.matmul_tile_tail_rows::<N,M,K,{ <Self as SimdRows<$SL>>::ROWS }, { <Self as SimdCols<$SR>>::COLS }>(
-                        l, r, i, M / <Self as SimdCols<$SR>>::COLS * <Self as SimdCols<$SR>>::COLS,
+                        l, r, N - N % <Self as SimdRows<$SL>>::ROWS, j,
                         acc
                     );
                 }
 
-                for j in (0..M).step_by(<Self as SimdCols<$SR>>::COLS) {
+                for i in (0..(N - N % <Self as SimdRows<$SL>>::ROWS)).step_by(<Self as SimdRows<$SL>>::ROWS) {
                     self.matmul_tile_tail_cols::<N,M,K,{ <Self as SimdRows<$SL>>::ROWS },{ <Self as SimdCols<$SR>>::COLS }>(
-                        l, r, N / <Self as SimdRows<$SL>>::ROWS * <Self as SimdRows<$SL>>::ROWS, j,
+                        l, r, i, M - M % <Self as SimdCols<$SR>>::COLS,
                         acc
                     );
                 }
 
                 self.matmul_tile_tail_rows_cols::<N,M,K,{ <Self as SimdRows<$SL>>::ROWS }, { <Self as SimdCols<$SR>>::COLS }>(
-                    l,r,N / <Self as SimdRows<$SL>>::ROWS * <Self as SimdRows<$SL>>::ROWS,
-                    M / <Self as SimdCols<$SR>>::COLS * <Self as SimdCols<$SR>>::COLS,
+                    l,r,
+                    N - N % <Self as SimdRows<$SL>>::ROWS,
+                    M - M % <Self as SimdCols<$SR>>::COLS,
                     acc
                 )
             }
