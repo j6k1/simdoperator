@@ -746,7 +746,7 @@ impl<T,BE> SimdShlVector<T> for BE
 
             if N % <Self as SimdLanes<T>>::LANES != 0 {
                 for j in i..N {
-                    rs[j] = rs[j].bits_shl(w);
+                    rs[j] = v[j].bits_shl(w);
                 }
             }
         }
@@ -788,7 +788,7 @@ impl<T,BE> SimdShrVector<T> for BE
 
             if N % <Self as SimdLanes<T>>::LANES != 0 {
                 for j in i..N {
-                    rs[j] = rs[j].bits_shr(w);
+                    rs[j] = v[j].bits_shr(w);
                 }
             }
         }
