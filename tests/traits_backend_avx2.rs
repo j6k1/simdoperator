@@ -424,13 +424,16 @@ where
 fn check_dot<BE, SL, SR, SO, const N: usize>()
 where
     BE: Backend + SimdDot<SL, SR, SO, Backend = BE>,
-    SL: Copy + From<i8> + Mul<SR, Output = SO>,
+    SL: Copy + From<i8>,
     SR: Copy + From<i8>,
-    SO: Copy + Default + Add<Output = SO> + AddAssign + PartialEq + Debug,
+    SO: Copy + Default + From<SL> + From<SR> + Mul<Output = SO> + AddAssign + PartialEq + Debug,
 {
     let l_data: [SL; N] = std::array::from_fn(|i| SL::from(((i % 5) + 1) as i8));
     let r_data: [SR; N] = std::array::from_fn(|i| SR::from(3 - (i as i8 % 5)));
-    let expected = (0..N).fold(SO::default(), |acc, i| acc + l_data[i] * r_data[i]);
+    let expected = (0..N).fold(SO::default(), |mut acc, i| {
+        acc += SO::from(l_data[i]) * SO::from(r_data[i]);
+        acc
+    });
     let be = BE::new().unwrap();
     let actual = be.dot(&vector::<SL, BE, N>(&l_data), &vector::<SR, BE, N>(&r_data));
 
