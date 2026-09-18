@@ -758,31 +758,31 @@ pub trait BackendSubset: SimdAddAssignVector<i8,i8> +
                          SimdDot<i16,i16,i32> +
                          SimdDot<i32,i32,i32> +
                          SimdDot<f32,f32,f32> +
-                         SimdDot<f32,f64,f64> +
+                         SimdDot<f64,f64,f64> +
                          SimdOuterProduct<i8,i8,i32> +
                          SimdOuterProduct<i8,i16,i32> +
                          SimdOuterProduct<i16,i16,i32> +
                          SimdOuterProduct<i32,i32,i32> +
                          SimdOuterProduct<f32,f32,f32> +
-                         SimdOuterProduct<f32,f64,f64> +
+                         SimdOuterProduct<f64,f64,f64> +
                          SimdVMat<i8,i8,i32> +
                          SimdVMat<i8,i16,i32> +
                          SimdVMat<i16,i16,i32> +
                          SimdVMat<i32,i32,i32> +
                          SimdVMat<f32,f32,f32> +
-                         SimdVMat<f32,f64,f64> +
+                         SimdVMat<f64,f64,f64> +
                          SimdMatVec<i8,i8,i32> +
                          SimdMatVec<i8,i16,i32> +
                          SimdMatVec<i16,i16,i32> +
                          SimdMatVec<i32,i32,i32> +
                          SimdMatVec<f32,f32,f32> +
-                         SimdMatVec<f32,f64,f64> +
+                         SimdMatVec<f64,f64,f64> +
                          SimdMatMul<i8,i8,i32> +
                          SimdMatMul<i8,i16,i32> +
                          SimdMatMul<i16,i16,i32> +
                          SimdMatMul<i32,i32,i32> +
                          SimdMatMul<f32,f32,f32> +
-                         SimdMatMul<f32,f64,f64> {
+                         SimdMatMul<f64,f64,f64> {
 }
 impl<BE> BackendSubset for BE
     where BE: SimdAddAssignVector<i8,i8> +
@@ -880,28 +880,28 @@ impl<BE> BackendSubset for BE
               SimdDot<i16,i16,i32> +
               SimdDot<i32,i32,i32> +
               SimdDot<f32,f32,f32> +
-              SimdDot<f32,f64,f64> +
+              SimdDot<f64,f64,f64> +
               SimdOuterProduct<i8,i8,i32> +
               SimdOuterProduct<i8,i16,i32> +
               SimdOuterProduct<i16,i16,i32> +
               SimdOuterProduct<i32,i32,i32> +
               SimdOuterProduct<f32,f32,f32> +
-              SimdOuterProduct<f32,f64,f64> +
+              SimdOuterProduct<f64,f64,f64> +
               SimdVMat<i8,i8,i32> +
               SimdVMat<i8,i16,i32> +
               SimdVMat<i16,i16,i32> +
               SimdVMat<i32,i32,i32> +
               SimdVMat<f32,f32,f32> +
-              SimdVMat<f32,f64,f64> +
+              SimdVMat<f64,f64,f64> +
               SimdMatVec<i8,i8,i32> +
               SimdMatVec<i8,i16,i32> +
               SimdMatVec<i16,i16,i32> +
               SimdMatVec<i32,i32,i32> +
               SimdMatVec<f32,f32,f32> +
-              SimdMatVec<f32,f64,f64> +
+              SimdMatVec<f64,f64,f64> +
               SimdMatMul<i8,i8,i32> +
               SimdMatMul<i8,i16,i32> +
               SimdMatMul<i16,i16,i32> +
               SimdMatMul<i32,i32,i32> +
               SimdMatMul<f32,f32,f32> +
-              SimdMatMul<f32,f64,f64> {}
+              SimdMatMul<f64,f64,f64> {}

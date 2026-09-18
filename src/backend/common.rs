@@ -1081,7 +1081,7 @@ impl<SS,SD,BE> SimdConvertMatrix<SS,SD> for BE
             for i in 0..N {
                 let lr = s.row(i);
                 let pa = lr.as_ref().as_ptr();
-                let mut po = acc.as_mut().as_mut_ptr().add(i * M);
+                let po = acc.as_mut().as_mut_ptr().add(i * M);
 
                 let mut j = 0;
 
