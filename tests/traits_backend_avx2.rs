@@ -209,12 +209,12 @@ where
 fn check_scalarmul_vector<BE, SL, SR, SO, const N: usize>(scalar: SL)
 where
     BE: Backend + SimdScalarMulVector<SL, SR, SO, Backend = BE>,
-    SL: Copy + Mul<SR, Output = SO>,
+    SL: Copy,
     SR: Copy + From<i8>,
-    SO: Copy + Default + PartialEq + Debug,
+    SO: Copy + Default + From<SL> + From<SR> + Mul<Output = SO> + PartialEq + Debug,
 {
     let r_data: [SR; N] = std::array::from_fn(|i| SR::from(3 - (i as i8 % 5)));
-    let expected = std::array::from_fn(|i| scalar * r_data[i]);
+    let expected = std::array::from_fn(|i| SO::from(scalar) * SO::from(r_data[i]));
     let be = BE::new().unwrap();
     let actual = be.scalarmul_vector(scalar, &vector::<SR, BE, N>(&r_data));
 
