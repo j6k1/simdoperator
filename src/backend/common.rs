@@ -1428,6 +1428,12 @@ impl Assume<i8> for i16 {
         self as i8
     }
 }
+impl Assume<f32> for i32 {
+    #[inline(always)]
+    fn assume(self) -> f32 {
+        self as f32
+    }
+}
 impl Assume<i16> for i32 {
     #[inline(always)]
     fn assume(self) -> i16 {

@@ -1424,9 +1424,9 @@ impl<SL,SR,SO> SimdDot<SL,SR,SO> for Avx2
                 SimdLoad<SL> + SimdLoad<SR> + SimdZero<SO> +
                 SimdLanes<SL> + SimdLanes<SR> + SimdLanes<SO> +
                 SimdPartialDot<SL,SR,SO>,
-          SL: Mul<SR,Output = SO> + Clone + Copy,
+          SL: Clone + Copy,
           SR: Clone + Copy,
-          SO: AddAssign {
+          SO: From<SL> + From<SR> + Mul<SO,Output=SO> + AddAssign {
     type Backend = Avx2;
     fn dot<'a, const N: usize>(&self, l: &Vector<'a, SL, N, Self::Backend>, r: &Vector<'a, SR, N, Self::Backend>) -> SO {
         let mut acc = <Self as SimdPartialDot<SL,SR,SO>>::zero_acc(self);
@@ -1452,7 +1452,7 @@ impl<SL,SR,SO> SimdDot<SL,SR,SO> for Avx2
 
             if N % <Self as SimdLanes<SL>>::LANES != 0 {
                 for _ in i..N {
-                    sum += *pa * *pb;
+                    sum += SO::from(*pa) * SO::from(*pb);
                     pa = pa.add(1);
                     pb = pb.add(1);
                 }
