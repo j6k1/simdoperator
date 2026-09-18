@@ -5,6 +5,7 @@ use crate::traits::{SimdAddVector, SimdBitNotVector, SimdBitOrVector, SimdBitXor
 use crate::{ColumnMajorMatrix, Matrix, MatrixMut, OwnedMatrix, OwnedVector, Vector, VectorMut};
 use crate::error::InstantiationError;
 
+/// A trait that defines the instantiation of a SIMD arithmetic backend
 pub trait Backend: Sized + 'static {
     fn new() -> Result<Self,InstantiationError>;
 }
