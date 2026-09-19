@@ -4,7 +4,7 @@ use std::arch::x86_64::{__m256, __m256d, __m256i, _mm256_add_epi16, _mm256_add_e
 use std::ops::{Add, AddAssign, Mul};
 use crate::backend::common::{Backend, Regs};
 use crate::traits::{SimdCols, SimdDot, SimdHSum, SimdLanes, SimdLoad, SimdMask, SimdMatMul, SimdMatVec, SimdMulAdd, SimdPartialDot, SimdReg, SimdRows, SimdStore, SimdTranspose, SimdVMat, SimdZero, SimdAdd, SimdSub, SimdMul, SimdPromote, SimdScalarMul, SimdSplat, SimdBitOr, SimdBitAnd, SimdReinterpret, SimdBitXor, SimdBitNot, BitsBitAnd, BitsBitOr, BitsBitXor, SimdShl, SimdShr, SimdDemote, SimdConvert, FoldRegs, SimdShiftWidth};
-use crate::{derive_matmul, matmul_tile, ColumnMajorMatrix, Matrix, MatrixMut, OwnedVector, Vector};
+use crate::{derive_matmul, matmul_tile, ColumnMajorMatrix, Matrix, MatrixMut, MatrixView, OwnedVector, Vector, VectorView};
 use crate::error::InstantiationError;
 
 pub struct Avx2 {
@@ -389,8 +389,7 @@ impl SimdMask<f64> for Avx2 where Self: SimdReg<f64> {
         unsafe { _mm256_loadu_si256(arr.as_ptr() as *const __m256i) }
     }
 }
-impl SimdPromote<i8,i16> for Avx2 where Self: SimdReg<i8> + SimdReg<i16>{
-    type Backend = Avx2;
+impl SimdPromote<i8,i16> for Avx2 where Self: SimdReg<i8> + SimdReg<i16> {
     type Output = Regs<<Self as SimdReg<i16>>::Reg,2>;
 
     #[inline(always)]
@@ -403,8 +402,7 @@ impl SimdPromote<i8,i16> for Avx2 where Self: SimdReg<i8> + SimdReg<i16>{
         }
     }
 }
-impl SimdPromote<i16,i32> for Avx2 where Self: SimdReg<i16> + SimdReg<i32>{
-    type Backend = Avx2;
+impl SimdPromote<i16,i32> for Avx2 where Self: SimdReg<i16> + SimdReg<i32> {
     type Output = Regs<<Self as SimdReg<i32>>::Reg,2>;
 
     #[inline(always)]
@@ -421,7 +419,6 @@ impl SimdPromote<i16,i32> for Avx2 where Self: SimdReg<i16> + SimdReg<i32>{
     }
 }
 impl SimdDemote<i32,i16> for Avx2 where Self: SimdReg<i32> + SimdReg<i16> {
-    type Backend = Avx2;
     type Input = Regs<<Self as SimdReg<i32>>::Reg,2>;
 
     fn demotion(&self, reg: Regs<<Self as SimdReg<i32>>::Reg,2>) -> <Self as SimdReg<i16>>::Reg {
@@ -441,7 +438,6 @@ impl SimdDemote<i32,i16> for Avx2 where Self: SimdReg<i32> + SimdReg<i16> {
     }
 }
 impl SimdDemote<i16,i8> for Avx2 where Self: SimdReg<i16> + SimdReg<i8> {
-    type Backend = Avx2;
     type Input = Regs<<Self as SimdReg<i16>>::Reg,1>;
     fn demotion(&self, reg: Regs<<Self as SimdReg<i16>>::Reg,1>) -> <Self as SimdReg<i8>>::Reg {
         unsafe {
@@ -457,7 +453,6 @@ impl SimdDemote<i16,i8> for Avx2 where Self: SimdReg<i16> + SimdReg<i8> {
     }
 }
 impl SimdConvert<i16,f32> for Avx2 where Self: SimdReg<i16> + SimdReg<f32> {
-    type Backend = Avx2;
     type Output = Regs<<Self as SimdReg<f32>>::Reg,2>;
 
     fn convert(&self, reg: <Self as SimdReg<i16>>::Reg) -> Self::Output {
@@ -476,7 +471,6 @@ impl SimdConvert<i16,f32> for Avx2 where Self: SimdReg<i16> + SimdReg<f32> {
     }
 }
 impl SimdConvert<i32,f32> for Avx2 where Self: SimdReg<i32> + SimdReg<f32> {
-    type Backend = Avx2;
     type Output = Regs<<Self as SimdReg<f32>>::Reg,1>;
 
     fn convert(&self, reg: <Self as SimdReg<i32>>::Reg) -> Self::Output {
@@ -486,7 +480,6 @@ impl SimdConvert<i32,f32> for Avx2 where Self: SimdReg<i32> + SimdReg<f32> {
     }
 }
 impl SimdAdd<i8,i8,i8> for Avx2 where Self: SimdReg<i8> {
-    type Backend = Avx2;
 
     #[inline(always)]
     fn add(&self, l: <Self as SimdReg<i8>>::Reg, r: <Self as SimdReg<i8>>::Reg) -> <Self as SimdReg<i8>>::Reg {
@@ -496,8 +489,6 @@ impl SimdAdd<i8,i8,i8> for Avx2 where Self: SimdReg<i8> {
     }
 }
 impl SimdAdd<i16,i16,i16> for Avx2 where Self: SimdReg<i16> {
-    type Backend = Avx2;
-
     #[inline(always)]
     fn add(&self, l: <Self as SimdReg<i16>>::Reg, r: <Self as SimdReg<i16>>::Reg) -> <Self as SimdReg<i16>>::Reg {
         unsafe {
@@ -506,7 +497,6 @@ impl SimdAdd<i16,i16,i16> for Avx2 where Self: SimdReg<i16> {
     }
 }
 impl SimdAdd<i32,i32,i32> for Avx2 where Self: SimdReg<i32> {
-    type Backend = Avx2;
 
     #[inline(always)]
     fn add(&self, l: <Self as SimdReg<i32>>::Reg, r: <Self as SimdReg<i32>>::Reg) -> <Self as SimdReg<i32>>::Reg {
@@ -516,7 +506,6 @@ impl SimdAdd<i32,i32,i32> for Avx2 where Self: SimdReg<i32> {
     }
 }
 impl SimdAdd<f32,f32,f32> for Avx2 where Self: SimdReg<f32> {
-    type Backend = Avx2;
 
     #[inline(always)]
     fn add(&self, l: <Self as SimdReg<f32>>::Reg, r: <Self as SimdReg<f32>>::Reg) -> <Self as SimdReg<f32>>::Reg {
@@ -526,7 +515,6 @@ impl SimdAdd<f32,f32,f32> for Avx2 where Self: SimdReg<f32> {
     }
 }
 impl SimdAdd<f64,f64,f64> for Avx2 where Self: SimdReg<f64> {
-    type Backend = Avx2;
 
     #[inline(always)]
     fn add(&self, l: <Self as SimdReg<f64>>::Reg, r: <Self as SimdReg<f64>>::Reg) -> <Self as SimdReg<f64>>::Reg {
@@ -536,7 +524,6 @@ impl SimdAdd<f64,f64,f64> for Avx2 where Self: SimdReg<f64> {
     }
 }
 impl SimdSub<i8,i8,i8> for Avx2 where Self: SimdReg<i8> {
-    type Backend = Avx2;
 
     #[inline(always)]
     fn sub(&self, l: <Self as SimdReg<i8>>::Reg, r: <Self as SimdReg<i8>>::Reg) -> <Self as SimdReg<i8>>::Reg {
@@ -546,7 +533,6 @@ impl SimdSub<i8,i8,i8> for Avx2 where Self: SimdReg<i8> {
     }
 }
 impl SimdSub<i16,i16,i16> for Avx2 where Self: SimdReg<i16> {
-    type Backend = Avx2;
 
     #[inline(always)]
     fn sub(&self, l: <Self as SimdReg<i16>>::Reg, r: <Self as SimdReg<i16>>::Reg) -> <Self as SimdReg<i16>>::Reg {
@@ -556,7 +542,6 @@ impl SimdSub<i16,i16,i16> for Avx2 where Self: SimdReg<i16> {
     }
 }
 impl SimdSub<i32,i32,i32> for Avx2 where Self: SimdReg<i32> {
-    type Backend = Avx2;
 
     #[inline(always)]
     fn sub(&self, l: <Self as SimdReg<i32>>::Reg, r: <Self as SimdReg<i32>>::Reg) -> <Self as SimdReg<i32>>::Reg {
@@ -566,7 +551,6 @@ impl SimdSub<i32,i32,i32> for Avx2 where Self: SimdReg<i32> {
     }
 }
 impl SimdSub<f32,f32,f32> for Avx2 where Self: SimdReg<f32> {
-    type Backend = Avx2;
 
     #[inline(always)]
     fn sub(&self, l: <Self as SimdReg<f32>>::Reg, r: <Self as SimdReg<f32>>::Reg) -> <Self as SimdReg<f32>>::Reg {
@@ -576,7 +560,6 @@ impl SimdSub<f32,f32,f32> for Avx2 where Self: SimdReg<f32> {
     }
 }
 impl SimdSub<f64,f64,f64> for Avx2 where Self: SimdReg<f64> {
-    type Backend = Avx2;
 
     #[inline(always)]
     fn sub(&self, l: <Self as SimdReg<f64>>::Reg, r: <Self as SimdReg<f64>>::Reg) -> <Self as SimdReg<f64>>::Reg {
@@ -586,7 +569,6 @@ impl SimdSub<f64,f64,f64> for Avx2 where Self: SimdReg<f64> {
     }
 }
 impl SimdMul<i8,i8,i32> for Avx2 where Self: SimdReg<i8> + SimdReg<i32> {
-    type Backend = Avx2;
     type Output = Regs<<Self as SimdReg<i32>>::Reg,4>;
 
     #[inline(always)]
@@ -602,7 +584,6 @@ impl SimdMul<i8,i8,i32> for Avx2 where Self: SimdReg<i8> + SimdReg<i32> {
     }
 }
 impl SimdMul<i16,i16,i32> for Avx2 where Self: SimdReg<i16> + SimdReg<i32> {
-    type Backend = Avx2;
     type Output = Regs<<Self as SimdReg<i32>>::Reg,2>;
 
     #[inline(always)]
@@ -616,7 +597,6 @@ impl SimdMul<i16,i16,i32> for Avx2 where Self: SimdReg<i16> + SimdReg<i32> {
     }
 }
 impl SimdMul<i32,i32,i32> for Avx2 where Self: SimdReg<i32> {
-    type Backend = Avx2;
     type Output = Regs<<Self as SimdReg<i32>>::Reg,1>;
 
     #[inline(always)]
@@ -627,7 +607,6 @@ impl SimdMul<i32,i32,i32> for Avx2 where Self: SimdReg<i32> {
     }
 }
 impl SimdMul<f32,f32,f32> for Avx2 where Self: SimdReg<f32> {
-    type Backend = Avx2;
     type Output = Regs<<Self as SimdReg<f32>>::Reg,1>;
 
     #[inline(always)]
@@ -638,7 +617,6 @@ impl SimdMul<f32,f32,f32> for Avx2 where Self: SimdReg<f32> {
     }
 }
 impl SimdMul<f64,f64,f64> for Avx2 where Self: SimdReg<f64> {
-    type Backend = Avx2;
     type Output = Regs<<Self as SimdReg<f64>>::Reg,1>;
 
     #[inline(always)]
@@ -649,7 +627,6 @@ impl SimdMul<f64,f64,f64> for Avx2 where Self: SimdReg<f64> {
     }
 }
 impl SimdSplat<i8> for Avx2 where Self: SimdReg<i8> {
-    type Backend = Avx2;
 
     fn splat(&self, v: i8) -> Self::Reg {
         unsafe {
@@ -658,7 +635,6 @@ impl SimdSplat<i8> for Avx2 where Self: SimdReg<i8> {
     }
 }
 impl SimdSplat<i16> for Avx2 where Self: SimdReg<i16> {
-    type Backend = Avx2;
 
     fn splat(&self, v: i16) -> Self::Reg {
         unsafe {
@@ -667,7 +643,6 @@ impl SimdSplat<i16> for Avx2 where Self: SimdReg<i16> {
     }
 }
 impl SimdSplat<i32> for Avx2 where Self: SimdReg<i32> {
-    type Backend = Avx2;
 
     fn splat(&self, v: i32) -> Self::Reg {
         unsafe {
@@ -676,7 +651,6 @@ impl SimdSplat<i32> for Avx2 where Self: SimdReg<i32> {
     }
 }
 impl SimdSplat<f32> for Avx2 where Self: SimdReg<f32> {
-    type Backend = Avx2;
 
     fn splat(&self, v: f32) -> Self::Reg {
         unsafe {
@@ -685,7 +659,6 @@ impl SimdSplat<f32> for Avx2 where Self: SimdReg<f32> {
     }
 }
 impl SimdSplat<f64> for Avx2 where Self: SimdReg<f64> {
-    type Backend = Avx2;
 
     fn splat(&self, v: f64) -> Self::Reg {
         unsafe {
@@ -699,7 +672,6 @@ impl<SL,SR,SO> SimdScalarMul<SL,SR,SO> for Avx2
                 SimdReg<SO> +
                 SimdSplat<SL> +
                 SimdMul<SL,SR,SO> {
-    type Backend = Avx2;
 
     #[inline(always)]
     fn scalarmul(&self, l: SL, r: <Self as SimdReg<SR>>::Reg) -> <Self as SimdMul<SL,SR,SO>>::Output {
@@ -708,7 +680,6 @@ impl<SL,SR,SO> SimdScalarMul<SL,SR,SO> for Avx2
     }
 }
 impl SimdReinterpret<f32,i32> for Avx2 where Self: SimdReg<i32> {
-    type Backend = Avx2;
 
     fn reinterpret(&self, reg: <Self as SimdReg<f32>>::Reg) -> <Self as SimdReg<i32>>::Reg {
         unsafe {
@@ -717,7 +688,6 @@ impl SimdReinterpret<f32,i32> for Avx2 where Self: SimdReg<i32> {
     }
 }
 impl SimdReinterpret<f64,i64> for Avx2 where Self: SimdReg<i64> {
-    type Backend = Avx2;
 
     fn reinterpret(&self, reg: <Self as SimdReg<f64>>::Reg) -> <Self as SimdReg<i64>>::Reg {
         unsafe {
@@ -726,7 +696,6 @@ impl SimdReinterpret<f64,i64> for Avx2 where Self: SimdReg<i64> {
     }
 }
 impl SimdReinterpret<i32,f32> for Avx2 where Self: SimdReg<f32> {
-    type Backend = Avx2;
 
     fn reinterpret(&self, reg: <Self as SimdReg<i32>>::Reg) -> <Self as SimdReg<f32>>::Reg {
         unsafe {
@@ -735,7 +704,6 @@ impl SimdReinterpret<i32,f32> for Avx2 where Self: SimdReg<f32> {
     }
 }
 impl SimdReinterpret<i64,f64> for Avx2 where Self: SimdReg<f64> {
-    type Backend = Avx2;
 
     fn reinterpret(&self, reg: <Self as SimdReg<i64>>::Reg) -> <Self as SimdReg<f64>>::Reg {
         unsafe {
@@ -744,7 +712,6 @@ impl SimdReinterpret<i64,f64> for Avx2 where Self: SimdReg<f64> {
     }
 }
 impl SimdBitAnd<i8> for Avx2 where Self: SimdReg<i8> {
-    type Backend = Avx2;
     #[inline(always)]
     fn bitand(&self, l: <Self as SimdReg<i8>>::Reg, r: <Self as SimdReg<<i8 as BitsBitAnd>::Bits>>::Reg) -> <Self as SimdReg<i8>>::Reg {
         unsafe {
@@ -753,7 +720,6 @@ impl SimdBitAnd<i8> for Avx2 where Self: SimdReg<i8> {
     }
 }
 impl SimdBitAnd<i16> for Avx2 where Self: SimdReg<i16> {
-    type Backend = Avx2;
     #[inline(always)]
     fn bitand(&self, l: <Self as SimdReg<i16>>::Reg, r: <Self as SimdReg<<i16 as BitsBitAnd>::Bits>>::Reg) -> <Self as SimdReg<i16>>::Reg {
         unsafe {
@@ -762,7 +728,6 @@ impl SimdBitAnd<i16> for Avx2 where Self: SimdReg<i16> {
     }
 }
 impl SimdBitAnd<i32> for Avx2 where Self: SimdReg<i32> {
-    type Backend = Avx2;
     #[inline(always)]
     fn bitand(&self, l: <Self as SimdReg<i32>>::Reg, r: <Self as SimdReg<<i32 as BitsBitAnd>::Bits>>::Reg) -> <Self as SimdReg<i32>>::Reg {
         unsafe {
@@ -771,7 +736,6 @@ impl SimdBitAnd<i32> for Avx2 where Self: SimdReg<i32> {
     }
 }
 impl SimdBitAnd<f32> for Avx2 where Self: SimdReg<f32> {
-    type Backend = Avx2;
     #[inline(always)]
     fn bitand(&self, l: <Self as SimdReg<f32>>::Reg, r: <Self as SimdReg<<f32 as BitsBitAnd>::Bits>>::Reg) -> <Self as SimdReg<f32>>::Reg {
         unsafe {
@@ -783,7 +747,6 @@ impl SimdBitAnd<f32> for Avx2 where Self: SimdReg<f32> {
     }
 }
 impl SimdBitAnd<f64> for Avx2 where Self: SimdReg<f64> {
-    type Backend = Avx2;
     #[inline(always)]
     fn bitand(&self, l: <Self as SimdReg<f64>>::Reg, r: <Self as SimdReg<<f64 as BitsBitAnd>::Bits>>::Reg) -> <Self as SimdReg<f64>>::Reg {
         unsafe {
@@ -795,7 +758,6 @@ impl SimdBitAnd<f64> for Avx2 where Self: SimdReg<f64> {
     }
 }
 impl SimdBitOr<i8> for Avx2 where Self: SimdReg<i8> {
-    type Backend = Avx2;
     #[inline(always)]
     fn bitor(&self, l: <Self as SimdReg<i8>>::Reg, r: <Self as SimdReg<<i8 as BitsBitOr>::Bits>>::Reg) -> <Self as SimdReg<i8>>::Reg {
         unsafe {
@@ -804,7 +766,6 @@ impl SimdBitOr<i8> for Avx2 where Self: SimdReg<i8> {
     }
 }
 impl SimdBitOr<i16> for Avx2 where Self: SimdReg<i16> {
-    type Backend = Avx2;
     #[inline(always)]
     fn bitor(&self, l: <Self as SimdReg<i16>>::Reg, r: <Self as SimdReg<<i16 as BitsBitOr>::Bits>>::Reg) -> <Self as SimdReg<i16>>::Reg {
         unsafe {
@@ -813,7 +774,6 @@ impl SimdBitOr<i16> for Avx2 where Self: SimdReg<i16> {
     }
 }
 impl SimdBitOr<i32> for Avx2 where Self: SimdReg<i32> {
-    type Backend = Avx2;
     #[inline(always)]
     fn bitor(&self, l: <Self as SimdReg<i32>>::Reg, r: <Self as SimdReg<<i32 as BitsBitOr>::Bits>>::Reg) -> <Self as SimdReg<i32>>::Reg {
         unsafe {
@@ -822,7 +782,6 @@ impl SimdBitOr<i32> for Avx2 where Self: SimdReg<i32> {
     }
 }
 impl SimdBitOr<f32> for Avx2 where Self: SimdReg<f32> {
-    type Backend = Avx2;
     #[inline(always)]
     fn bitor(&self, l: <Self as SimdReg<f32>>::Reg, r: <Self as SimdReg<<f32 as BitsBitOr>::Bits>>::Reg) -> <Self as SimdReg<f32>>::Reg {
         unsafe {
@@ -834,7 +793,6 @@ impl SimdBitOr<f32> for Avx2 where Self: SimdReg<f32> {
     }
 }
 impl SimdBitOr<f64> for Avx2 where Self: SimdReg<f64> {
-    type Backend = Avx2;
     #[inline(always)]
     fn bitor(&self, l: <Self as SimdReg<f64>>::Reg, r: <Self as SimdReg<<f64 as BitsBitOr>::Bits>>::Reg) -> <Self as SimdReg<f64>>::Reg {
         unsafe {
@@ -846,7 +804,6 @@ impl SimdBitOr<f64> for Avx2 where Self: SimdReg<f64> {
     }
 }
 impl SimdBitXor<i8> for Avx2 where Self: SimdReg<i8> {
-    type Backend = Avx2;
     #[inline(always)]
     fn bitxor(&self, l: <Self as SimdReg<i8>>::Reg, r: <Self as SimdReg<<i8 as BitsBitXor>::Bits>>::Reg) -> <Self as SimdReg<i8>>::Reg {
         unsafe {
@@ -855,7 +812,6 @@ impl SimdBitXor<i8> for Avx2 where Self: SimdReg<i8> {
     }
 }
 impl SimdBitXor<i16> for Avx2 where Self: SimdReg<i16> {
-    type Backend = Avx2;
     #[inline(always)]
     fn bitxor(&self, l: <Self as SimdReg<i16>>::Reg, r: <Self as SimdReg<<i16 as BitsBitXor>::Bits>>::Reg) -> <Self as SimdReg<i16>>::Reg {
         unsafe {
@@ -864,7 +820,6 @@ impl SimdBitXor<i16> for Avx2 where Self: SimdReg<i16> {
     }
 }
 impl SimdBitXor<i32> for Avx2 where Self: SimdReg<i32> {
-    type Backend = Avx2;
     #[inline(always)]
     fn bitxor(&self, l: <Self as SimdReg<i32>>::Reg, r: <Self as SimdReg<<i32 as BitsBitXor>::Bits>>::Reg) -> <Self as SimdReg<i32>>::Reg {
         unsafe {
@@ -873,7 +828,6 @@ impl SimdBitXor<i32> for Avx2 where Self: SimdReg<i32> {
     }
 }
 impl SimdBitXor<f32> for Avx2 where Self: SimdReg<f32> {
-    type Backend = Avx2;
     #[inline(always)]
     fn bitxor(&self, l: <Self as SimdReg<f32>>::Reg, r: <Self as SimdReg<<f32 as BitsBitXor>::Bits>>::Reg) -> <Self as SimdReg<f32>>::Reg {
         unsafe {
@@ -885,7 +839,6 @@ impl SimdBitXor<f32> for Avx2 where Self: SimdReg<f32> {
     }
 }
 impl SimdBitXor<f64> for Avx2 where Self: SimdReg<f64> {
-    type Backend = Avx2;
     #[inline(always)]
     fn bitxor(&self, l: <Self as SimdReg<f64>>::Reg, r: <Self as SimdReg<<f64 as BitsBitXor>::Bits>>::Reg) -> <Self as SimdReg<f64>>::Reg {
         unsafe {
@@ -897,7 +850,6 @@ impl SimdBitXor<f64> for Avx2 where Self: SimdReg<f64> {
     }
 }
 impl SimdBitNot<i8> for Avx2 where Self: SimdReg<i8> {
-    type Backend = Avx2;
     #[inline(always)]
     fn bitnot(&self, v: <Self as SimdReg<i8>>::Reg) -> <Self as SimdReg<i8>>::Reg {
         unsafe {
@@ -907,7 +859,6 @@ impl SimdBitNot<i8> for Avx2 where Self: SimdReg<i8> {
     }
 }
 impl SimdBitNot<i16> for Avx2 where Self: SimdReg<i16> {
-    type Backend = Avx2;
     #[inline(always)]
     fn bitnot(&self, v: <Self as SimdReg<i16>>::Reg) -> <Self as SimdReg<i16>>::Reg {
         unsafe {
@@ -917,7 +868,6 @@ impl SimdBitNot<i16> for Avx2 where Self: SimdReg<i16> {
     }
 }
 impl SimdBitNot<i32> for Avx2 where Self: SimdReg<i32> {
-    type Backend = Avx2;
     #[inline(always)]
     fn bitnot(&self, v: <Self as SimdReg<i32>>::Reg) -> <Self as SimdReg<i32>>::Reg {
         unsafe {
@@ -927,7 +877,6 @@ impl SimdBitNot<i32> for Avx2 where Self: SimdReg<i32> {
     }
 }
 impl SimdBitNot<f32> for Avx2 where Self: SimdReg<f32> {
-    type Backend = Avx2;
     #[inline(always)]
     fn bitnot(&self, v: <Self as SimdReg<f32>>::Reg) -> <Self as SimdReg<f32>>::Reg {
         unsafe {
@@ -940,7 +889,6 @@ impl SimdBitNot<f32> for Avx2 where Self: SimdReg<f32> {
     }
 }
 impl SimdBitNot<f64> for Avx2 where Self: SimdReg<f64> {
-    type Backend = Avx2;
     #[inline(always)]
     fn bitnot(&self, v: <Self as SimdReg<f64>>::Reg) -> <Self as SimdReg<f64>>::Reg {
         unsafe {
@@ -953,7 +901,6 @@ impl SimdBitNot<f64> for Avx2 where Self: SimdReg<f64> {
     }
 }
 impl SimdShiftWidth<i8> for Avx2 where Self: SimdReg<i8> {
-    type Backend = Avx2;
     #[inline(always)]
     fn shift_width(&self, w: usize) -> <Self as SimdReg<i8>>::ShiftWidth {
         unsafe {
@@ -962,7 +909,6 @@ impl SimdShiftWidth<i8> for Avx2 where Self: SimdReg<i8> {
     }
 }
 impl SimdShiftWidth<i16> for Avx2 where Self: SimdReg<i16> {
-    type Backend = Avx2;
     #[inline(always)]
     fn shift_width(&self, w: usize) -> <Self as SimdReg<i16>>::ShiftWidth {
         unsafe {
@@ -971,7 +917,6 @@ impl SimdShiftWidth<i16> for Avx2 where Self: SimdReg<i16> {
     }
 }
 impl SimdShiftWidth<i32> for Avx2 where Self: SimdReg<i32> {
-    type Backend = Avx2;
     #[inline(always)]
     fn shift_width(&self, w: usize) -> <Self as SimdReg<i32>>::ShiftWidth {
         unsafe {
@@ -980,7 +925,6 @@ impl SimdShiftWidth<i32> for Avx2 where Self: SimdReg<i32> {
     }
 }
 impl SimdShiftWidth<f32> for Avx2 where Self: SimdReg<f32> {
-    type Backend = Avx2;
     #[inline(always)]
     fn shift_width(&self, w: usize) -> <Self as SimdReg<f32>>::ShiftWidth {
         unsafe {
@@ -989,7 +933,6 @@ impl SimdShiftWidth<f32> for Avx2 where Self: SimdReg<f32> {
     }
 }
 impl SimdShiftWidth<f64> for Avx2 where Self: SimdReg<f64> {
-    type Backend = Avx2;
     #[inline(always)]
     fn shift_width(&self, w: usize) -> <Self as SimdReg<f64>>::ShiftWidth {
         unsafe {
@@ -998,7 +941,6 @@ impl SimdShiftWidth<f64> for Avx2 where Self: SimdReg<f64> {
     }
 }
 impl SimdShl<i16> for Avx2 where Self: SimdReg<i16> {
-    type Backend = Avx2;
 
     #[inline(always)]
     fn shl(&self, v: <Self as SimdReg<i16>>::Reg, w: <Self as SimdReg<i16>>::ShiftWidth) -> <Self as SimdReg<i16>>::Reg {
@@ -1013,7 +955,6 @@ impl SimdShl<i16> for Avx2 where Self: SimdReg<i16> {
     }
 }
 impl SimdShl<i32> for Avx2 where Self: SimdReg<i32> {
-    type Backend = Avx2;
 
     #[inline(always)]
     fn shl(&self, v: <Self as SimdReg<i32>>::Reg, w: <Self as SimdReg<i32>>::ShiftWidth) -> <Self as SimdReg<i32>>::Reg {
@@ -1023,7 +964,6 @@ impl SimdShl<i32> for Avx2 where Self: SimdReg<i32> {
     }
 }
 impl SimdShl<i64> for Avx2 where Self: SimdReg<i64> {
-    type Backend = Avx2;
 
     #[inline(always)]
     fn shl(&self, v: <Self as SimdReg<i64>>::Reg, w: <Self as SimdReg<i64>>::ShiftWidth) -> <Self as SimdReg<i64>>::Reg {
@@ -1036,7 +976,6 @@ impl SimdShl<f32> for Avx2
     where Self: SimdReg<f32> +
                 SimdReinterpret<i32,f32> +
                 SimdReinterpret<i32,f32> {
-    type Backend = Avx2;
 
     #[inline(always)]
     fn shl(&self, v: <Self as SimdReg<f32>>::Reg, w: <Self as SimdReg<f32>>::ShiftWidth) -> <Self as SimdReg<f32>>::Reg {
@@ -1049,7 +988,6 @@ impl SimdShl<f32> for Avx2
     }
 }
 impl SimdShl<f64> for Avx2 where Self: SimdReg<f64> {
-    type Backend = Avx2;
 
     #[inline(always)]
     fn shl(&self, v: <Self as SimdReg<f64>>::Reg, w: <Self as SimdReg<f64>>::ShiftWidth) -> <Self as SimdReg<f64>>::Reg {
@@ -1062,7 +1000,6 @@ impl SimdShl<f64> for Avx2 where Self: SimdReg<f64> {
     }
 }
 impl SimdShr<i16> for Avx2 where Self: SimdReg<i16> {
-    type Backend = Avx2;
 
     #[inline(always)]
     fn shr(&self, v: <Self as SimdReg<i16>>::Reg, w: <Self as SimdReg<i16>>::ShiftWidth) -> <Self as SimdReg<i16>>::Reg {
@@ -1077,7 +1014,6 @@ impl SimdShr<i16> for Avx2 where Self: SimdReg<i16> {
     }
 }
 impl SimdShr<i32> for Avx2 where Self: SimdReg<i32> {
-    type Backend = Avx2;
 
     #[inline(always)]
     fn shr(&self, v: <Self as SimdReg<i32>>::Reg, w: <Self as SimdReg<i32>>::ShiftWidth) -> <Self as SimdReg<i32>>::Reg {
@@ -1087,7 +1023,6 @@ impl SimdShr<i32> for Avx2 where Self: SimdReg<i32> {
     }
 }
 impl SimdShr<i64> for Avx2 where Self: SimdReg<i64> {
-    type Backend = Avx2;
 
     #[inline(always)]
     fn shr(&self, v: <Self as SimdReg<i64>>::Reg, w: <Self as SimdReg<i64>>::ShiftWidth) -> <Self as SimdReg<i64>>::Reg {
@@ -1100,7 +1035,6 @@ impl SimdShr<f32> for Avx2
     where Self: SimdReg<f32> +
                 SimdReinterpret<i32,f32> +
                 SimdReinterpret<i32,f32> {
-    type Backend = Avx2;
 
     #[inline(always)]
     fn shr(&self, v: <Self as SimdReg<f32>>::Reg, w: <Self as SimdReg<f32>>::ShiftWidth) -> <Self as SimdReg<f32>>::Reg {
@@ -1113,7 +1047,6 @@ impl SimdShr<f32> for Avx2
     }
 }
 impl SimdShr<f64> for Avx2 where Self: SimdReg<f64> {
-    type Backend = Avx2;
 
     #[inline(always)]
     fn shr(&self, v: <Self as SimdReg<f64>>::Reg, w: <Self as SimdReg<f64>>::ShiftWidth) -> <Self as SimdReg<f64>>::Reg {
@@ -1126,28 +1059,24 @@ impl SimdShr<f64> for Avx2 where Self: SimdReg<f64> {
     }
 }
 impl SimdTranspose<i8,1> for Avx2 {
-    type Backend = Avx2;
     #[inline(always)]
     fn transpose<'a, const N: usize, const M: usize>(v: [Self::Reg; 1]) -> [Self::Reg; 1] {
         v
     }
 }
 impl SimdTranspose<i16,1> for Avx2 {
-    type Backend = Avx2;
     #[inline(always)]
     fn transpose<'a, const N: usize, const M: usize>(v: [Self::Reg; 1]) -> [Self::Reg; 1] {
         v
     }
 }
 impl SimdTranspose<i32,1> for Avx2 {
-    type Backend = Avx2;
     #[inline(always)]
     fn transpose<'a, const N: usize, const M: usize>(v: [Self::Reg; 1]) -> [Self::Reg; 1] {
         v
     }
 }
 impl SimdTranspose<i32,2> for Avx2 {
-    type Backend = Avx2;
     #[inline]
     fn transpose<'a, const N: usize, const M: usize>(v: [Self::Reg; 2]) -> [Self::Reg; 2] {
         let v0 = v[0];
@@ -1162,14 +1091,12 @@ impl SimdTranspose<i32,2> for Avx2 {
     }
 }
 impl SimdTranspose<f32,1> for Avx2 {
-    type Backend = Avx2;
     #[inline(always)]
     fn transpose<'a, const N: usize, const M: usize>(v: [Self::Reg; 1]) -> [Self::Reg; 1] {
         v
     }
 }
 impl SimdTranspose<f32,2> for Avx2 {
-    type Backend = Avx2;
     #[inline]
     fn transpose<'a, const N: usize, const M: usize>(v: [Self::Reg; 2]) -> [Self::Reg; 2] {
         let v0 = v[0];
@@ -1184,14 +1111,12 @@ impl SimdTranspose<f32,2> for Avx2 {
     }
 }
 impl SimdTranspose<f64,1> for Avx2 {
-    type Backend = Avx2;
     #[inline(always)]
     fn transpose<'a, const N: usize, const M: usize>(v: [Self::Reg; 1]) -> [Self::Reg; 1] {
         v
     }
 }
 impl SimdHSum<i32> for Avx2 {
-    type Backend = Avx2;
 
     #[inline]
     fn hsum(&self, v: Self::Reg) -> i32 {
@@ -1213,7 +1138,6 @@ impl SimdHSum<i32> for Avx2 {
     }
 }
 impl SimdHSum<f32> for Avx2 {
-    type Backend = Avx2;
 
     #[inline]
     fn hsum(&self, v: Self::Reg) -> f32 {
@@ -1234,7 +1158,6 @@ impl SimdHSum<f32> for Avx2 {
     }
 }
 impl SimdHSum<f64> for Avx2 {
-    type Backend = Avx2;
 
     #[inline]
     fn hsum(&self, v: Self::Reg) -> f64 {
@@ -1254,7 +1177,6 @@ impl SimdHSum<f64> for Avx2 {
 impl SimdMulAdd<i8,i8,i32> for Avx2
     where Self: SimdMul<i8,i8,i32> +
                 SimdAdd<i32,i32,i32> {
-    type Backend = Avx2;
 
     #[inline(always)]
     fn zero_acc(&self) -> <Self as SimdMul<i8, i8, i32>>::Output {
@@ -1278,7 +1200,6 @@ impl SimdMulAdd<i8,i8,i32> for Avx2
 impl SimdMulAdd<i16,i16,i32> for Avx2
     where Self: SimdMul<i16,i16,i32> +
                 SimdAdd<i32,i32,i32> {
-    type Backend = Avx2;
     #[inline(always)]
     fn zero_acc(&self) -> <Self as SimdMul<i16, i16, i32>>::Output {
         Regs::new([<Self as SimdZero<i32>>::zero();2])
@@ -1299,7 +1220,6 @@ impl SimdMulAdd<i16,i16,i32> for Avx2
 impl SimdMulAdd<i32,i32,i32> for Avx2
     where Self: SimdMul<i32,i32,i32> +
                 SimdAdd<i32,i32,i32> {
-    type Backend = Avx2;
     #[inline(always)]
     fn zero_acc(&self) -> <Self as SimdMul<i32, i32, i32>>::Output {
         Regs::new([<Self as SimdZero<i32>>::zero()])
@@ -1315,7 +1235,6 @@ impl SimdMulAdd<i32,i32,i32> for Avx2
     }
 }
 impl SimdMulAdd<f32,f32,f32> for Avx2 {
-    type Backend = Avx2;
     #[inline(always)]
     fn zero_acc(&self) -> <Self as SimdMul<f32, f32, f32>>::Output {
         Regs::new([<Self as SimdZero<f32>>::zero()])
@@ -1331,7 +1250,6 @@ impl SimdMulAdd<f32,f32,f32> for Avx2 {
     }
 }
 impl SimdMulAdd<f64,f64,f64> for Avx2 {
-    type Backend = Avx2;
     #[inline(always)]
     fn zero_acc(&self) -> <Self as SimdMul<f64, f64, f64>>::Output {
         Regs::new([<Self as SimdZero<f64>>::zero()])
@@ -1349,7 +1267,6 @@ impl SimdMulAdd<f64,f64,f64> for Avx2 {
 impl<SL,SR,SO> SimdPartialDot<SL,SR,SO> for Avx2
     where Self: SimdMul<SL,SR,SO> +
                 SimdMulAdd<SL,SR,SO> {
-    type Backend = Avx2;
     type Output = <Self as SimdMul<SL,SR,SO>>::Output;
     fn zero_acc(&self) -> Self::Output {
         <Self as SimdMulAdd<SL,SR,SO>>::zero_acc(self)
@@ -1404,8 +1321,7 @@ impl<SL,SR,SO> SimdDot<SL,SR,SO> for Avx2
           SL: Clone + Copy,
           SR: Clone + Copy,
           SO: From<SL> + From<SR> + Mul<SO,Output=SO> + AddAssign {
-    type Backend = Avx2;
-    fn dot<'a, const N: usize>(&self, l: &Vector<'a, SL, N, Self::Backend>, r: &Vector<'a, SR, N, Self::Backend>) -> SO {
+    fn dot<'a, const N: usize>(&self, l: &VectorView<'a, SL, N>, r: &VectorView<'a, SR, N>) -> SO {
         let mut acc = <Self as SimdPartialDot<SL,SR,SO>>::zero_acc(self);
 
         let mut i = 0;
@@ -1452,9 +1368,8 @@ impl<SL,SR,SO> SimdMatVec<SL,SR,SO> for Avx2
                 SR: Clone + Copy,
                 SO: From<SL> + From<SR> + Mul<SO,Output=SO> + AddAssign,
                 <Self as SimdReg<SO>>::Reg: Copy {
-    type Backend = Avx2;
 
-    fn matvec<'a, const N: usize, const K: usize>(&self, l: &Matrix<'a, SL, N, K, Self::Backend>, r: &Vector<'a, SR, K, Self::Backend>, o: &mut OwnedVector<SO, N>) {
+    fn matvec<'a, const N: usize, const K: usize>(&self, l: &MatrixView<'a, SL, N, K>, r: &VectorView<'a, SR, K>, o: &mut OwnedVector<SO, N>) {
         unsafe {
             for i in 0..N {
                 let mut acc = <Self as SimdPartialDot<SL,SR,SO>>::zero_acc(self);
@@ -1485,10 +1400,9 @@ derive_matmul! { Avx2,i32,i32,i32 }
 derive_matmul! { Avx2,f32,f32,f32 }
 derive_matmul! { Avx2,f64,f64,f64 }
 impl<SL,SR,SO> SimdVMat<SL,SR,SO> for Avx2
-    where Self: SimdMatMul<SL,SR,SO,Backend=Avx2> {
-    type Backend = Avx2;
+    where Self: SimdMatMul<SL,SR,SO> {
 
-    fn vmat<'a, const M: usize, const K: usize>(&self, l: &Vector<'a, SL, K, Self::Backend>, r: &ColumnMajorMatrix<'a, SR, K, M, Self::Backend>, o: &mut OwnedVector<SO, M>) {
+    fn vmat<'a, const M: usize, const K: usize>(&self, l: &VectorView<'a, SL, K>, r: &ColumnMajorMatrix<'a, SR, K, M>, o: &mut OwnedVector<SO, M>) {
         let l = l.as_horizontal();
         let mut o = o.into();
         <Self as SimdMatMul<SL,SR,SO>>::matmul::<1,M,K>(self,&l,&r,&mut o)

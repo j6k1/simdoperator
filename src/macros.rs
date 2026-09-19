@@ -3,8 +3,8 @@ macro_rules! matmul_tile {
     ($func_name:ident,$ROWS:expr,$COLS:expr,$SL:ty,$SR:ty,$SO:ty) => {
         fn $func_name <'a,const N: usize,const M: usize,const K: usize,const ROWS: usize,const COLS: usize>(
             &self,
-            l:&Matrix<'a,$SL,N,K,Self::Backend>,
-            r:&ColumnMajorMatrix<'a,$SR,K,M,Self::Backend>,
+            l:&MatrixView<'a,$SL,N,K>,
+            r:&ColumnMajorMatrix<'a,$SR,K,M>,
             i:usize,
             j:usize,
             acc:&mut MatrixMut<'a,$SO,N,M>
@@ -70,9 +70,7 @@ macro_rules! derive_matmul {
                         <Self as SimdReg<$SO>>::Reg: Clone + Copy,
                         $SL: Copy,
                         $SO: Default + AddAssign + From<$SL> + From<$SR> + Copy {
-            type Backend = $BE;
-
-            fn matmul<'a, const N: usize, const M: usize, const K: usize>(&self, l: &Matrix<'a, $SL, N, K, Self::Backend>, r: &ColumnMajorMatrix<'a, $SR, K, M, Self::Backend>, acc: &mut MatrixMut<'a,$SO, N, M>) {
+            fn matmul<'a, const N: usize, const M: usize, const K: usize>(&self, l: &MatrixView<'a, $SL, N, K>, r: &ColumnMajorMatrix<'a, $SR, K, M>, acc: &mut MatrixMut<'a,$SO, N, M>) {
                 for i in (0..(N - N % <Self as SimdRows<$SL>>::ROWS)).step_by(<Self as SimdRows<$SL>>::ROWS) {
                     for j in (0..(M - M % <Self as SimdCols<$SR>>::COLS)).step_by(<Self as SimdCols<$SR>>::COLS) {
                         self.matmul_tile::<N,M,K,{ <Self as SimdRows<$SL>>::ROWS }, { <Self as SimdCols<$SR>>::COLS }>(

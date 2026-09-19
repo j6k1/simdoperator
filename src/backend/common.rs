@@ -2,11 +2,11 @@
 
 use std::ops::{Add, Mul, Sub};
 use crate::traits::{SimdAddVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportMul, FoldRegs, SimdOuterProduct, SimdMatMul, SimdMulAssignVector, SimdAddAssignVector, SimdSubAssignVector, SimdShiftWidth, SimdScalarMulAssignVector, SimdAddAssignMatrix, SimdScalarMulAssignMatrix, SimdScalarMulMatrix, SimdConvertMatrix, SimdLoadSeq};
-use crate::{ColumnMajorMatrix, Matrix, MatrixMut, OwnedMatrix, OwnedVector, Vector, VectorMut};
+use crate::{ColumnMajorMatrix, Matrix, MatrixMut, MatrixView, OwnedMatrix, OwnedVector, Vector, VectorMut, VectorView};
 use crate::error::InstantiationError;
 
 /// A trait that defines the instantiation of a SIMD arithmetic backend
-pub trait Backend: Sized + 'static {
+pub trait Backend: 'static + Sized {
     fn new() -> Result<Self,InstantiationError>;
 }
 #[derive(Clone,Copy)]
@@ -125,9 +125,8 @@ impl<T,BE> SimdAddAssignVector<T,T> for BE
               SimdLoad<T> +
               SimdStore<T>,
           T: Default + Add<Output=T> + Copy {
-    type Backend = BE;
     #[inline]
-    fn add_assign_vector<'a,const N: usize>(&self, l: &mut VectorMut<'a,T,N>, r: &Vector<'a,T,N,Self::Backend>) {
+    fn add_assign_vector<'a,const N: usize>(&self, l: &mut VectorMut<'a,T,N>, r: &VectorView<'a,T,N>) {
         let mut i = 0;
 
         unsafe {
@@ -155,11 +154,10 @@ impl<T,BE> SimdAddAssignVector<T,T> for BE
 }
 impl<T,BE> SimdAddVector<T,T,T> for BE
     where BE: Backend +
-              SimdAddAssignVector<T,T,Backend=BE>,
+              SimdAddAssignVector<T,T>,
               T: Copy {
-    type Backend = BE;
     #[inline]
-    fn add_vector<'a,const N: usize>(&self, l: &Vector<'a,T,N,Self::Backend>, r: &Vector<'a,T,N,Self::Backend>)
+    fn add_vector<'a,const N: usize>(&self, l: &VectorView<'a,T,N>, r: &VectorView<'a,T,N>)
         -> OwnedVector<T,N> {
         let mut acc = OwnedVector::from(Box::<[T;N]>::from(l));
 
@@ -180,9 +178,8 @@ impl<T,BE> SimdSubAssignVector<T,T> for BE
               SimdLoad<T> +
               SimdStore<T>,
           T: Default + Sub<Output=T> + Copy {
-    type Backend = BE;
     #[inline]
-    fn sub_assign_vector<'a,const N: usize>(&self, l: &mut VectorMut<'a,T,N>, r: &Vector<'a,T,N,Self::Backend>) {
+    fn sub_assign_vector<'a,const N: usize>(&self, l: &mut VectorMut<'a,T,N>, r: &VectorView<'a,T,N>) {
         let mut i = 0;
 
         unsafe {
@@ -210,11 +207,10 @@ impl<T,BE> SimdSubAssignVector<T,T> for BE
 }
 impl<T,BE> SimdSubVector<T,T,T> for BE
     where BE: Backend +
-              SimdSubAssignVector<T,T,Backend=BE>,
+              SimdSubAssignVector<T,T>,
       T: Copy {
-    type Backend = BE;
     #[inline]
-    fn sub_vector<'a,const N: usize>(&self, l: &Vector<'a,T,N,Self::Backend>, r: &Vector<'a,T,N,Self::Backend>)
+    fn sub_vector<'a,const N: usize>(&self, l: &VectorView<'a,T,N>, r: &VectorView<'a,T,N>)
         -> OwnedVector<T,N> {
         let mut acc = OwnedVector::from(Box::<[T;N]>::from(l));
 
@@ -241,9 +237,8 @@ impl<SL,SR,SO,BE> SimdMulVector<SL,SR,SO> for BE
               SR: Copy,
               <Self as SimdMul<SL,SR,SO>>::Output: Copy,
               (SL,SO): SupportMul<Heterogeneous> {
-    type Backend = BE;
     #[inline]
-    fn mul_vector<'a,const N: usize>(&self, l: &Vector<'a,SL,N,Self::Backend>, r: &Vector<'a,SR,N,Self::Backend>)
+    fn mul_vector<'a,const N: usize>(&self, l: &VectorView<'a,SL,N>, r: &VectorView<'a,SR,N>)
         -> OwnedVector<SO,N> {
         let mut i = 0;
 
@@ -289,9 +284,8 @@ impl<SL,SR,BE> SimdMulAssignVector<SL,SR> for BE
           SR: Copy,
           <Self as SimdMul<SL,SR,SL>>::Output: Copy,
           (SL,SL): SupportMul<Homogeneous> {
-    type Backend = BE;
     #[inline]
-    fn mul_assign_vector<'a,const N: usize>(&self, l: &mut VectorMut<'a,SL,N>, r: &Vector<'a,SR,N,Self::Backend>) {
+    fn mul_assign_vector<'a,const N: usize>(&self, l: &mut VectorMut<'a,SL,N>, r: &VectorView<'a,SR,N>) {
         let mut i = 0;
 
         unsafe {
@@ -333,9 +327,8 @@ impl<SL,SR,SO,BE> SimdMulVector<SL,SR,SO> for BE
               SR: Copy,
               <Self as SimdMul<SL,SR,SO>>::Output: Copy,
               (SL,SO): SupportMul<Homogeneous> {
-    type Backend = BE;
     #[inline]
-    fn mul_vector<'a,const N: usize>(&self, l: &Vector<'a,SL,N,Self::Backend>, r: &Vector<'a,SR,N,Self::Backend>)
+    fn mul_vector<'a,const N: usize>(&self, l: &VectorView<'a,SL,N>, r: &VectorView<'a,SR,N>)
         -> OwnedVector<SO,N> {
         let mut i = 0;
 
@@ -385,9 +378,8 @@ impl<SL,SR,SO,BE> SimdScalarMulVector<SL,SR,SO> for BE
               <Self as SimdReg<SL>>::Reg: Copy,
               <Self as SimdMul<SL,SR,SO>>::Output: Copy,
               (SL,SO): SupportMul<Heterogeneous> {
-    type Backend = BE;
     #[inline]
-    fn scalarmul_vector<'a, const N: usize>(&self, l:SL, r: &Vector<'a, SR, N, Self::Backend>) -> OwnedVector<SO, N> {
+    fn scalarmul_vector<'a, const N: usize>(&self, l:SL, r: &VectorView<'a, SR, N>) -> OwnedVector<SO, N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from(Box::new([SO::default(); N]));
@@ -446,7 +438,6 @@ impl<SL,SR,BE> SimdScalarMulAssignVector<SL,SR> for BE
       <Self as SimdReg<SR>>::Reg: Copy,
       <Self as SimdMul<SL,SR,SR>>::Output: Copy,
       (SL,SR): SupportMul<Homogeneous> {
-    type Backend = BE;
     #[inline]
     fn scalarmul_assign_vector<'a, const N: usize>(&self, l:SL, r: &mut VectorMut<'a, SR, N>) {
         let mut i = 0;
@@ -504,9 +495,8 @@ impl<SL,SR,SO,BE> SimdScalarMulVector<SL,SR,SO> for BE
           <Self as SimdReg<SL>>::Reg: Copy,
           <Self as SimdMul<SL,SR,SO>>::Output: Copy,
           (SL,SO): SupportMul<Homogeneous> {
-    type Backend = BE;
     #[inline]
-    fn scalarmul_vector<'a, const N: usize>(&self, l:SL, r: &Vector<'a, SR, N, Self::Backend>) -> OwnedVector<SO, N> {
+    fn scalarmul_vector<'a, const N: usize>(&self, l:SL, r: &VectorView<'a, SR, N>) -> OwnedVector<SO, N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from(Box::new([SO::default(); N]));
@@ -563,9 +553,8 @@ impl<T,BE> SimdBitAndVector<T> for BE
               SimdBitAnd<T> +,
               T: BitsBitAnd + Default + Copy,
               <T as BitsBitAnd>::Bits: Copy {
-    type Backend = BE;
     #[inline]
-    fn bitand_vector<'a,const N: usize>(&self, l: &Vector<'a,T,N,Self::Backend>, r: &Vector<'a,<T as BitsBitAnd>::Bits,N,Self::Backend>)
+    fn bitand_vector<'a,const N: usize>(&self, l: &VectorView<'a,T,N>, r: &VectorView<'a,<T as BitsBitAnd>::Bits,N>)
         -> OwnedVector<T,N> {
         let mut i = 0;
 
@@ -610,9 +599,8 @@ impl<T,BE> SimdBitOrVector<T> for BE
               SimdBitOr<T>,
               T: BitsBitOr + Default + Copy,
               <T as BitsBitOr>::Bits: Copy {
-    type Backend = BE;
     #[inline]
-    fn bitor_vector<'a,const N: usize>(&self, l: &Vector<'a,T,N,Self::Backend>, r: &Vector<'a,<T as BitsBitOr>::Bits,N,Self::Backend>)
+    fn bitor_vector<'a,const N: usize>(&self, l: &VectorView<'a,T,N>, r: &VectorView<'a,<T as BitsBitOr>::Bits,N>)
                                         -> OwnedVector<T,N> {
         let mut i = 0;
 
@@ -657,9 +645,8 @@ impl<T,BE> SimdBitXorVector<T> for BE
               SimdBitXor<T>,
               T: BitsBitXor + Default + Copy,
               <T as BitsBitXor>::Bits: Copy {
-    type Backend = BE;
     #[inline]
-    fn bitxor_vector<'a,const N: usize>(&self, l: &Vector<'a,T,N,Self::Backend>, r: &Vector<'a,<T as BitsBitXor>::Bits,N,Self::Backend>)
+    fn bitxor_vector<'a,const N: usize>(&self, l: &VectorView<'a,T,N>, r: &VectorView<'a,<T as BitsBitXor>::Bits,N>)
                                        -> OwnedVector<T,N> {
         let mut i = 0;
 
@@ -701,9 +688,8 @@ impl<T,BE> SimdBitNotVector<T> for BE
               SimdMask<T> +
               SimdBitNot<T>,
               T: BitsBitNot + Default + Copy {
-    type Backend = BE;
     #[inline]
-    fn bitnot_vector<'a,const N: usize>(&self, l: &Vector<'a,T,N,Self::Backend>)
+    fn bitnot_vector<'a,const N: usize>(&self, l: &VectorView<'a,T,N>)
         -> OwnedVector<T,N> {
         let mut i = 0;
 
@@ -742,9 +728,8 @@ impl<T,BE> SimdShlVector<T> for BE
               SimdLanes<T> +
               SimdShiftWidth<T>,
               T: BitsShl + Default + Copy {
-    type Backend = BE;
     #[inline]
-    fn shl_vector<'a,const N: usize>(&self, v: &Vector<'a,T,N,Self::Backend>, w:usize)
+    fn shl_vector<'a,const N: usize>(&self, v: &VectorView<'a,T,N>, w:usize)
                                      -> OwnedVector<T,N> {
         let mut i = 0;
 
@@ -784,9 +769,8 @@ impl<T,BE> SimdShrVector<T> for BE
               SimdLanes<T> +
               SimdShiftWidth<T>,
               T: BitsShr + Default + Copy {
-    type Backend = BE;
     #[inline]
-    fn shr_vector<'a,const N: usize>(&self, v: &Vector<'a,T,N,Self::Backend>, w:usize)
+    fn shr_vector<'a,const N: usize>(&self, v: &VectorView<'a,T,N>, w:usize)
                                      -> OwnedVector<T,N> {
         let mut i = 0;
 
@@ -830,9 +814,8 @@ impl<SS,SD,BE> SimdPromoteVector<SS,SD> for BE
           SD: Default + Copy + From<SS>,
           <Self as SimdPromote<SS,SD>>::Output: Copy,
           <Self as SimdReg<SS>>::Reg: Copy {
-    type Backend = BE;
     #[inline]
-    fn promotion_vector<'a, const N: usize>(&self, s: &Vector<'a, SS, N, Self::Backend>) -> OwnedVector<SD, N> {
+    fn promotion_vector<'a, const N: usize>(&self, s: &VectorView<'a, SS, N>) -> OwnedVector<SD, N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from(Box::new([SD::default(); N]));
@@ -873,9 +856,8 @@ impl<SS,SD,BE> SimdDemoteVector<SS,SD> for BE
           SD: Default + Copy,
           <Self as SimdDemote<SS,SD>>::Input: Copy,
           <Self as SimdReg<SD>>::Reg: Copy {
-    type Backend = BE;
     #[inline]
-    fn demotion_vector<'a, const N: usize>(&self, s: &Vector<'a, SS, N, Self::Backend>) -> OwnedVector<SD, N> {
+    fn demotion_vector<'a, const N: usize>(&self, s: &VectorView<'a, SS, N>) -> OwnedVector<SD, N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from(Box::new([SD::default(); N]));
@@ -917,9 +899,8 @@ impl<SS,SD,BE> SimdConvertVector<SS,SD> for BE
           SD: Default + Copy,
           <Self as SimdConvert<SS,SD>>::Output: Copy,
           <Self as SimdReg<SS>>::Reg: Copy {
-    type Backend = BE;
     #[inline]
-    fn convert_vector<'a, const N: usize>(&self, s: &Vector<'a, SS, N, Self::Backend>) -> OwnedVector<SD, N> {
+    fn convert_vector<'a, const N: usize>(&self, s: &VectorView<'a, SS, N>) -> OwnedVector<SD, N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from(Box::new([SD::default(); N]));
@@ -958,9 +939,8 @@ impl<T,BE> SimdAddAssignMatrix<T,T> for BE
               SimdLoad<T> +
               SimdStore<T>,
           T: Default + Add<Output=T> + Copy {
-    type Backend = BE;
     #[inline]
-    fn add_assign_matrix<'a,const N: usize,const M: usize>(&self, l: &'a mut MatrixMut<'a,T,N,M>, r: &Matrix<'a,T,N,M,Self::Backend>) {
+    fn add_assign_matrix<'a,const N: usize,const M: usize>(&self, l: &'a mut MatrixMut<'a,T,N,M>, r: &MatrixView<'a,T,N,M>) {
         unsafe {
             for i in 0..N {
                 let rb = r.row(i);
@@ -1002,7 +982,6 @@ impl<T,BE> SimdScalarMulAssignMatrix<T,T> for BE
           T: Default + Mul<Output=T> + Copy,
           <Self as SimdMul<T,T,T>>::Output: Copy,
           (T,T): SupportMul<Homogeneous> {
-    type Backend = BE;
     #[inline]
     fn scalar_mul_assign_matrix<'a,const N: usize,const M: usize>(&self, l: T, r: &'a mut MatrixMut<'a,T,N,M>) {
         unsafe {
@@ -1050,9 +1029,8 @@ impl<SL,SR,SO,BE> SimdScalarMulMatrix<SL,SR,SO> for BE
           <Self as SimdReg<SL>>::Reg: Copy,
           <Self as SimdMul<SL,SR,SO>>::Output: Copy,
           (SL,SO): SupportMul<Homogeneous> {
-    type Backend = BE;
     #[inline]
-    fn scalar_mul_matrix<'a,const N: usize,const M: usize>(&self, l: SL, r: &Matrix<'a,SR,N,M,BE>, acc:&'a mut MatrixMut<'a,SO,N,M>) {
+    fn scalar_mul_matrix<'a,const N: usize,const M: usize>(&self, l: SL, r: &MatrixView<'a,SR,N,M>, acc:&'a mut MatrixMut<'a,SO,N,M>) {
         unsafe {
             let rl = <Self as SimdSplat<SL>>::splat(self,l);
 
@@ -1094,9 +1072,8 @@ impl<SS,SD,BE> SimdConvertMatrix<SS,SD> for BE
           SD: Default + Copy,
           <Self as SimdConvert<SS,SD>>::Output: Copy,
           <Self as SimdReg<SS>>::Reg: Copy {
-    type Backend = BE;
     #[inline]
-    fn convert_matrix<'a, const N: usize,const M: usize>(&self, s: &Matrix<'a, SS, N, M, Self::Backend>, acc:&'a mut MatrixMut<'a,SD,N,M>) {
+    fn convert_matrix<'a, const N: usize,const M: usize>(&self, s: &MatrixView<'a, SS, N, M>, acc:&'a mut MatrixMut<'a,SD,N,M>) {
         unsafe {
             for i in 0..N {
                 let lr = s.row(i);
@@ -1126,14 +1103,13 @@ impl<SS,SD,BE> SimdConvertMatrix<SS,SD> for BE
 }
 impl<SL, SR,SO,BE> SimdOuterProduct<SL,SR,SO> for BE
     where BE: Backend +
-              SimdMatMul<SL,SR,SO,Backend=BE> {
-    type Backend = BE;
+              SimdMatMul<SL,SR,SO> {
 
-    fn outer_product<'a, const N: usize, const M: usize>(&self, l: &Vector<'a, SL, N, Self::Backend>,
-                                                         r: &Vector<'a, SR, M, Self::Backend>,
+    fn outer_product<'a, const N: usize, const M: usize>(&self, l: &VectorView<'a, SL, N>,
+                                                         r: &VectorView<'a, SR, M>,
                                                          o: &mut OwnedMatrix<SO, N, M>) {
         let mut o = o.into();
-        let l = Matrix::from(l);
+        let l = MatrixView::from(l);
         let r = ColumnMajorMatrix::from(r);
 
         <Self as SimdMatMul<SL,SR,SO>>::matmul::<N,M,1>(self,&l,&r,&mut o)
