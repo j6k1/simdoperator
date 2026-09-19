@@ -5,7 +5,7 @@ use crate::backend::autoselect::{AutoSelect, SelectedBackend};
 use crate::backend::avx2::Avx2;
 use crate::error::{InstantiationError, TryFromSliceError};
 use crate::backend::common::{Backend};
-use crate::traits::{BitsBitAnd, BitsBitOr, BitsBitXor, Dims, Dot, Product, SimdAddVector, SimdBitAndVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdDot, SimdMatMul, SimdMatVec, SimdMulVector, SimdOuterProduct, SimdReg, SimdScalarMulVector, SimdShlVector, SimdShrVector, SimdSubVector, SimdVMat, ToColumnMajor, Transpose};
+use crate::traits::{BitsBitAnd, BitsBitOr, BitsBitXor, Dims, Dot, Product, SimdAddVector, SimdBitAndVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdConvertMatrix, SimdConvertVector, SimdDemoteVector, SimdDot, SimdMatMul, SimdMatVec, SimdMulVector, SimdOuterProduct, SimdPromoteVector, SimdReg, SimdScalarMulVector, SimdShlVector, SimdShrVector, SimdSubVector, SimdVMat, ToColumnMajor, Transpose};
 
 pub mod backend;
 pub mod traits;
@@ -867,6 +867,54 @@ impl<'a,BE,T,const N: usize> Shr<usize> for &'a Vector<'a,T,N,BE>
 
     fn shr(self, rhs: usize) -> Self::Output {
         self.backend.shr_vector(&self.into(), rhs)
+    }
+}
+impl<'a,SL,SR,const N: usize> From<&'a Vector<'a,SL,N,AutoSelect>> for OwnedVector<SR,N>
+    where Avx2: Backend + SimdPromoteVector<SL,SR>,
+          for<'b> VectorView<'b,SL,N>: From<&'b Vector<'b,SL,N,AutoSelect>> {
+    fn from(s:&'a Vector<'a,SL,N,AutoSelect>) -> OwnedVector<SR,N> {
+        match s.backend.selected {
+            SelectedBackend::Avx2(ref backend) => backend.promotion_vector(&s.into()),
+        }
+    }
+}
+impl<'a,BE,SL,SR,const N: usize> From<&'a Vector<'a,SL,N,BE>> for OwnedVector<SR,N>
+    where BE: Backend + SimdPromoteVector<SL,SR>,
+          for<'b> VectorView<'b,SL,N>: From<&'b Vector<'b,SL,N,BE>> {
+    fn from(s:&'a Vector<'a,SL,N,BE>) -> OwnedVector<SR,N> {
+        s.backend.promotion_vector(&s.into())
+    }
+}
+impl<'a,SL,SR,const N: usize> From<&'a Vector<'a,SL,N,AutoSelect>> for OwnedVector<SR,N>
+    where Avx2: Backend + SimdDemoteVector<SL,SR>,
+          for<'b> VectorView<'b,SL,N>: From<&'b Vector<'b,SL,N,AutoSelect>> {
+    fn from(s:&'a Vector<'a,SL,N,AutoSelect>) -> OwnedVector<SR,N> {
+        match s.backend.selected {
+            SelectedBackend::Avx2(ref backend) => backend.demotion_vector(&s.into()),
+        }
+    }
+}
+impl<'a,BE,SL,SR,const N: usize> From<&'a Vector<'a,SL,N,BE>> for OwnedVector<SR,N>
+    where BE: Backend + SimdDemoteVector<SL,SR>,
+          for<'b> VectorView<'b,SL,N>: From<&'b Vector<'b,SL,N,BE>> {
+    fn from(s:&'a Vector<'a,SL,N,BE>) -> OwnedVector<SR,N> {
+        s.backend.demotion_vector(&s.into())
+    }
+}
+impl<'a,SL,SR,const N: usize> From<&'a Vector<'a,SL,N,AutoSelect>> for OwnedVector<SR,N>
+    where Avx2: Backend + SimdConvertVector<SL,SR>,
+          for<'b> VectorView<'b,SL,N>: From<&'b Vector<'b,SL,N,AutoSelect>> {
+    fn from(s:&'a Vector<'a,SL,N,AutoSelect>) -> OwnedVector<SR,N> {
+        match s.backend.selected {
+            SelectedBackend::Avx2(ref backend) => backend.convert_vector(&s.into()),
+        }
+    }
+}
+impl<'a,BE,SL,SR,const N: usize> From<&'a Vector<'a,SL,N,BE>> for OwnedVector<SR,N>
+    where BE: Backend + SimdConvertVector<SL,SR>,
+          for<'b> VectorView<'b,SL,N>: From<&'b Vector<'b,SL,N,BE>> {
+    fn from(s:&'a Vector<'a,SL,N,BE>) -> OwnedVector<SR,N> {
+        s.backend.convert_vector(&s.into())
     }
 }
 impl<'a,SL,SR,SO,const N: usize> Dot<&Vector<'a,SR,N,AutoSelect>,SO> for Vector<'a,SL,N,AutoSelect>
