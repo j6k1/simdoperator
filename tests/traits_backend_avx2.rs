@@ -7,7 +7,7 @@ use simdoperator::backend::avx2::Avx2;
 use simdoperator::backend::common::{Backend, Regs};
 use simdoperator::traits::*;
 use simdoperator::{
-    ColumnMajorMatrix, MatrixMut, MatrixView, OwnedMatrix, OwnedVector, VectorViewMut, VectorView,
+    ColumnMajorMatrix, MatrixMut, MatrixView, OwnedMatrix, OwnedVector, VectorMut, VectorView,
 };
 
 fn avx2_available() -> bool {
@@ -106,7 +106,7 @@ where
     let be = BE::new().unwrap();
 
     {
-        let mut l_mut = VectorViewMut::from(&mut l);
+        let mut l_mut = VectorMut::from(&mut l);
         be.add_assign_vector(&mut l_mut, &r);
     }
 
@@ -139,7 +139,7 @@ where
     let be = BE::new().unwrap();
 
     {
-        let mut l_mut = VectorViewMut::from(&mut l);
+        let mut l_mut = VectorMut::from(&mut l);
         be.sub_assign_vector(&mut l_mut, &r);
     }
 
@@ -190,7 +190,7 @@ where
     let be = BE::new().unwrap();
 
     {
-        let mut l_mut = VectorViewMut::from(&mut l);
+        let mut l_mut = VectorMut::from(&mut l);
         be.mul_assign_vector(&mut l_mut, &r);
     }
 
@@ -224,7 +224,7 @@ where
     let be = BE::new().unwrap();
 
     {
-        let mut r_mut = VectorViewMut::from(&mut r);
+        let mut r_mut = VectorMut::from(&mut r);
         be.scalarmul_assign_vector(scalar, &mut r_mut);
     }
 
