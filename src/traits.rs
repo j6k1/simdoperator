@@ -1,6 +1,6 @@
 //! Trait and data type features for abstracting SIMD operations
 
-use crate::{ColumnMajorMatrix, MatrixMut, MatrixView, OwnedMatrix, OwnedVector, VectorMut, VectorView};
+use crate::{ColumnMajorMatrix, MatrixMut, MatrixView, OwnedMatrix, OwnedVector, VectorViewMut, VectorView};
 use crate::backend::common::{Backend};
 /// Addition at the SIMD register level
 pub trait SimdAdd<SL,SR,SO>: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> {
@@ -106,7 +106,7 @@ pub trait SimdAddAssignVector<SL,SR> {
     /// # Arguments
     /// * `l` - Left hand side of the AddAssign
     /// * `r` - Right hand side of the AddAssign`
-    fn add_assign_vector<'a,const N: usize>(&self, l:&mut VectorMut<'a,SL,N>, r:&VectorView<'a,SR,N>);
+    fn add_assign_vector<'a,const N: usize>(&self, l:&mut VectorViewMut<'a,SL,N>, r:&VectorView<'a,SR,N>);
 }
 /// Apply Add to each element of a Vector
 pub trait SimdAddVector<SL,SR,SO> {
@@ -122,7 +122,7 @@ pub trait SimdSubAssignVector<SL,SR> {
     /// # Arguments
     /// * `l` - Left hand side of the SubAssign
     /// * `r` - Right hand side of the SubAssign
-    fn sub_assign_vector<'a,const N: usize>(&self, l:&mut VectorMut<'a,SL,N>, r:&VectorView<'a,SR,N>);
+    fn sub_assign_vector<'a,const N: usize>(&self, l:&mut VectorViewMut<'a,SL,N>, r:&VectorView<'a,SR,N>);
 }
 /// Apply Sub to each element of a Vector
 pub trait SimdSubVector<SL,SR,SO> {
@@ -138,7 +138,7 @@ pub trait SimdMulAssignVector<SL,SR> {
     /// # Arguments
     /// * `l` - Left hand side of the MulAssign
     /// * `r` - Right hand side of the MulAssign
-    fn mul_assign_vector<'a,const N: usize>(&self, l:&mut VectorMut<'a,SL,N>, r:&VectorView<'a,SR,N>);
+    fn mul_assign_vector<'a,const N: usize>(&self, l:&mut VectorViewMut<'a,SL,N>, r:&VectorView<'a,SR,N>);
 }
 /// Apply Mul to each element of a Vector
 pub trait SimdMulVector<SL,SR,SO> {
@@ -154,7 +154,7 @@ pub trait SimdScalarMulAssignVector<SL,SR> {
     /// # Arguments
     /// * `l` - Left hand side of the Mul
     /// * `r` - Right hand side of the Mul
-    fn scalarmul_assign_vector<'a,const N: usize>(&self, l:SL, r:&mut VectorMut<'a,SR,N>);
+    fn scalarmul_assign_vector<'a,const N: usize>(&self, l:SL, r:&mut VectorViewMut<'a,SR,N>);
 }
 /// Multiply each element of the vector by a scalar value
 pub trait SimdScalarMulVector<SL,SR,SO> {
