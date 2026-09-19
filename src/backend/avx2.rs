@@ -4,7 +4,7 @@ use std::arch::x86_64::{__m256, __m256d, __m256i, _mm256_add_epi16, _mm256_add_e
 use std::ops::{Add, AddAssign, Mul};
 use crate::backend::common::{Backend, Regs};
 use crate::traits::{SimdCols, SimdDot, SimdHSum, SimdLanes, SimdLoad, SimdMask, SimdMatMul, SimdMatVec, SimdMulAdd, SimdPartialDot, SimdReg, SimdRows, SimdStore, SimdTranspose, SimdVMat, SimdZero, SimdAdd, SimdSub, SimdMul, SimdPromote, SimdScalarMul, SimdSplat, SimdBitOr, SimdBitAnd, SimdReinterpret, SimdBitXor, SimdBitNot, BitsBitAnd, BitsBitOr, BitsBitXor, SimdShl, SimdShr, SimdDemote, SimdConvert, FoldRegs, SimdShiftWidth};
-use crate::{derive_matmul, matmul_tile, ColumnMajorMatrix, Matrix, MatrixMut, MatrixView, OwnedVector, Vector, VectorView};
+use crate::{derive_matmul, matmul_tile, ColumnMajorMatrix, MatrixMut, MatrixView, OwnedVector, VectorView};
 use crate::error::InstantiationError;
 
 pub struct Avx2 {

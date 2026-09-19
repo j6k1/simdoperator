@@ -1,6 +1,6 @@
 //! Trait and data type features for abstracting SIMD operations
 
-use crate::{ColumnMajorMatrix, Matrix, MatrixMut, MatrixView, OwnedMatrix, OwnedVector, Vector, VectorMut, VectorView};
+use crate::{ColumnMajorMatrix, MatrixMut, MatrixView, OwnedMatrix, OwnedVector, VectorMut, VectorView};
 use crate::backend::common::{Backend};
 /// Addition at the SIMD register level
 pub trait SimdAdd<SL,SR,SO>: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> {

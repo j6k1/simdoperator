@@ -1,6 +1,5 @@
 //! Trait and data type features for abstracting SIMD operations
 
-use std::marker::PhantomData;
 use std::ops::{Add, BitAnd, BitOr, BitXor, Index, IndexMut, Mul, Not, Shl, Shr, Sub};
 use crate::error::{InstantiationError, TryFromSliceError};
 use crate::backend::common::{Backend};
