@@ -461,6 +461,13 @@ pub trait SimdStore<S>: SimdReg<S> {
     /// * `reg`: Value to store
     unsafe fn store(&self, ptr: *mut S, reg: Self::Reg);
 }
+/// Load a value from memory into a multi-element SIMD register
+pub trait SimdLoadSeq<S,R>
+    where R: Copy {
+    /// # Arguments
+    /// * `ptr`: Pointer to the memory location to load from
+    unsafe fn load_seq(&self, ptr: *const S) -> R;
+}
 /// Storing a multi-element register in memory
 pub trait SimdStoreSeq<S,R>
     where R: Copy {
@@ -493,12 +500,12 @@ pub trait SimdPromote<SS,SD>: SimdReg<SS> + SimdReg<SD> + SimdAdd<SD,SD,SD> + Si
     fn promotion(&self, reg:<Self as SimdReg<SS>>::Reg) -> Self::Output;
 }
 /// Downcasting the Type of a SIMD Register
-pub trait SimdDemote<SS,SD>: SimdReg<SS> + SimdReg<SD> + SimdAdd<SD,SD,SD> + Sized {
+pub trait SimdDemote<SS,SD>: SimdReg<SS> + SimdReg<SD> + SimdAdd<SS,SS,SS> + Sized {
     type Backend: Backend;
-    type Output: FoldRegs<SD,Self>;
+    type Input: FoldRegs<SS,Self>;
     /// # Arguments
     /// * `reg` - SIMD register to demote
-    fn demotion(&self, reg:<Self as SimdReg<SS>>::Reg) -> Self::Output;
+    fn demotion(&self, reg:Self::Input) -> <Self as SimdReg<SD>>::Reg;
 }
 /// Converting the Type of SIMD Registers
 pub trait SimdConvert<SS,SD>: SimdReg<SS> + SimdReg<SD> + SimdAdd<SD,SD,SD> + Sized {

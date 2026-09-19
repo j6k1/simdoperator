@@ -1,7 +1,7 @@
 //! Common Backend Implementation
 
 use std::ops::{Add, Mul, Sub};
-use crate::traits::{SimdAddVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportMul, FoldRegs, SimdOuterProduct, SimdMatMul, SimdMulAssignVector, SimdAddAssignVector, SimdSubAssignVector, SimdShiftWidth, SimdScalarMulAssignVector, SimdAddAssignMatrix, SimdScalarMulAssignMatrix, SimdScalarMulMatrix, SimdConvertMatrix};
+use crate::traits::{SimdAddVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportMul, FoldRegs, SimdOuterProduct, SimdMatMul, SimdMulAssignVector, SimdAddAssignVector, SimdSubAssignVector, SimdShiftWidth, SimdScalarMulAssignVector, SimdAddAssignMatrix, SimdScalarMulAssignMatrix, SimdScalarMulMatrix, SimdConvertMatrix, SimdLoadSeq};
 use crate::{ColumnMajorMatrix, Matrix, MatrixMut, OwnedMatrix, OwnedVector, Vector, VectorMut};
 use crate::error::InstantiationError;
 
@@ -40,6 +40,27 @@ impl<S,BE: SimdReg<S> + SimdAdd<S,S,S>> FoldRegs<S,BE> for Regs<<BE as SimdReg<S
     where <BE as SimdReg<S>>::Reg: Copy {
     fn fold(&self,backend: &BE) -> <BE as SimdReg<S>>::Reg {
         backend.add(backend.add(self.regs[0],self.regs[1]),backend.add(self.regs[2],self.regs[3]))
+    }
+}
+impl<T,BE> SimdLoadSeq<T,Regs<<Self as SimdReg<T>>::Reg,1>> for BE
+    where BE: Backend +
+              SimdLanes<T> +
+              SimdReg<T> +
+              SimdLoad<T> {
+    unsafe fn load_seq(&self, ptr: *const T) -> Regs<<Self as SimdReg<T>>::Reg,1> {
+        let reg = unsafe { self.load(ptr) };
+        Regs::new([reg])
+    }
+}
+impl<T,BE> SimdLoadSeq<T,Regs<<Self as SimdReg<T>>::Reg,2>> for BE
+    where BE: Backend +
+              SimdLanes<T> +
+              SimdReg<T> +
+              SimdLoad<T> {
+    unsafe fn load_seq(&self, ptr: *const T) -> Regs<<Self as SimdReg<T>>::Reg,2> {
+        let a = unsafe { self.load(ptr) };
+        let b = unsafe { self.load(ptr.add(<Self as SimdLanes<T>>::LANES)) };
+        Regs::new([a,b])
     }
 }
 impl<T,BE> SimdStoreSeq<T,Regs<<Self as SimdReg<T>>::Reg,4>> for BE
@@ -844,15 +865,14 @@ impl<SS,SD,BE> SimdDemoteVector<SS,SD> for BE
     where BE: Backend +
               SimdReg<SS> +
               SimdReg<SS> +
-              SimdLanes<SS> +
+              SimdLanes<SD> +
               SimdDemote<SS,SD> +
-              SimdLoad<SS> +
-              SimdStoreSeq<SD,<Self as SimdDemote<SS,SD>>::Output> +
+              SimdLoadSeq<SS,<Self as SimdDemote<SS,SD>>::Input> +
               SimdStore<SD>,
           SS: Assume<SD> + Copy,
           SD: Default + Copy,
-          <Self as SimdDemote<SS,SD>>::Output: Copy,
-          <Self as SimdReg<SS>>::Reg: Copy {
+          <Self as SimdDemote<SS,SD>>::Input: Copy,
+          <Self as SimdReg<SD>>::Reg: Copy {
     type Backend = BE;
     #[inline]
     fn demotion_vector<'a, const N: usize>(&self, s: &Vector<'a, SS, N, Self::Backend>) -> OwnedVector<SD, N> {
@@ -864,17 +884,17 @@ impl<SS,SD,BE> SimdDemoteVector<SS,SD> for BE
             let pb = s.as_ref().as_ptr();
             let po = rs.as_mut().as_mut_ptr();
 
-            while i + <Self as SimdLanes<SS>>::LANES <= N {
-                let sr = self.load(pb.add(i));
+            while i + <Self as SimdLanes<SD>>::LANES <= N {
+                let sr = self.load_seq(pb.add(i));
 
                 let o = self.demotion(sr);
 
-                self.store_seq(po.add(i),o);
+                self.store(po.add(i),o);
 
-                i += <Self as SimdLanes<SS>>::LANES;
+                i += <Self as SimdLanes<SD>>::LANES;
             }
 
-            if N % <Self as SimdLanes<SS>>::LANES != 0 {
+            if N % <Self as SimdLanes<SD>>::LANES != 0 {
                 for j in i..N {
                     rs[j] = s[j].assume();
                 }
