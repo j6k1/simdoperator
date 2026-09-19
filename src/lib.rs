@@ -1,6 +1,8 @@
 //! Trait and data type features for abstracting SIMD operations
 
 use std::ops::{Add, BitAnd, BitOr, BitXor, Index, IndexMut, Mul, Not, Shl, Shr, Sub};
+use crate::backend::autoselect::{AutoSelect, SelectedBackend};
+use crate::backend::avx2::Avx2;
 use crate::error::{InstantiationError, TryFromSliceError};
 use crate::backend::common::{Backend};
 use crate::traits::{BitsBitAnd, BitsBitOr, BitsBitXor, Dims, Dot, Product, SimdAddVector, SimdBitAndVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdDot, SimdMatMul, SimdMatVec, SimdMulVector, SimdOuterProduct, SimdReg, SimdScalarMulVector, SimdShlVector, SimdShrVector, SimdSubVector, SimdVMat, ToColumnMajor, Transpose};
@@ -550,6 +552,18 @@ impl<'a,T,const N: usize,const M: usize> From<&'a ColumnMajorMatrix<'a,T,N,M>>
         }
     }
 }
+impl<'a,T,const N: usize> Add<&'a Vector<'a,T,N,AutoSelect>> for &'a Vector<'a,T,N,AutoSelect>
+    where AutoSelect: Backend,
+          Avx2: SimdAddVector<T,T,T>,
+          for<'b> VectorView<'b,T,N>: From<&'b Vector<'b,T,N,AutoSelect>> {
+    type Output = OwnedVector<T,N>;
+
+    fn add(self, rhs: &'a Vector<'a,T,N,AutoSelect>) -> Self::Output {
+        match self.backend.selected {
+            SelectedBackend::Avx2(ref backend) => backend.add_vector(&self.into(), &rhs.into())
+        }
+    }
+}
 impl<'a,BE,T,const N: usize> Add<&'a Vector<'a,T,N,BE>> for &'a Vector<'a,T,N,BE>
     where BE: Backend + SimdAddVector<T,T,T>,
           for<'b> VectorView<'b,T,N>: From<&'b Vector<'b,T,N,BE>> {
@@ -557,6 +571,17 @@ impl<'a,BE,T,const N: usize> Add<&'a Vector<'a,T,N,BE>> for &'a Vector<'a,T,N,BE
 
     fn add(self, rhs: &'a Vector<'a,T,N,BE>) -> Self::Output {
         self.backend.add_vector(&self.into(), &rhs.into())
+    }
+}
+impl<'a,T,const N: usize> Sub<&'a Vector<'a,T,N,AutoSelect>> for &'a Vector<'a,T,N,AutoSelect>
+    where Avx2: Backend + SimdSubVector<T,T,T>,
+          for<'b> VectorView<'b,T,N>: From<&'b Vector<'b,T,N,AutoSelect>> {
+    type Output = OwnedVector<T,N>;
+
+    fn sub(self, rhs: &'a Vector<'a,T,N,AutoSelect>) -> Self::Output {
+        match self.backend.selected {
+            SelectedBackend::Avx2(ref backend) => backend.sub_vector(&self.into(), &rhs.into()),
+        }
     }
 }
 impl<'a,BE,T,const N: usize> Sub<&'a Vector<'a,T,N,BE>> for &'a Vector<'a,T,N,BE>
@@ -568,6 +593,17 @@ impl<'a,BE,T,const N: usize> Sub<&'a Vector<'a,T,N,BE>> for &'a Vector<'a,T,N,BE
         self.backend.sub_vector(&self.into(), &rhs.into())
     }
 }
+impl<'a,const N: usize> Mul<&'a Vector<'a,i8,N,AutoSelect>> for &'a Vector<'a,i8,N,AutoSelect>
+    where Avx2: Backend + SimdMulVector<i8,i8,i32>,
+                for<'b> VectorView<'b,i8,N>: From<&'b Vector<'a,i8,N,AutoSelect>> {
+    type Output = OwnedVector<i32,N>;
+
+    fn mul(self, rhs: &'a Vector<'a,i8,N,AutoSelect>) -> Self::Output {
+        match self.backend.selected {
+            SelectedBackend::Avx2(ref backend) => backend.mul_vector(&self.into(), &rhs.into()),
+        }
+    }
+}
 impl<'a,BE,const N: usize> Mul<&'a Vector<'a,i8,N,BE>> for &'a Vector<'a,i8,N,BE>
     where BE: Backend + SimdMulVector<i8,i8,i32>,
           for<'b> VectorView<'b,i8,N>: From<&'b Vector<'a,i8,N,BE>> {
@@ -577,14 +613,15 @@ impl<'a,BE,const N: usize> Mul<&'a Vector<'a,i8,N,BE>> for &'a Vector<'a,i8,N,BE
         self.backend.mul_vector(&self.into(), &rhs.into())
     }
 }
-impl<'a,BE,const N: usize> Mul<&'a Vector<'a,i16,N,BE>> for &'a Vector<'a,i8,N,BE>
-    where BE: Backend + SimdMulVector<i8,i16,i32>,
-          for<'b> VectorView<'b,i8,N>: From<&'b Vector<'a,i8,N,BE>>,
-          for<'b> VectorView<'b,i16,N>: From<&'b Vector<'a,i16,N,BE>> {
+impl<'a,const N: usize> Mul<&'a Vector<'a,i16,N,AutoSelect>> for &'a Vector<'a,i16,N,AutoSelect>
+    where Avx2: Backend + SimdMulVector<i16,i16,i32>,
+      for<'b> VectorView<'b,i16,N>: From<&'b Vector<'a,i16,N,AutoSelect>> {
     type Output = OwnedVector<i32,N>;
 
-    fn mul(self, rhs: &'a Vector<'a,i16,N,BE>) -> Self::Output {
-        self.backend.mul_vector(&self.into(), &rhs.into())
+    fn mul(self, rhs: &'a Vector<'a,i16,N,AutoSelect>) -> Self::Output {
+        match self.backend.selected {
+            SelectedBackend::Avx2(ref backend) => backend.mul_vector(&self.into(), &rhs.into()),
+        }
     }
 }
 impl<'a,BE,const N: usize> Mul<&'a Vector<'a,i16,N,BE>> for &'a Vector<'a,i16,N,BE>
@@ -596,6 +633,17 @@ impl<'a,BE,const N: usize> Mul<&'a Vector<'a,i16,N,BE>> for &'a Vector<'a,i16,N,
         self.backend.mul_vector(&self.into(), &rhs.into())
     }
 }
+impl<'a,const N: usize> Mul<&'a Vector<'a,i8,N,AutoSelect>> for i8
+    where Avx2: Backend + SimdScalarMulVector<i8,i8,i32>,
+          for<'b> VectorView<'b,i8,N>: From<&'b Vector<'a,i8,N,AutoSelect>> {
+    type Output = OwnedVector<i32,N>;
+
+    fn mul(self, rhs: &'a Vector<'a,i8,N,AutoSelect>) -> Self::Output {
+        match rhs.backend.selected {
+            SelectedBackend::Avx2(ref backend) => backend.scalarmul_vector(self, &rhs.into()),
+        }
+    }
+}
 impl<'a,BE,const N: usize> Mul<&'a Vector<'a,i8,N,BE>> for i8
     where BE: Backend + SimdScalarMulVector<i8,i8,i32>,
           for<'b> VectorView<'b,i8,N>: From<&'b Vector<'a,i8,N,BE>> {
@@ -605,22 +653,26 @@ impl<'a,BE,const N: usize> Mul<&'a Vector<'a,i8,N,BE>> for i8
         rhs.backend.scalarmul_vector(self, &rhs.into())
     }
 }
-impl<'a,BE,const N: usize> Mul<&'a Vector<'a,i16,N,BE>> for i8
-    where BE: Backend + SimdScalarMulVector<i8,i16,i32>,
-          for<'b> VectorView<'b,i16,N>: From<&'b Vector<'a,i16,N,BE>> {
+impl<'a,const N: usize> Mul<&'a Vector<'a,i16,N,AutoSelect>> for i16
+    where Avx2: Backend + SimdScalarMulVector<i16,i16,i32>,
+          for<'b> VectorView<'b,i16,N>: From<&'b Vector<'a,i16,N,AutoSelect>> {
     type Output = OwnedVector<i32,N>;
 
-    fn mul(self, rhs: &'a Vector<'a,i16,N,BE>) -> Self::Output {
-        rhs.backend.scalarmul_vector(self, &rhs.into())
+    fn mul(self, rhs: &'a Vector<'a,i16,N,AutoSelect>) -> Self::Output {
+        match rhs.backend.selected {
+            SelectedBackend::Avx2(ref backend) => backend.scalarmul_vector(self, &rhs.into()),
+        }
     }
 }
-impl<'a,BE,const N: usize> Mul<&'a Vector<'a,i16,N,BE>> for i16
-    where BE: Backend + SimdScalarMulVector<i16,i16,i32>,
-          for<'b> VectorView<'b,i16,N>: From<&'b Vector<'a,i16,N,BE>> {
+impl<'a,const N: usize> Mul<&'a Vector<'a,i32,N,AutoSelect>> for i32
+    where Avx2: Backend + SimdScalarMulVector<i32,i32,i32>,
+          for<'b> VectorView<'b,i32,N>: From<&'b Vector<'a,i32,N,AutoSelect>> {
     type Output = OwnedVector<i32,N>;
 
-    fn mul(self, rhs: &'a Vector<'a,i16,N,BE>) -> Self::Output {
-        rhs.backend.scalarmul_vector(self, &rhs.into())
+    fn mul(self, rhs: &'a Vector<'a,i32,N,AutoSelect>) -> Self::Output {
+        match rhs.backend.selected {
+            SelectedBackend::Avx2(ref backend) => backend.scalarmul_vector(self, &rhs.into()),
+        }
     }
 }
 impl<'a,BE,const N: usize> Mul<&'a Vector<'a,i32,N,BE>> for i32
@@ -632,6 +684,17 @@ impl<'a,BE,const N: usize> Mul<&'a Vector<'a,i32,N,BE>> for i32
         rhs.backend.scalarmul_vector(self, &rhs.into())
     }
 }
+impl<'a,const N: usize> Mul<&'a Vector<'a,f32,N,AutoSelect>> for f32
+    where Avx2: Backend + SimdScalarMulVector<f32,f32,f32>,
+          for<'b> VectorView<'b,f32,N>: From<&'b Vector<'a,f32,N,AutoSelect>> {
+    type Output = OwnedVector<f32,N>;
+
+    fn mul(self, rhs: &'a Vector<'a,f32,N,AutoSelect>) -> Self::Output {
+        match rhs.backend.selected {
+            SelectedBackend::Avx2(ref backend) => backend.scalarmul_vector(self, &rhs.into()),
+        }
+    }
+}
 impl<'a,BE,const N: usize> Mul<&'a Vector<'a,f32,N,BE>> for f32
     where BE: Backend + SimdScalarMulVector<f32,f32,f32>,
           for<'b> VectorView<'b,f32,N>: From<&'b Vector<'a,f32,N,BE>> {
@@ -639,6 +702,17 @@ impl<'a,BE,const N: usize> Mul<&'a Vector<'a,f32,N,BE>> for f32
 
     fn mul(self, rhs: &'a Vector<'a,f32,N,BE>) -> Self::Output {
         rhs.backend.scalarmul_vector(self, &rhs.into())
+    }
+}
+impl<'a,const N: usize> Mul<&'a Vector<'a,f64,N,AutoSelect>> for f64
+    where Avx2: Backend + SimdScalarMulVector<f64,f64,f64>,
+          for<'b> VectorView<'b,f64,N>: From<&'b Vector<'a,f64,N,AutoSelect>> {
+    type Output = OwnedVector<f64,N>;
+
+    fn mul(self, rhs: &'a Vector<'a,f64,N,AutoSelect>) -> Self::Output {
+        match rhs.backend.selected {
+            SelectedBackend::Avx2(ref backend) => backend.scalarmul_vector(self, &rhs.into()),
+        }
     }
 }
 impl<'a,BE,const N: usize> Mul<&'a Vector<'a,f64,N,BE>> for f64

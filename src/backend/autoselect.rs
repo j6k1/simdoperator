@@ -3,19 +3,30 @@
 use crate::backend::avx2::Avx2;
 use crate::backend::common::Backend;
 use crate::error::InstantiationError;
-
 pub enum SelectedBackend {
     Avx2(Avx2)
 }
 pub struct AutoSelect {
-    backend: SelectedBackend
+    pub selected: SelectedBackend
 }
 impl Backend for AutoSelect {
     fn new() -> Result<Self, InstantiationError> {
-        let backend = Avx2::new()?;
-        
-        Ok(AutoSelect {
-            backend: SelectedBackend::Avx2(backend)
-        })
+        if is_x86_feature_detected!("avx2") {
+            let backend = Avx2::new()?;
+
+            Ok(AutoSelect {
+                selected: SelectedBackend::Avx2(backend)
+            })
+        } else {
+            Err(InstantiationError::NotSupportingError)
+        }
+    }
+}
+#[cfg(test)]
+impl From<Avx2> for AutoSelect {
+    fn from(value: Avx2) -> Self {
+        AutoSelect {
+            selected: SelectedBackend::Avx2(value)
+        }
     }
 }
