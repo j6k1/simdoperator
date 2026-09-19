@@ -232,7 +232,7 @@ impl SimdMask<i8> for Avx2 where Self: SimdReg<i8> {
 
     #[inline(always)]
     fn select(&self, mask: Self::Mask, a: Self::Reg, b: Self::Reg) -> Self::Reg {
-        unsafe { _mm256_blendv_epi8(mask,a,b) }
+        unsafe { _mm256_blendv_epi8(b,a,mask) }
     }
 
     #[inline(always)]
@@ -266,7 +266,7 @@ impl SimdMask<i16> for Avx2 where Self: SimdReg<i16> {
 
     #[inline(always)]
     fn select(&self, mask: Self::Mask, a: Self::Reg, b: Self::Reg) -> Self::Reg {
-        unsafe { _mm256_blendv_epi8(mask,a,b) }
+        unsafe { _mm256_blendv_epi8(b,a,mask) }
     }
 
     #[inline(always)]
@@ -300,7 +300,7 @@ impl SimdMask<i32> for Avx2 where Self: SimdReg<i32> {
 
     #[inline(always)]
     fn select(&self, mask: Self::Mask, a: Self::Reg, b: Self::Reg) -> Self::Reg {
-        unsafe { _mm256_blendv_epi8(mask,a,b) }
+        unsafe { _mm256_blendv_epi8(b,a,mask) }
     }
 
     #[inline(always)]
