@@ -7,33 +7,24 @@ use simdoperator::backend::avx2::Avx2;
 use simdoperator::backend::common::{Backend, Regs};
 use simdoperator::traits::*;
 use simdoperator::{
-    ColumnMajorMatrix, Matrix, MatrixMut, OwnedMatrix, OwnedVector, Vector, VectorMut,
+    ColumnMajorMatrix, MatrixMut, MatrixView, OwnedMatrix, OwnedVector, VectorMut, VectorView,
 };
 
 fn avx2_available() -> bool {
     std::is_x86_feature_detected!("avx2") && std::is_x86_feature_detected!("fma")
 }
 
-fn vector<'a, T, BE, const N: usize>(data: &'a [T; N]) -> Vector<'a, T, N, BE>
-where
-    BE: Backend,
-{
-    Vector::try_from(&data[..]).unwrap()
+fn vector<'a, T, const N: usize>(data: &'a [T; N]) -> VectorView<'a, T, N> {
+    VectorView::try_from(&data[..]).unwrap()
 }
 
-fn matrix<'a, T, BE, const N: usize, const M: usize>(data: &'a [T]) -> Matrix<'a, T, N, M, BE>
-where
-    BE: Backend,
-{
-    Matrix::try_from(data).unwrap()
+fn matrix<'a, T, const N: usize, const M: usize>(data: &'a [T]) -> MatrixView<'a, T, N, M> {
+    MatrixView::try_from(data).unwrap()
 }
 
-fn column_major<'a, T, BE, const N: usize, const M: usize>(
+fn column_major<'a, T, const N: usize, const M: usize>(
     data: &'a [T],
-) -> ColumnMajorMatrix<'a, T, N, M, BE>
-where
-    BE: Backend,
-{
+) -> ColumnMajorMatrix<'a, T, N, M> {
     ColumnMajorMatrix::try_from(data).unwrap()
 }
 
@@ -105,13 +96,13 @@ macro_rules! lane_cases_bit {
 
 fn check_add_assign_vector<BE, T, const N: usize>()
 where
-    BE: Backend + SimdAddAssignVector<T, T, Backend = BE>,
+    BE: Backend + SimdAddAssignVector<T, T>,
     T: Copy + Default + Add<Output = T> + From<i8> + PartialEq + Debug,
 {
     let mut l = OwnedVector::from(Box::new(std::array::from_fn(|i| T::from((i % 9) as i8))));
     let r_data: [T; N] = std::array::from_fn(|i| T::from(3 - (i as i8 % 7)));
     let expected = std::array::from_fn(|i| l[i] + r_data[i]);
-    let r = vector::<T, BE, N>(&r_data);
+    let r = vector::<T, N>(&r_data);
     let be = BE::new().unwrap();
 
     {
@@ -124,27 +115,27 @@ where
 
 fn check_add_vector<BE, T, const N: usize>()
 where
-    BE: Backend + SimdAddVector<T, T, T, Backend = BE>,
+    BE: Backend + SimdAddVector<T, T, T>,
     T: Copy + Default + Add<Output = T> + From<i8> + PartialEq + Debug,
 {
     let l_data: [T; N] = std::array::from_fn(|i| T::from((i % 9) as i8));
     let r_data: [T; N] = std::array::from_fn(|i| T::from(3 - (i as i8 % 7)));
     let expected = std::array::from_fn(|i| l_data[i] + r_data[i]);
     let be = BE::new().unwrap();
-    let actual = be.add_vector(&vector::<T, BE, N>(&l_data), &vector::<T, BE, N>(&r_data));
+    let actual = be.add_vector(&vector::<T, N>(&l_data), &vector::<T, N>(&r_data));
 
     assert_eq!(owned_vector_array(actual), expected);
 }
 
 fn check_sub_assign_vector<BE, T, const N: usize>()
 where
-    BE: Backend + SimdSubAssignVector<T, T, Backend = BE>,
+    BE: Backend + SimdSubAssignVector<T, T>,
     T: Copy + Default + Sub<Output = T> + From<i8> + PartialEq + Debug,
 {
     let mut l = OwnedVector::from(Box::new(std::array::from_fn(|i| T::from((i % 9) as i8))));
     let r_data: [T; N] = std::array::from_fn(|i| T::from(3 - (i as i8 % 7)));
     let expected = std::array::from_fn(|i| l[i] - r_data[i]);
-    let r = vector::<T, BE, N>(&r_data);
+    let r = vector::<T, N>(&r_data);
     let be = BE::new().unwrap();
 
     {
@@ -157,21 +148,21 @@ where
 
 fn check_sub_vector<BE, T, const N: usize>()
 where
-    BE: Backend + SimdSubVector<T, T, T, Backend = BE>,
+    BE: Backend + SimdSubVector<T, T, T>,
     T: Copy + Default + Sub<Output = T> + From<i8> + PartialEq + Debug,
 {
     let l_data: [T; N] = std::array::from_fn(|i| T::from((i % 9) as i8));
     let r_data: [T; N] = std::array::from_fn(|i| T::from(3 - (i as i8 % 7)));
     let expected = std::array::from_fn(|i| l_data[i] - r_data[i]);
     let be = BE::new().unwrap();
-    let actual = be.sub_vector(&vector::<T, BE, N>(&l_data), &vector::<T, BE, N>(&r_data));
+    let actual = be.sub_vector(&vector::<T, N>(&l_data), &vector::<T, N>(&r_data));
 
     assert_eq!(owned_vector_array(actual), expected);
 }
 
 fn check_mul_vector<BE, SL, SR, SO, const N: usize>()
 where
-    BE: Backend + SimdMulVector<SL, SR, SO, Backend = BE>,
+    BE: Backend + SimdMulVector<SL, SR, SO>,
     SL: Copy + From<i8>,
     SR: Copy + From<i8>,
     SO: Copy + Default + From<SL> + From<SR> + Mul<Output = SO> + PartialEq + Debug,
@@ -180,14 +171,14 @@ where
     let r_data: [SR; N] = std::array::from_fn(|i| SR::from(3 - (i as i8 % 5)));
     let expected = std::array::from_fn(|i| SO::from(l_data[i]) * SO::from(r_data[i]));
     let be = BE::new().unwrap();
-    let actual = be.mul_vector(&vector::<SL, BE, N>(&l_data), &vector::<SR, BE, N>(&r_data));
+    let actual = be.mul_vector(&vector::<SL, N>(&l_data), &vector::<SR, N>(&r_data));
 
     assert_eq!(owned_vector_array(actual), expected);
 }
 
 fn check_mul_assign_vector<BE, T, const N: usize>()
 where
-    BE: Backend + SimdMulAssignVector<T, T, Backend = BE>,
+    BE: Backend + SimdMulAssignVector<T, T>,
     T: Copy + From<i8> + Mul<Output = T> + PartialEq + Debug,
 {
     let mut l = OwnedVector::from(Box::new(std::array::from_fn(|i| {
@@ -195,7 +186,7 @@ where
     })));
     let r_data: [T; N] = std::array::from_fn(|i| T::from(3 - (i as i8 % 5)));
     let expected = std::array::from_fn(|i| l[i] * r_data[i]);
-    let r = vector::<T, BE, N>(&r_data);
+    let r = vector::<T, N>(&r_data);
     let be = BE::new().unwrap();
 
     {
@@ -208,7 +199,7 @@ where
 
 fn check_scalarmul_vector<BE, SL, SR, SO, const N: usize>(scalar: SL)
 where
-    BE: Backend + SimdScalarMulVector<SL, SR, SO, Backend = BE>,
+    BE: Backend + SimdScalarMulVector<SL, SR, SO>,
     SL: Copy,
     SR: Copy + From<i8>,
     SO: Copy + Default + From<SL> + From<SR> + Mul<Output = SO> + PartialEq + Debug,
@@ -216,14 +207,14 @@ where
     let r_data: [SR; N] = std::array::from_fn(|i| SR::from(3 - (i as i8 % 5)));
     let expected = std::array::from_fn(|i| SO::from(scalar) * SO::from(r_data[i]));
     let be = BE::new().unwrap();
-    let actual = be.scalarmul_vector(scalar, &vector::<SR, BE, N>(&r_data));
+    let actual = be.scalarmul_vector(scalar, &vector::<SR, N>(&r_data));
 
     assert_eq!(owned_vector_array(actual), expected);
 }
 
 fn check_scalarmul_assign_vector<BE, T, const N: usize>(scalar: T)
 where
-    BE: Backend + SimdScalarMulAssignVector<T, T, Backend = BE>,
+    BE: Backend + SimdScalarMulAssignVector<T, T>,
     T: Copy + From<i8> + Mul<Output = T> + PartialEq + Debug,
 {
     let mut r: OwnedVector<T, N> = OwnedVector::from(Box::new(std::array::from_fn(|i| {
@@ -244,9 +235,9 @@ fn check_bit_vector<BE, T, B, const N: usize>()
 where
     BE: Backend
         + SimdReg<T, Bits = B>
-        + SimdBitAndVector<T, Backend = BE>
-        + SimdBitOrVector<T, Backend = BE>
-        + SimdBitXorVector<T, Backend = BE>,
+        + SimdBitAndVector<T>
+        + SimdBitOrVector<T>
+        + SimdBitXorVector<T>,
     T: BitsBitAnd<Bits = B>
         + BitsBitOr<Bits = B>
         + BitsBitXor<Bits = B>
@@ -262,8 +253,8 @@ where
     let expected_and = std::array::from_fn(|i| l_data[i].bits_bitand(r_data[i]));
     let expected_or = std::array::from_fn(|i| l_data[i].bits_bitor(r_data[i]));
     let expected_xor = std::array::from_fn(|i| l_data[i].bits_bitxor(r_data[i]));
-    let l = vector::<T, BE, N>(&l_data);
-    let r = vector::<B, BE, N>(&r_data);
+    let l = vector::<T, N>(&l_data);
+    let r = vector::<B, N>(&r_data);
     let be = BE::new().unwrap();
 
     assert_eq!(owned_vector_array(be.bitand_vector(&l, &r)), expected_and);
@@ -273,20 +264,20 @@ where
 
 fn check_bitnot_vector<BE, T, const N: usize>()
 where
-    BE: Backend + SimdBitNotVector<T, Backend = BE>,
+    BE: Backend + SimdBitNotVector<T>,
     T: BitsBitNot + Copy + Default + PartialEq + Debug + From<i8>,
 {
     let data: [T; N] = std::array::from_fn(|i| T::from((i as i8) ^ 0x55));
     let expected = std::array::from_fn(|i| data[i].bits_bitnot());
     let be = BE::new().unwrap();
-    let actual = be.bitnot_vector(&vector::<T, BE, N>(&data));
+    let actual = be.bitnot_vector(&vector::<T, N>(&data));
 
     assert_eq!(owned_vector_array(actual), expected);
 }
 
 fn check_shift_vector<BE, T, const N: usize>()
 where
-    BE: Backend + SimdShlVector<T, Backend = BE> + SimdShrVector<T, Backend = BE>,
+    BE: Backend + SimdShlVector<T> + SimdShrVector<T>,
     T: BitsShl + BitsShr + Copy + Default + PartialEq + Debug + From<i8>,
 {
     let data: [T; N] = std::array::from_fn(|i| T::from(((i % 5) + 1) as i8));
@@ -295,67 +286,67 @@ where
     let be = BE::new().unwrap();
 
     assert_eq!(
-        owned_vector_array(be.shl_vector(&vector::<T, BE, N>(&data), 1)),
+        owned_vector_array(be.shl_vector(&vector::<T, N>(&data), 1)),
         expected_shl
     );
     assert_eq!(
-        owned_vector_array(be.shr_vector(&vector::<T, BE, N>(&data), 1)),
+        owned_vector_array(be.shr_vector(&vector::<T, N>(&data), 1)),
         expected_shr
     );
 }
 
 fn check_promote_vector<BE, SS, SD, const N: usize>()
 where
-    BE: Backend + SimdPromoteVector<SS, SD, Backend = BE>,
+    BE: Backend + SimdPromoteVector<SS, SD>,
     SS: Copy + From<i8>,
     SD: Copy + Default + From<SS> + PartialEq + Debug,
 {
     let data: [SS; N] = std::array::from_fn(|i| SS::from((i as i8) - 4));
     let expected = std::array::from_fn(|i| SD::from(data[i]));
     let be = BE::new().unwrap();
-    let actual = be.promotion_vector(&vector::<SS, BE, N>(&data));
+    let actual = be.promotion_vector(&vector::<SS, N>(&data));
 
     assert_eq!(owned_vector_array(actual), expected);
 }
 
 fn check_demote_vector<BE, SS, SD, const N: usize>()
 where
-    BE: Backend + SimdDemoteVector<SS, SD, Backend = BE>,
+    BE: Backend + SimdDemoteVector<SS, SD>,
     SS: Assume<SD> + Copy + From<i8>,
     SD: Copy + Default + PartialEq + Debug,
 {
     let data: [SS; N] = std::array::from_fn(|i| SS::from((i as i8) - 4));
     let expected = std::array::from_fn(|i| data[i].assume());
     let be = BE::new().unwrap();
-    let actual = be.demotion_vector(&vector::<SS, BE, N>(&data));
+    let actual = be.demotion_vector(&vector::<SS, N>(&data));
 
     assert_eq!(owned_vector_array(actual), expected);
 }
 
 fn check_convert_vector<BE, SS, SD, const N: usize>()
 where
-    BE: Backend + SimdConvertVector<SS, SD, Backend = BE>,
+    BE: Backend + SimdConvertVector<SS, SD>,
     SS: Assume<SD> + Copy + From<i8>,
     SD: Copy + Default + PartialEq + Debug,
 {
     let data: [SS; N] = std::array::from_fn(|i| SS::from((i as i8) - 4));
     let expected = std::array::from_fn(|i| data[i].assume());
     let be = BE::new().unwrap();
-    let actual = be.convert_vector(&vector::<SS, BE, N>(&data));
+    let actual = be.convert_vector(&vector::<SS, N>(&data));
 
     assert_eq!(owned_vector_array(actual), expected);
 }
 
 fn check_add_assign_matrix<BE, T, const N: usize, const M: usize>()
 where
-    BE: Backend + SimdAddAssignMatrix<T, T, Backend = BE>,
+    BE: Backend + SimdAddAssignMatrix<T, T>,
     T: Copy + Default + Add<Output = T> + From<i8> + PartialEq + Debug,
 {
     let l_data: Vec<T> = (0..N * M).map(|i| T::from((i % 9) as i8)).collect();
     let r_data: Vec<T> = (0..N * M).map(|i| T::from(5 - (i as i8 % 11))).collect();
     let expected: Vec<T> = (0..N * M).map(|i| l_data[i] + r_data[i]).collect();
     let mut l = OwnedMatrix::<T, N, M>::from(l_data.into_boxed_slice());
-    let r = matrix::<T, BE, N, M>(&r_data);
+    let r = matrix::<T, N, M>(&r_data);
     let be = BE::new().unwrap();
 
     {
@@ -368,7 +359,7 @@ where
 
 fn check_scalar_mul_assign_matrix<BE, T, const N: usize, const M: usize>(scalar: T)
 where
-    BE: Backend + SimdScalarMulAssignMatrix<T, T, Backend = BE>,
+    BE: Backend + SimdScalarMulAssignMatrix<T, T>,
     T: Copy + Default + From<i8> + Mul<Output = T> + PartialEq + Debug,
 {
     let data: Vec<T> = (0..N * M).map(|i| T::from(((i % 5) + 1) as i8)).collect();
@@ -386,7 +377,7 @@ where
 
 fn check_scalar_mul_matrix<BE, T, const N: usize, const M: usize>(scalar: T)
 where
-    BE: Backend + SimdScalarMulMatrix<T, T, T, Backend = BE>,
+    BE: Backend + SimdScalarMulMatrix<T, T, T>,
     T: Copy + Default + From<i8> + Mul<Output = T> + PartialEq + Debug,
 {
     let data: Vec<T> = (0..N * M).map(|i| T::from(((i % 5) + 1) as i8)).collect();
@@ -396,7 +387,7 @@ where
 
     {
         let mut acc_mut = MatrixMut::from(&mut acc);
-        be.scalar_mul_matrix(scalar, &matrix::<T, BE, N, M>(&data), &mut acc_mut);
+        be.scalar_mul_matrix(scalar, &matrix::<T, N, M>(&data), &mut acc_mut);
     }
 
     assert_eq!(owned_matrix_vec(acc), expected);
@@ -404,7 +395,7 @@ where
 
 fn check_convert_matrix<BE, SS, SD, const N: usize, const M: usize>()
 where
-    BE: Backend + SimdConvertMatrix<SS, SD, Backend = BE>,
+    BE: Backend + SimdConvertMatrix<SS, SD>,
     SS: Assume<SD> + Copy + From<i8>,
     SD: Copy + Default + PartialEq + Debug,
 {
@@ -415,7 +406,7 @@ where
 
     {
         let mut acc_mut = MatrixMut::from(&mut acc);
-        be.convert_matrix(&matrix::<SS, BE, N, M>(&data), &mut acc_mut);
+        be.convert_matrix(&matrix::<SS, N, M>(&data), &mut acc_mut);
     }
 
     assert_eq!(owned_matrix_vec(acc), expected);
@@ -423,7 +414,7 @@ where
 
 fn check_dot<BE, SL, SR, SO, const N: usize>()
 where
-    BE: Backend + SimdDot<SL, SR, SO, Backend = BE>,
+    BE: Backend + SimdDot<SL, SR, SO>,
     SL: Copy + From<i8>,
     SR: Copy + From<i8>,
     SO: Copy + Default + From<SL> + From<SR> + Mul<Output = SO> + AddAssign + PartialEq + Debug,
@@ -435,14 +426,14 @@ where
         acc
     });
     let be = BE::new().unwrap();
-    let actual = be.dot(&vector::<SL, BE, N>(&l_data), &vector::<SR, BE, N>(&r_data));
+    let actual = be.dot(&vector::<SL, N>(&l_data), &vector::<SR, N>(&r_data));
 
     assert_eq!(actual, expected);
 }
 
 fn check_matmul<BE, SL, SR, SO, const N: usize, const M: usize, const K: usize>()
 where
-    BE: Backend + SimdMatMul<SL, SR, SO, Backend = BE>,
+    BE: Backend + SimdMatMul<SL, SR, SO>,
     SL: Copy + From<i8>,
     SR: Copy + From<i8>,
     SO: Copy
@@ -475,8 +466,8 @@ where
     {
         let mut acc_mut = MatrixMut::from(&mut acc);
         be.matmul(
-            &matrix::<SL, BE, N, K>(&l_data),
-            &column_major::<SR, BE, K, M>(&r_data),
+            &matrix::<SL, N, K>(&l_data),
+            &column_major::<SR, K, M>(&r_data),
             &mut acc_mut,
         );
     }
@@ -486,7 +477,7 @@ where
 
 fn check_outer_product<BE, SL, SR, SO, const N: usize, const M: usize>()
 where
-    BE: Backend + SimdOuterProduct<SL, SR, SO, Backend = BE>,
+    BE: Backend + SimdOuterProduct<SL, SR, SO>,
     SL: Copy + From<i8>,
     SR: Copy + From<i8>,
     SO: Copy
@@ -512,8 +503,8 @@ where
     let be = BE::new().unwrap();
     let mut actual = OwnedMatrix::<SO, N, M>::default();
     be.outer_product(
-        &vector::<SL, BE, N>(&l_data),
-        &vector::<SR, BE, M>(&r_data),
+        &vector::<SL, N>(&l_data),
+        &vector::<SR, M>(&r_data),
         &mut actual,
     );
 
@@ -522,7 +513,7 @@ where
 
 fn check_matvec<BE, SL, SR, SO, const N: usize, const K: usize>()
 where
-    BE: Backend + SimdMatVec<SL, SR, SO, Backend = BE>,
+    BE: Backend + SimdMatVec<SL, SR, SO>,
     SL: Copy + From<i8>,
     SR: Copy + From<i8>,
     SO: Copy
@@ -550,8 +541,8 @@ where
     let be = BE::new().unwrap();
     let mut actual = OwnedVector::<SO, N>::default();
     be.matvec(
-        &matrix::<SL, BE, N, K>(&l_data),
-        &vector::<SR, BE, K>(&r_data),
+        &matrix::<SL, N, K>(&l_data),
+        &vector::<SR, K>(&r_data),
         &mut actual,
     );
 
@@ -560,7 +551,7 @@ where
 
 fn check_vmat<BE, SL, SR, SO, const M: usize, const K: usize>()
 where
-    BE: Backend + SimdVMat<SL, SR, SO, Backend = BE>,
+    BE: Backend + SimdVMat<SL, SR, SO>,
     SL: Copy + From<i8>,
     SR: Copy + From<i8>,
     SO: Copy
@@ -588,8 +579,8 @@ where
     let be = BE::new().unwrap();
     let mut actual = OwnedVector::<SO, M>::default();
     be.vmat(
-        &vector::<SL, BE, K>(&l_data),
-        &column_major::<SR, BE, K, M>(&r_data),
+        &vector::<SL, K>(&l_data),
+        &column_major::<SR, K, M>(&r_data),
         &mut actual,
     );
 
