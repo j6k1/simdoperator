@@ -724,6 +724,19 @@ impl<'a,BE,const N: usize> Mul<&'a Vector<'a,f64,N,BE>> for f64
         rhs.backend.scalarmul_vector(self,&rhs.into())
     }
 }
+impl<'a,T,const N: usize> BitXor<&'a Vector<'a,<T as BitsBitXor>::Bits,N,AutoSelect>> for &'a Vector<'a,T,N,AutoSelect>
+    where Avx2: Backend + SimdBitXorVector<T>,
+          T: BitsBitXor,
+          for<'b> VectorView<'b,T,N>: From<&'b Vector<'b,T,N,AutoSelect>>,
+          for<'b> VectorView<'b,<T as BitsBitXor>::Bits,N>: From<&'b Vector<'a,<T as BitsBitXor>::Bits,N,AutoSelect>> {
+    type Output = OwnedVector<T,N>;
+
+    fn bitxor(self, rhs: &'a Vector<'a,<T as BitsBitXor>::Bits,N,AutoSelect>) -> Self::Output {
+        match self.backend.selected {
+            SelectedBackend::Avx2(ref backend) => backend.bitxor_vector(&self.into(), &rhs.into()),
+        }
+    }
+}
 impl<'a,BE,T,const N: usize> BitXor<&'a Vector<'a,<T as BitsBitXor>::Bits,N,BE>> for &'a Vector<'a,T,N,BE>
     where BE: Backend +
               SimdReg<T,Bits=<T as BitsBitXor>::Bits> +
@@ -738,6 +751,19 @@ impl<'a,BE,T,const N: usize> BitXor<&'a Vector<'a,<T as BitsBitXor>::Bits,N,BE>>
         self.backend.bitxor_vector(&self.into(), &rhs.into())
     }
 }
+impl<'a,T,const N: usize> BitOr<&'a Vector<'a,<T as BitsBitOr>::Bits,N,AutoSelect>> for &'a Vector<'a,T,N,AutoSelect>
+    where Avx2: Backend + SimdBitOrVector<T>,
+          T: BitsBitOr,
+          for<'b> VectorView<'b,T,N>: From<&'b Vector<'b,T,N,AutoSelect>>,
+          for<'b> VectorView<'b,<T as BitsBitOr>::Bits,N>: From<&'b Vector<'a,<T as BitsBitOr>::Bits,N,AutoSelect>> {
+    type Output = OwnedVector<T,N>;
+
+    fn bitor(self, rhs: &'a Vector<'a,<T as BitsBitOr>::Bits,N,AutoSelect>) -> Self::Output {
+        match self.backend.selected {
+            SelectedBackend::Avx2(ref backend) => backend.bitor_vector(&self.into(), &rhs.into()),
+        }
+    }
+}
 impl<'a,BE,T,const N: usize> BitOr<&'a Vector<'a,<BE as SimdReg<T>>::Bits,N,BE>> for &'a Vector<'a,T,N,BE>
     where BE: Backend +
               SimdReg<T,Bits=<T as BitsBitOr>::Bits> +
@@ -750,6 +776,20 @@ impl<'a,BE,T,const N: usize> BitOr<&'a Vector<'a,<BE as SimdReg<T>>::Bits,N,BE>>
 
     fn bitor(self, rhs: &'a Vector<'a,<T as BitsBitOr>::Bits,N,BE>) -> Self::Output {
         self.backend.bitor_vector(&self.into(), &rhs.into())
+    }
+}
+impl<'a,T,const N: usize> BitAnd<&'a Vector<'a,<T as BitsBitAnd>::Bits,N,AutoSelect>> for &'a Vector<'a,T,N,AutoSelect>
+    where Avx2: Backend + SimdBitAndVector<T>,
+      T: BitsBitAnd,
+      for<'b> VectorView<'b,T,N>: From<&'b Vector<'b,T,N,AutoSelect>>,
+      for<'b> VectorView<'b,<T as BitsBitAnd>::Bits,N>: From<&'b Vector<'a,<T as BitsBitAnd>::Bits,N,AutoSelect>> {
+
+    type Output = OwnedVector<T,N>;
+
+    fn bitand(self, rhs: &'a Vector<'a,<T as BitsBitAnd>::Bits,N,AutoSelect>) -> Self::Output {
+        match self.backend.selected {
+            SelectedBackend::Avx2(ref backend) => backend.bitand_vector(&self.into(), &rhs.into()),
+        }
     }
 }
 impl<'a,BE,T,const N: usize> BitAnd<&'a Vector<'a,<BE as SimdReg<T>>::Bits,N,BE>> for &'a Vector<'a,T,N,BE>
@@ -767,6 +807,18 @@ impl<'a,BE,T,const N: usize> BitAnd<&'a Vector<'a,<BE as SimdReg<T>>::Bits,N,BE>
         self.backend.bitand_vector(&self.into(), &rhs.into())
     }
 }
+impl<'a,T,const N: usize> Not for &'a Vector<'a,T,N,AutoSelect>
+    where Avx2: Backend + SimdBitNotVector<T>,
+          for<'b> VectorView<'b,T,N>: From<&'b Vector<'b,T,N,AutoSelect>> {
+
+    type Output = OwnedVector<T,N>;
+
+    fn not(self) -> Self::Output {
+        match self.backend.selected {
+            SelectedBackend::Avx2(ref backend) => backend.bitnot_vector(&self.into()),
+        }
+    }
+}
 impl<'a,BE,T,const N: usize> Not for &'a Vector<'a,T,N,BE>
     where BE: Backend + SimdBitNotVector<T>,
           for<'b> VectorView<'b,T,N>: From<&'b Vector<'b,T,N,BE>> {
@@ -775,6 +827,17 @@ impl<'a,BE,T,const N: usize> Not for &'a Vector<'a,T,N,BE>
 
     fn not(self) -> Self::Output {
         self.backend.bitnot_vector(&self.into())
+    }
+}
+impl<'a,T,const N: usize> Shl<usize> for &'a Vector<'a,T,N,AutoSelect>
+    where Avx2: Backend + SimdShlVector<T>,
+          for<'b> VectorView<'b,T,N>: From<&'b Vector<'b,T,N,AutoSelect>> {
+    type Output = OwnedVector<T,N>;
+
+    fn shl(self, rhs: usize) -> Self::Output {
+        match self.backend.selected {
+            SelectedBackend::Avx2(ref backend) => backend.shl_vector(&self.into(), rhs),
+        }
     }
 }
 impl<'a,BE,T,const N: usize> Shl<usize> for &'a Vector<'a,T,N,BE>
@@ -786,6 +849,17 @@ impl<'a,BE,T,const N: usize> Shl<usize> for &'a Vector<'a,T,N,BE>
         self.backend.shl_vector(&self.into(), rhs)
     }
 }
+impl<'a,T,const N: usize> Shr<usize> for &'a Vector<'a,T,N,AutoSelect>
+    where Avx2: Backend + SimdShrVector<T>,
+          for<'b> VectorView<'b,T,N>: From<&'b Vector<'b,T,N,AutoSelect>> {
+    type Output = OwnedVector<T,N>;
+
+    fn shr(self, rhs: usize) -> Self::Output {
+        match self.backend.selected {
+            SelectedBackend::Avx2(ref backend) => backend.shr_vector(&self.into(), rhs),
+        }
+    }
+}
 impl<'a,BE,T,const N: usize> Shr<usize> for &'a Vector<'a,T,N,BE>
     where BE: Backend + SimdShrVector<T>,
           for<'b> VectorView<'b,T,N>: From<&'b Vector<'b,T,N,BE>> {
@@ -795,12 +869,39 @@ impl<'a,BE,T,const N: usize> Shr<usize> for &'a Vector<'a,T,N,BE>
         self.backend.shr_vector(&self.into(), rhs)
     }
 }
+impl<'a,SL,SR,SO,const N: usize> Dot<&Vector<'a,SR,N,AutoSelect>,SO> for Vector<'a,SL,N,AutoSelect>
+    where Avx2: Backend + SimdDot<SL,SR,SO>,
+          for<'b> VectorView<'b,SL,N>: From<&'b Vector<'b,SL,N,AutoSelect>>,
+          for<'b> VectorView<'b,SR,N>: From<&'b Vector<'b,SR,N,AutoSelect>> {
+    fn dot(&self,r:&Vector<'_,SR,N,AutoSelect>) -> SO {
+        match self.backend.selected {
+            SelectedBackend::Avx2(ref backend) => backend.dot(&self.into(),&r.into()),
+        }
+    }
+}
 impl<'a,BE,SL,SR,SO,const N: usize> Dot<&Vector<'a,SR,N,BE>,SO> for Vector<'a,SL,N,BE>
     where BE: Backend + SimdDot<SL,SR,SO>,
           for<'b> VectorView<'b,SL,N>: From<&'b Vector<'b,SL,N,BE>>,
           for<'b> VectorView<'b,SR,N>: From<&'b Vector<'b,SR,N,BE>> {
     fn dot(&self,r:&Vector<'_,SR,N,BE>) -> SO {
         self.backend.dot(&self.into(),&r.into())
+    }
+}
+impl<'a,SL,SR,SO,const N: usize,const M: usize> Product<&'a Vector<'a,SR,M,AutoSelect>,OwnedMatrix<SO,N,M>>  for Vector<'a,SL,N,AutoSelect>
+        where Avx2: Backend + SimdOuterProduct<SL,SR,SO>,
+              SO: Default + Copy + Clone,
+                  for<'b> VectorView<'b,SL,N>: From<&'b Vector<'b,SL,N,AutoSelect>>,
+                  for<'b> VectorView<'b,SR,M>: From<&'b Vector<'b,SR,M,AutoSelect>> {
+    fn product(&self,r:&'a Vector<'a,SR,M,AutoSelect>) -> OwnedMatrix<SO,N,M> {
+        let mut o = OwnedMatrix::<SO,N,M>::default();
+
+        match self.backend.selected {
+            SelectedBackend::Avx2(ref backend) => {
+                backend.outer_product(&self.into(),&r.into(),&mut o);
+            }
+        }
+
+        o
     }
 }
 impl<'a,BE,SL,SR,SO,const N: usize,const M: usize> Product<&'a Vector<'a,SR,M,BE>,OwnedMatrix<SO,N,M>>
@@ -812,6 +913,22 @@ impl<'a,BE,SL,SR,SO,const N: usize,const M: usize> Product<&'a Vector<'a,SR,M,BE
     fn product(&self,r:&'a Vector<'a,SR,M,BE>) -> OwnedMatrix<SO,N,M> {
         let mut o = OwnedMatrix::<SO,N,M>::default();
         self.backend.outer_product(&self.into(),&r.into(),&mut o);
+
+        o
+    }
+}
+impl<'a,SL,SR,SO,const M: usize,const K: usize> Product<&'a ColumnMajorMatrix<'a,SR,K,M>,OwnedVector<SO,M>> for Vector<'a,SL,K,AutoSelect>
+    where Avx2: Backend + SimdVMat<SL,SR,SO>,
+          SO: Default + Copy + Clone ,
+          for<'b> VectorView<'b,SL,K>: From<&'b Vector<'b,SL,K,AutoSelect>> {
+    fn product(&self,r:&'a ColumnMajorMatrix<'a,SR,K,M>) -> OwnedVector<SO,M> {
+        let mut o = OwnedVector::<SO,M>::default();
+
+        match self.backend.selected {
+            SelectedBackend::Avx2(ref backend) => {
+                backend.vmat(&self.into(),r,&mut o);
+            }
+        }
 
         o
     }
@@ -829,12 +946,29 @@ impl<'a,BE,SL,SR,SO,const M: usize,const K: usize> Product<&'a ColumnMajorMatrix
         o
     }
 }
+impl<'a,SL,SR,SO,const N: usize,const K: usize> Product<&'a Vector<'a,SR,K,AutoSelect>,OwnedVector<SO,N>> for Matrix<'a,SL,N,K,AutoSelect>
+    where Avx2: Backend + SimdMatVec<SL,SR,SO>,
+          SO: Default + Copy + Clone,
+          for<'b> MatrixView<'b,SL,N,K>: From<&'b Matrix<'b,SL,N,K,AutoSelect>>,
+          for<'b> VectorView<'b,SR,K>: From<&'b Vector<'b,SR,K,AutoSelect>> {
+    fn product(&self, r: &'a Vector<'a,SR,K,AutoSelect>) -> OwnedVector<SO,N> {
+        let mut o = OwnedVector::<SO,N>::default();
+
+        match self.backend.selected {
+            SelectedBackend::Avx2(ref backend) => {
+                backend.matvec(&self.into(),&r.into(),&mut o);
+            }
+        }
+
+        o
+    }
+}
 impl<'a,BE,SL,SR,SO,const N: usize,const K: usize> Product<&'a Vector<'a,SR,K,BE>,OwnedVector<SO,N>>
     for Matrix<'a,SL,N,K,BE>
-        where BE: Backend + SimdMatVec<SL,SR,SO>,
-              SO: Default + Copy + Clone,
-              for<'b> MatrixView<'b,SL,N,K>: From<&'b Matrix<'b,SL,N,K,BE>>,
-              for<'b> VectorView<'b,SR,K>: From<&'b Vector<'b,SR,K,BE>> {
+    where BE: Backend + SimdMatVec<SL,SR,SO>,
+        SO: Default + Copy + Clone,
+        for<'b> MatrixView<'b,SL,N,K>: From<&'b Matrix<'b,SL,N,K,BE>>,
+        for<'b> VectorView<'b,SR,K>: From<&'b Vector<'b,SR,K,BE>> {
     fn product(&self, r: &'a Vector<'a,SR,K,BE>) -> OwnedVector<SO,N> {
         let mut o = OwnedVector::<SO,N>::default();
 
@@ -843,7 +977,26 @@ impl<'a,BE,SL,SR,SO,const N: usize,const K: usize> Product<&'a Vector<'a,SR,K,BE
         o
     }
 }
-impl<'a,BE,SL,SR,SO,const N: usize,const M: usize,const K: usize> Product<&'a ColumnMajorMatrix<'a,SR,K,M>,OwnedMatrix<SO,N,M>>
+impl<'a,SL,SR,SO,const N: usize,const M: usize,const K: usize> Product<&'a ColumnMajorMatrix<'a,SR,K,M>,OwnedMatrix<SO,N,M>>
+    for Matrix<'a,SL,N,K,AutoSelect>
+    where Avx2: Backend + SimdMatMul<SL,SR,SO>,
+          SO: Default + Copy + Clone,
+          for<'b> MatrixView<'b,SL,N,K>: From<&'b Matrix<'b,SL,N,K,AutoSelect>> {
+    fn product(&self, r: &'a ColumnMajorMatrix<'a,SR,K,M>) -> OwnedMatrix<SO,N,M> {
+        let mut o = OwnedMatrix::<SO,N,M>::default();
+        {
+            let mut o = (&mut o).into();
+
+            match self.backend.selected {
+                SelectedBackend::Avx2(ref backend) => {
+                    backend.matmul(&self.into(),r,&mut o);
+                }
+            }
+        }
+
+        o
+    }
+}impl<'a,BE,SL,SR,SO,const N: usize,const M: usize,const K: usize> Product<&'a ColumnMajorMatrix<'a,SR,K,M>,OwnedMatrix<SO,N,M>>
     for Matrix<'a,SL,N,K,BE>
     where BE: Backend + SimdMatMul<SL,SR,SO>,
           SO: Default + Copy + Clone,
