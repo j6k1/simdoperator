@@ -596,6 +596,205 @@ where
     assert_eq!(owned_vector_array(actual), expected);
 }
 
+fn check_i8_mask_registers(be: &Avx2) {
+    unsafe {
+        let l = [
+            -2_i8, -1, 0, 1, 2, 3, 4, 5, -2, -1, 0, 1, 2, 3, 4, 5, -2, -1, 0, 1, 2, 3, 4, 5, -2,
+            -1, 0, 1, 2, 3, 4, 5,
+        ];
+        let r = [
+            -3_i8, -1, 1, 0, 2, 4, 3, 5, -3, -1, 1, 0, 2, 4, 3, 5, -3, -1, 1, 0, 2, 4, 3, 5, -3,
+            -1, 1, 0, 2, 4, 3, 5,
+        ];
+        let gt_expected = [
+            10_i8, 20, 20, 10, 20, 20, 10, 20, 10, 20, 20, 10, 20, 20, 10, 20, 10, 20, 20, 10, 20,
+            20, 10, 20, 10, 20, 20, 10, 20, 20, 10, 20,
+        ];
+        let eq_expected = [
+            0_i8, 7, 0, 0, 7, 0, 0, 7, 0, 7, 0, 0, 7, 0, 0, 7, 0, 7, 0, 0, 7, 0, 0, 7, 0, 7, 0, 0,
+            7, 0, 0, 7,
+        ];
+        let gt = <Avx2 as SimdMask<i8>>::cmp_gt(
+            be,
+            <Avx2 as SimdLoad<i8>>::load(be, l.as_ptr()),
+            <Avx2 as SimdLoad<i8>>::load(be, r.as_ptr()),
+        );
+        let eq = <Avx2 as SimdMask<i8>>::cmp_eq(
+            be,
+            <Avx2 as SimdLoad<i8>>::load(be, l.as_ptr()),
+            <Avx2 as SimdLoad<i8>>::load(be, r.as_ptr()),
+        );
+        let mut actual = [0_i8; 32];
+        <Avx2 as SimdStore<i8>>::store(
+            be,
+            actual.as_mut_ptr(),
+            <Avx2 as SimdMask<i8>>::select(
+                be,
+                gt,
+                <Avx2 as SimdSplat<i8>>::splat(be, 10),
+                <Avx2 as SimdSplat<i8>>::splat(be, 20),
+            ),
+        );
+        assert_eq!(actual, gt_expected);
+        <Avx2 as SimdStore<i8>>::store(
+            be,
+            actual.as_mut_ptr(),
+            <Avx2 as SimdMask<i8>>::mask_zero(be, eq, <Avx2 as SimdSplat<i8>>::splat(be, 7)),
+        );
+        assert_eq!(actual, eq_expected);
+    }
+}
+
+fn check_i16_mask_registers(be: &Avx2) {
+    unsafe {
+        let l = [-2_i16, -1, 0, 1, 2, 3, 4, 5, -2, -1, 0, 1, 2, 3, 4, 5];
+        let r = [-3_i16, -1, 1, 0, 2, 4, 3, 5, -3, -1, 1, 0, 2, 4, 3, 5];
+        let gt_expected = [
+            10_i16, 20, 20, 10, 20, 20, 10, 20, 10, 20, 20, 10, 20, 20, 10, 20,
+        ];
+        let eq_expected = [0_i16, 7, 0, 0, 7, 0, 0, 7, 0, 7, 0, 0, 7, 0, 0, 7];
+        let gt = <Avx2 as SimdMask<i16>>::cmp_gt(
+            be,
+            <Avx2 as SimdLoad<i16>>::load(be, l.as_ptr()),
+            <Avx2 as SimdLoad<i16>>::load(be, r.as_ptr()),
+        );
+        let eq = <Avx2 as SimdMask<i16>>::cmp_eq(
+            be,
+            <Avx2 as SimdLoad<i16>>::load(be, l.as_ptr()),
+            <Avx2 as SimdLoad<i16>>::load(be, r.as_ptr()),
+        );
+        let mut actual = [0_i16; 16];
+        <Avx2 as SimdStore<i16>>::store(
+            be,
+            actual.as_mut_ptr(),
+            <Avx2 as SimdMask<i16>>::select(
+                be,
+                gt,
+                <Avx2 as SimdSplat<i16>>::splat(be, 10),
+                <Avx2 as SimdSplat<i16>>::splat(be, 20),
+            ),
+        );
+        assert_eq!(actual, gt_expected);
+        <Avx2 as SimdStore<i16>>::store(
+            be,
+            actual.as_mut_ptr(),
+            <Avx2 as SimdMask<i16>>::mask_zero(be, eq, <Avx2 as SimdSplat<i16>>::splat(be, 7)),
+        );
+        assert_eq!(actual, eq_expected);
+    }
+}
+
+fn check_i32_mask_registers(be: &Avx2) {
+    unsafe {
+        let l = [-2_i32, -1, 0, 1, 2, 3, 4, 5];
+        let r = [-3_i32, -1, 1, 0, 2, 4, 3, 5];
+        let gt_expected = [10_i32, 20, 20, 10, 20, 20, 10, 20];
+        let eq_expected = [0_i32, 7, 0, 0, 7, 0, 0, 7];
+        let gt = <Avx2 as SimdMask<i32>>::cmp_gt(
+            be,
+            <Avx2 as SimdLoad<i32>>::load(be, l.as_ptr()),
+            <Avx2 as SimdLoad<i32>>::load(be, r.as_ptr()),
+        );
+        let eq = <Avx2 as SimdMask<i32>>::cmp_eq(
+            be,
+            <Avx2 as SimdLoad<i32>>::load(be, l.as_ptr()),
+            <Avx2 as SimdLoad<i32>>::load(be, r.as_ptr()),
+        );
+        let mut actual = [0_i32; 8];
+        <Avx2 as SimdStore<i32>>::store(
+            be,
+            actual.as_mut_ptr(),
+            <Avx2 as SimdMask<i32>>::select(
+                be,
+                gt,
+                <Avx2 as SimdSplat<i32>>::splat(be, 10),
+                <Avx2 as SimdSplat<i32>>::splat(be, 20),
+            ),
+        );
+        assert_eq!(actual, gt_expected);
+        <Avx2 as SimdStore<i32>>::store(
+            be,
+            actual.as_mut_ptr(),
+            <Avx2 as SimdMask<i32>>::mask_zero(be, eq, <Avx2 as SimdSplat<i32>>::splat(be, 7)),
+        );
+        assert_eq!(actual, eq_expected);
+    }
+}
+
+fn check_f32_mask_registers(be: &Avx2) {
+    unsafe {
+        let l = [-2.0_f32, -1.0, 0.0, 1.0, 2.0, 3.0, 4.0, 5.0];
+        let r = [-3.0_f32, -1.0, 1.0, 0.0, 2.0, 4.0, 3.0, 5.0];
+        let gt_expected = [10.0_f32, 20.0, 20.0, 10.0, 20.0, 20.0, 10.0, 20.0];
+        let eq_expected = [0.0_f32, 7.0, 0.0, 0.0, 7.0, 0.0, 0.0, 7.0];
+        let gt = <Avx2 as SimdMask<f32>>::cmp_gt(
+            be,
+            <Avx2 as SimdLoad<f32>>::load(be, l.as_ptr()),
+            <Avx2 as SimdLoad<f32>>::load(be, r.as_ptr()),
+        );
+        let eq = <Avx2 as SimdMask<f32>>::cmp_eq(
+            be,
+            <Avx2 as SimdLoad<f32>>::load(be, l.as_ptr()),
+            <Avx2 as SimdLoad<f32>>::load(be, r.as_ptr()),
+        );
+        let mut actual = [0.0_f32; 8];
+        <Avx2 as SimdStore<f32>>::store(
+            be,
+            actual.as_mut_ptr(),
+            <Avx2 as SimdMask<f32>>::select(
+                be,
+                gt,
+                <Avx2 as SimdSplat<f32>>::splat(be, 10.0),
+                <Avx2 as SimdSplat<f32>>::splat(be, 20.0),
+            ),
+        );
+        assert_f32_bits_eq(actual, gt_expected);
+        <Avx2 as SimdStore<f32>>::store(
+            be,
+            actual.as_mut_ptr(),
+            <Avx2 as SimdMask<f32>>::mask_zero(be, eq, <Avx2 as SimdSplat<f32>>::splat(be, 7.0)),
+        );
+        assert_f32_bits_eq(actual, eq_expected);
+    }
+}
+
+fn check_f64_mask_registers(be: &Avx2) {
+    unsafe {
+        let l = [-2.0_f64, -1.0, 0.0, 1.0];
+        let r = [-3.0_f64, -1.0, 1.0, 0.0];
+        let gt_expected = [10.0_f64, 20.0, 20.0, 10.0];
+        let eq_expected = [0.0_f64, 7.0, 0.0, 0.0];
+        let gt = <Avx2 as SimdMask<f64>>::cmp_gt(
+            be,
+            <Avx2 as SimdLoad<f64>>::load(be, l.as_ptr()),
+            <Avx2 as SimdLoad<f64>>::load(be, r.as_ptr()),
+        );
+        let eq = <Avx2 as SimdMask<f64>>::cmp_eq(
+            be,
+            <Avx2 as SimdLoad<f64>>::load(be, l.as_ptr()),
+            <Avx2 as SimdLoad<f64>>::load(be, r.as_ptr()),
+        );
+        let mut actual = [0.0_f64; 4];
+        <Avx2 as SimdStore<f64>>::store(
+            be,
+            actual.as_mut_ptr(),
+            <Avx2 as SimdMask<f64>>::select(
+                be,
+                gt,
+                <Avx2 as SimdSplat<f64>>::splat(be, 10.0),
+                <Avx2 as SimdSplat<f64>>::splat(be, 20.0),
+            ),
+        );
+        assert_f64_bits_eq(actual, gt_expected);
+        <Avx2 as SimdStore<f64>>::store(
+            be,
+            actual.as_mut_ptr(),
+            <Avx2 as SimdMask<f64>>::mask_zero(be, eq, <Avx2 as SimdSplat<f64>>::splat(be, 7.0)),
+        );
+        assert_f64_bits_eq(actual, eq_expected);
+    }
+}
+
 #[test]
 fn common_vector_add_sub_all_lane_boundaries() {
     if !avx2_available() {
@@ -1009,30 +1208,11 @@ fn avx2_bit_mask_reinterpret_shift_and_transpose_registers() {
         );
         assert_eq!(actual, [0b0101; 8]);
 
-        let gt = <Avx2 as SimdMask<i32>>::cmp_gt(
-            &be,
-            be.load([2_i32; 8].as_ptr()),
-            be.load([1_i32; 8].as_ptr()),
-        );
-        be.store(
-            actual.as_mut_ptr(),
-            <Avx2 as SimdMask<i32>>::select(
-                &be,
-                gt,
-                be.load([7_i32; 8].as_ptr()),
-                be.load([9_i32; 8].as_ptr()),
-            ),
-        );
-        assert_eq!(actual, [7; 8]);
-        be.store(
-            actual.as_mut_ptr(),
-            <Avx2 as SimdMask<i32>>::mask_zero(
-                &be,
-                <Avx2 as SimdMask<i32>>::tail_mask(&be, 0, 3),
-                be.load([5_i32; 8].as_ptr()),
-            ),
-        );
-        assert_eq!(&actual[..3], &[5; 3]);
+        check_i8_mask_registers(&be);
+        check_i16_mask_registers(&be);
+        check_i32_mask_registers(&be);
+        check_f32_mask_registers(&be);
+        check_f64_mask_registers(&be);
 
         let f = [1.25_f32, -2.5, 3.5, -4.75, 5.25, -6.5, 7.5, -8.75];
         let fr = be.load(f.as_ptr());
