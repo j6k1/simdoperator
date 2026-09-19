@@ -1,6 +1,6 @@
 //! Implementation of SIMD Operations Using AVX2
 
-use std::arch::x86_64::{__m256, __m256d, __m256i, _mm256_add_epi16, _mm256_add_epi32, _mm256_add_epi8, _mm256_add_pd, _mm256_add_ps, _mm256_and_pd, _mm256_and_ps, _mm256_and_si256, _mm256_andnot_si256, _mm256_blendv_epi8, _mm256_blendv_pd, _mm256_blendv_ps, _mm256_castpd256_pd128, _mm256_castpd_si256, _mm256_castps256_ps128, _mm256_castps_si256, _mm256_castsi256_pd, _mm256_castsi256_ps, _mm256_castsi256_si128, _mm256_cmp_pd, _mm256_cmp_ps, _mm256_cmpeq_epi16, _mm256_cmpeq_epi32, _mm256_cmpeq_epi8, _mm256_cmpgt_epi16, _mm256_cmpgt_epi32, _mm256_cmpgt_epi8, _mm256_cvtepi16_epi32, _mm256_cvtepi32_ps, _mm256_cvtepi8_epi16, _mm256_extractf128_pd, _mm256_extractf128_ps, _mm256_extracti128_si256, _mm256_fmadd_pd, _mm256_fmadd_ps, _mm256_loadu_pd, _mm256_loadu_ps, _mm256_loadu_si256, _mm256_mul_pd, _mm256_mul_ps, _mm256_mullo_epi16, _mm256_mullo_epi32, _mm256_or_si256, _mm256_set1_epi16, _mm256_set1_epi32, _mm256_set1_epi8, _mm256_set1_pd, _mm256_set1_ps, _mm256_set_m128i, _mm256_setzero_pd, _mm256_setzero_ps, _mm256_setzero_si256, _mm256_sllv_epi32, _mm256_sllv_epi64, _mm256_srlv_epi32, _mm256_srlv_epi64, _mm256_storeu_pd, _mm256_storeu_ps, _mm256_storeu_si256, _mm256_sub_epi16, _mm256_sub_epi32, _mm256_sub_epi8, _mm256_sub_pd, _mm256_sub_ps, _mm256_unpackhi_epi32, _mm256_unpackhi_ps, _mm256_unpacklo_epi32, _mm256_unpacklo_ps, _mm256_xor_si256, _mm_add_epi32, _mm_add_pd, _mm_add_ps, _mm_add_sd, _mm_add_ss, _mm_cvtsd_f64, _mm_cvtsi128_si32, _mm_cvtss_f32, _mm_movehl_ps, _mm_packs_epi16, _mm_packs_epi32, _mm_shuffle_ps, _mm_srli_si128, _mm_unpackhi_pd, _CMP_EQ_OQ, _CMP_GT_OQ};
+use std::arch::x86_64::{__m256, __m256d, __m256i, _mm256_add_epi16, _mm256_add_epi32, _mm256_add_epi8, _mm256_add_pd, _mm256_add_ps, _mm256_and_pd, _mm256_and_ps, _mm256_and_si256, _mm256_andnot_si256, _mm256_blendv_epi8, _mm256_blendv_pd, _mm256_blendv_ps, _mm256_castpd256_pd128, _mm256_castpd_si256, _mm256_castps256_ps128, _mm256_castps_si256, _mm256_castsi256_pd, _mm256_castsi256_ps, _mm256_castsi256_si128, _mm256_cmp_pd, _mm256_cmp_ps, _mm256_cmpeq_epi16, _mm256_cmpeq_epi32, _mm256_cmpeq_epi8, _mm256_cmpgt_epi16, _mm256_cmpgt_epi32, _mm256_cmpgt_epi8, _mm256_cvtepi16_epi32, _mm256_cvtepi32_ps, _mm256_cvtepi8_epi16, _mm256_extractf128_pd, _mm256_extractf128_ps, _mm256_extracti128_si256, _mm256_fmadd_pd, _mm256_fmadd_ps, _mm256_loadu_pd, _mm256_loadu_ps, _mm256_loadu_si256, _mm256_mul_pd, _mm256_mul_ps, _mm256_mullo_epi16, _mm256_mullo_epi32, _mm256_or_si256, _mm256_set1_epi16, _mm256_set1_epi32, _mm256_set1_epi64x, _mm256_set1_epi8, _mm256_set1_pd, _mm256_set1_ps, _mm256_set_m128i, _mm256_setzero_pd, _mm256_setzero_ps, _mm256_setzero_si256, _mm256_sllv_epi32, _mm256_sllv_epi64, _mm256_srlv_epi32, _mm256_srlv_epi64, _mm256_storeu_pd, _mm256_storeu_ps, _mm256_storeu_si256, _mm256_sub_epi16, _mm256_sub_epi32, _mm256_sub_epi8, _mm256_sub_pd, _mm256_sub_ps, _mm256_unpackhi_epi32, _mm256_unpackhi_ps, _mm256_unpacklo_epi32, _mm256_unpacklo_ps, _mm256_xor_si256, _mm_add_epi32, _mm_add_pd, _mm_add_ps, _mm_add_sd, _mm_add_ss, _mm_cvtsd_f64, _mm_cvtsi128_si32, _mm_cvtss_f32, _mm_movehl_ps, _mm_packs_epi16, _mm_packs_epi32, _mm_shuffle_ps, _mm_srli_si128, _mm_unpackhi_pd, _CMP_EQ_OQ, _CMP_GT_OQ};
 use std::ops::{Add, AddAssign, Mul};
 use crate::backend::common::{Backend, Regs};
 use crate::traits::{SimdCols, SimdDot, SimdHSum, SimdLanes, SimdLoad, SimdMask, SimdMatMul, SimdMatVec, SimdMulAdd, SimdPartialDot, SimdReg, SimdRows, SimdStore, SimdTranspose, SimdVMat, SimdZero, SimdAdd, SimdSub, SimdMul, SimdPromote, SimdScalarMul, SimdSplat, SimdBitOr, SimdBitAnd, SimdReinterpret, SimdBitXor, SimdBitNot, BitsBitAnd, BitsBitOr, BitsBitXor, SimdShl, SimdShr, SimdDemote, SimdConvert, FoldRegs, SimdShiftWidth};
@@ -988,7 +988,7 @@ impl SimdShiftWidth<f64> for Avx2 where Self: SimdReg<f64> {
     #[inline(always)]
     fn shift_width(&self, w: usize) -> <Self as SimdReg<f64>>::ShiftWidth {
         unsafe {
-            _mm256_set1_epi32(w as i32)
+            _mm256_set1_epi64x(w as i64)
         }
     }
 }
@@ -1429,13 +1429,13 @@ impl<SL,SR,SO> SimdMatVec<SL,SR,SO> for Avx2
                 SimdPartialDot<SL,SR,SO> +
                 SimdAdd<SO,SO,SO> +
                 SimdHSum<SO> +
-                SimdLanes<SR> +
+                SimdLanes<SL> +
                 SimdLoad<SL> +
                 SimdLoad<SR> +
                 SimdPartialDot<SL,SR,SO>,
                 SL: Add<SR,Output = SO> + Clone + Copy,
                 SR: Clone + Copy,
-                SO: AddAssign,
+                SO: From<SL> + From<SR> + Mul<SO,Output=SO> + AddAssign,
                 <Self as SimdReg<SO>>::Reg: Copy {
     type Backend = Avx2;
 
@@ -1444,7 +1444,7 @@ impl<SL,SR,SO> SimdMatVec<SL,SR,SO> for Avx2
             for i in 0..N {
                 let mut acc = <Self as SimdPartialDot<SL,SR,SO>>::zero_acc(self);
 
-                for k in (0..K).step_by(<Self as SimdLanes<SR>>::LANES) {
+                for k in (0..(K - K % <Self as SimdLanes<SL>>::LANES)).step_by(<Self as SimdLanes<SL>>::LANES) {
                     let lr = self.load(l.row(i).as_ref().as_ptr().add(k));
                     let rr = self.load(r.as_ref().as_ptr().add(k));
 
@@ -1453,9 +1453,9 @@ impl<SL,SR,SO> SimdMatVec<SL,SR,SO> for Avx2
 
                 let mut acc = <Self as SimdHSum<SO>>::hsum(self,acc.fold(self));
 
-                if N % <Self as SimdLanes<SR>>::LANES != 0 {
-                    for k in (N / <Self as SimdLanes<SR>>::LANES * <Self as SimdLanes<SR>>::LANES)..N {
-                        acc += l[i][k] + r[k];
+                if K % <Self as SimdLanes<SL>>::LANES != 0 {
+                    for k in (K - K % <Self as SimdLanes<SL>>::LANES)..K {
+                        acc += SO::from(l[i][k]) * SO::from(r[k]);
                     }
                 }
 

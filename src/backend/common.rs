@@ -1287,49 +1287,49 @@ impl BitsBitNot for f64 {
 impl BitsShl for i16 {
     #[inline(always)]
     fn bits_shl(self,w:usize) -> Self {
-        self << w as i16
+        self << w
     }
 }
 impl BitsShl for i32 {
     #[inline(always)]
     fn bits_shl(self,w:usize) -> Self {
-        self << w as i32
+        self << w
     }
 }
 impl BitsShl for f32 {
     #[inline(always)]
     fn bits_shl(self,w:usize) -> Self {
-        f32::from_bits(self.to_bits() << w as u32)
+        f32::from_bits(self.to_bits() << w)
     }
 }
 impl BitsShl for f64 {
     #[inline(always)]
     fn bits_shl(self,w:usize) -> Self {
-        f64::from_bits(self.to_bits() << w as u64)
+        f64::from_bits(self.to_bits() << w)
     }
 }
 impl BitsShr for i16 {
     #[inline(always)]
     fn bits_shr(self,w:usize) -> Self {
-        self >> w as i16
+        self >> w
     }
 }
 impl BitsShr for i32 {
     #[inline(always)]
     fn bits_shr(self,w:usize) -> Self {
-        self >> w as i32
+        self >> w
     }
 }
 impl BitsShr for f32 {
     #[inline(always)]
     fn bits_shr(self,w:usize) -> Self {
-        f32::from_bits(self.to_bits() >> w as u32)
+        f32::from_bits(self.to_bits() >> w)
     }
 }
 impl BitsShr for f64 {
     #[inline(always)]
     fn bits_shr(self,w:usize) -> Self {
-        f64::from_bits(self.to_bits() >> w as u64)
+        f64::from_bits(self.to_bits() >> w)
     }
 }
 impl<T> Assume<T> for T {

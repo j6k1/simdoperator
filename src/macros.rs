@@ -12,7 +12,7 @@ macro_rules! matmul_tile {
             let mut acc_tile = [[<Self as SimdPartialDot<$SL,$SR,$SO>>::zero_acc(self);COLS];ROWS];
 
             unsafe {
-                for k in (0..(K / <Self as SimdLanes<$SO>>::LANES * <Self as SimdLanes<$SO>>::LANES)) {
+                for k in (0..(K - K % <Self as SimdLanes<$SL>>::LANES)).step_by(<Self as SimdLanes<$SL>>::LANES) {
                     let mut rr: [<Self as SimdReg<$SL>>::Reg; ROWS] = std::mem::MaybeUninit::uninit().assume_init();
                     for r in 0..$ROWS {
                         rr[r] = <Self as SimdLoad<$SL>>::load(self,l.row(i + r).as_ref().as_ptr().add(k));
@@ -39,12 +39,12 @@ macro_rules! matmul_tile {
                     }
                 }
 
-                if K % <Self as SimdLanes<$SO>>::LANES != 0 {
+                if K % <Self as SimdLanes<$SL>>::LANES != 0 {
                     for tr in 0..$ROWS {
                         for tc in 0..$COLS {
                             let mut tail_sum = <$SO>::default();
 
-                            for k in (K / <Self as SimdLanes<$SO>>::LANES * <Self as SimdLanes<$SO>>::LANES)..K {
+                            for k in (K - K % <Self as SimdLanes<$SL>>::LANES)..K {
                                 tail_sum += <$SO>::from(l.row(i + tr).as_ref()[k]) * <$SO>::from(r.col(j + tc).as_ref()[k]);
                             }
 
