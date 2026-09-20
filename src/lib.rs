@@ -362,7 +362,7 @@ impl<'a,T,BE: Backend,const N: usize,const M: usize> Transpose<T,N,M> for Matrix
             for col in (0..((M + BLOCK - 1) / BLOCK * BLOCK)).step_by(BLOCK) {
                 for x in 0..BLOCK {
                     for y in 0..BLOCK {
-                        if row + y >= N || col + x >= M {
+                        if row + x >= N || col + y >= M {
                             continue;
                         }
                         r[(col + y,row + x)] = self.data[(row + x) * M + col + y];
@@ -387,7 +387,7 @@ impl<'a,T,BE: Backend,const N: usize,const M: usize> ToColumnMajor<T,N,M> for Ma
             for col in (0..((M + BLOCK - 1) / BLOCK * BLOCK)).step_by(BLOCK) {
                 for x in 0..BLOCK {
                     for y in 0..BLOCK {
-                        if row + y >= N || col + x >= M {
+                        if row + x >= N || col + y >= M {
                             continue;
                         }
                         r[(col + y) * N + (row + x)] = self.data[(row + x) * M + col + y];
@@ -480,7 +480,7 @@ impl<'a,T,const N: usize,const M: usize> Transpose<T,N,M> for MatrixView<'a,T,N,
             for col in (0..((M + BLOCK - 1) / BLOCK * BLOCK)).step_by(BLOCK) {
                 for x in 0..BLOCK {
                     for y in 0..BLOCK {
-                        if row + y >= N || col + x >= M {
+                        if row + x >= N || col + y >= M {
                             continue;
                         }
                         r[(col + y,row + x)] = self.data[(row + x) * M + col + y];
@@ -505,7 +505,7 @@ impl<'a,T,const N: usize,const M: usize> ToColumnMajor<T,N,M> for MatrixView<'a,
             for col in (0..((M + BLOCK - 1) / BLOCK * BLOCK)).step_by(BLOCK) {
                 for x in 0..BLOCK {
                     for y in 0..BLOCK {
-                        if row + y >= N || col + x >= M {
+                        if row + x >= N || col + y >= M {
                             continue;
                         }
                         r[(col + y) * N + (row + x)] = self.data[(row + x) * M + col + y];
