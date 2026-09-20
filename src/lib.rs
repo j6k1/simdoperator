@@ -124,6 +124,7 @@ impl<'a,BE: Backend,T,const N: usize> From<&'a Vector<'a,T,N,BE>> for Box<[T;N]>
     }
 }
 impl<'a,BE: Backend,T,const N: usize> Vector<'a,T,N,BE> {
+    /// Returns a view of the vector as a vertical matrix.
     #[inline]
     pub fn as_vertical(&self) -> Matrix<'a,T,N,1,BE> {
         Matrix {
@@ -132,6 +133,7 @@ impl<'a,BE: Backend,T,const N: usize> Vector<'a,T,N,BE> {
         }
     }
 
+    /// Returns a view of the vector as a horizontal matrix.
     #[inline]
     pub fn as_horizontal(&self) -> Matrix<'a,T,1,N,BE> {
         Matrix {
