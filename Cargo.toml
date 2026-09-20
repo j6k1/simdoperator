@@ -4,4 +4,15 @@ authors = ["jinpu <nanasi18@gmail.com>"]
 version = "0.1.0"
 edition = "2024"
 
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+description = "A library that wraps SIMD operations in Rust"
+documentation = "https://docs.rs/simdoperator/"
+homepage = "https://crates.io/crates/simdoperator"
+repository = "https://github.com/j6k1/simdoperator"
+readme = "README.md"
+
+keywords = ["simd","matrix","vector"]
+categories = ["mathematics","science"]
+license = "MIT"
+
 [dependencies]
