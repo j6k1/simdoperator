@@ -636,6 +636,10 @@ impl<'a,T,const N: usize,const M: usize> BindBackend<'a> for &'a OwnedMatrix<T,N
     }
 }
 impl<'a,T,const N: usize,const M: usize> ColumnMajorMatrix<'a,T,N,M> {
+    /// Retrieve a specified col of a matrix as a vector
+    ///
+    /// # Arguments
+    /// * `index` - The index of the col to retrieve
     #[inline]
     pub fn col(&self,index:usize) -> VectorView<'a,T,N> {
         let view = &self.data[index * N..(index + 1) * N];
