@@ -652,3 +652,9 @@ pub trait FoldRegs<S,BE: SimdReg<S> + SimdAdd<S,S,S>>
     /// * `backend` - Backend to use for folding
     fn fold(&self,backend: &BE) -> <BE as SimdReg<S>>::Reg;
 }
+pub trait Promote<SD> {
+    fn promotion(self) -> SD;
+}
+pub trait Demote<SD> {
+    fn demotion(self) -> SD;
+}

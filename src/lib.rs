@@ -5,7 +5,7 @@ use crate::backend::autoselect::{AutoSelect, SelectedBackend};
 use crate::backend::avx2::Avx2;
 use crate::error::{InstantiationError, TryFromSliceError};
 use crate::backend::common::{Backend};
-use crate::traits::{BindBackend, BitsBitAnd, BitsBitOr, BitsBitXor, Dims, Dot, NativeBackend, Product, SimdAddAssignMatrix, SimdAddAssignVector, SimdAddVector, SimdBitAndVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdConvertMatrix, SimdConvertVector, SimdDemoteVector, SimdDot, SimdMatMul, SimdMatVec, SimdMulAssignVector, SimdMulVector, SimdOuterProduct, SimdPromoteVector, SimdReg, SimdScalarMulAssignMatrix, SimdScalarMulAssignVector, SimdScalarMulMatrix, SimdScalarMulVector, SimdShlVector, SimdShrVector, SimdSubAssignVector, SimdSubVector, SimdVMat, ToColumnMajor, Transpose};
+use crate::traits::{BindBackend, BitsBitAnd, BitsBitOr, BitsBitXor, Demote, Dims, Dot, NativeBackend, Product, Promote, SimdAddAssignMatrix, SimdAddAssignVector, SimdAddVector, SimdBitAndVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdConvertMatrix, SimdConvertVector, SimdDemoteVector, SimdDot, SimdMatMul, SimdMatVec, SimdMulAssignVector, SimdMulVector, SimdOuterProduct, SimdPromoteVector, SimdReg, SimdScalarMulAssignMatrix, SimdScalarMulAssignVector, SimdScalarMulMatrix, SimdScalarMulVector, SimdShlVector, SimdShrVector, SimdSubAssignVector, SimdSubVector, SimdVMat, ToColumnMajor, Transpose};
 
 pub mod backend;
 pub mod traits;
@@ -172,6 +172,14 @@ impl<T,const N: usize> AsRef<[T;N]> for VectorView<'_,T,N> {
     #[inline(always)]
     fn as_ref(&self) -> &[T;N] {
         &self.data
+    }
+}
+impl<'a,T,const N: usize> From<&'a Vector<'a,T,N>> for VectorView<'a,T,N> {
+    #[inline(always)]
+    fn from(value: &'a Vector<'a,T,N>) -> VectorView<'a,T,N> {
+        VectorView {
+            data: &value.data
+        }
     }
 }
 impl<'a,T,const N: usize> From<&'a OwnedVector<T,N>> for VectorView<'a,T,N> {
@@ -720,7 +728,7 @@ impl<'a,T,const N: usize> Add<&'a Vector<'a,T,N,AutoSelect>> for &'a Vector<'a,T
     }
 }
 impl<'a,BE,T,const N: usize> Add<&'a Vector<'a,T,N,BE>> for &'a Vector<'a,T,N,BE>
-    where BE: Backend + SimdAddVector<T,T,T>,
+    where BE: Backend + NativeBackend + SimdAddVector<T,T,T>,
           for<'b> VectorView<'b,T,N>: From<&'b Vector<'b,T,N,BE>> {
     type Output = OwnedVector<T,N>;
 
@@ -759,7 +767,7 @@ impl<'a,T,const N: usize> SubAssign<&'a Vector<'a,T,N,AutoSelect>> for VectorMut
     }
 }
 impl<'a,BE,T,const N: usize> SubAssign<&'a Vector<'a,T,N,BE>> for VectorMut<'a,T,N>
-    where BE: Backend + SimdSubAssignVector<T,T>,
+    where BE: Backend + NativeBackend + SimdSubAssignVector<T,T>,
           for<'b> VectorView<'b,T,N>: From<&'b Vector<'b,T,N,BE>> {
     #[inline(always)]
     fn sub_assign(&mut self, rhs: &'a Vector<'a,T,N,BE>) {
@@ -779,7 +787,7 @@ impl<'a,T,const N: usize> Sub<&'a Vector<'a,T,N,AutoSelect>> for &'a Vector<'a,T
     }
 }
 impl<'a,BE,T,const N: usize> Sub<&'a Vector<'a,T,N,BE>> for &'a Vector<'a,T,N,BE>
-    where BE: Backend + SimdSubVector<T,T,T>,
+    where BE: Backend + NativeBackend + SimdSubVector<T,T,T>,
           for<'b> VectorView<'b,T,N>: From<&'b Vector<'b,T,N,BE>> {
     type Output = OwnedVector<T,N>;
 
@@ -1159,7 +1167,7 @@ impl<'a,T,const N: usize> Not for &'a Vector<'a,T,N,AutoSelect>
     }
 }
 impl<'a,BE,T,const N: usize> Not for &'a Vector<'a,T,N,BE>
-    where BE: Backend + SimdBitNotVector<T>,
+    where BE: Backend + NativeBackend + SimdBitNotVector<T>,
           for<'b> VectorView<'b,T,N>: From<&'b Vector<'b,T,N,BE>> {
 
     type Output = OwnedVector<T,N>;
@@ -1182,7 +1190,7 @@ impl<'a,T,const N: usize> Shl<usize> for &'a Vector<'a,T,N,AutoSelect>
     }
 }
 impl<'a,BE,T,const N: usize> Shl<usize> for &'a Vector<'a,T,N,BE>
-    where BE: Backend + SimdShlVector<T>,
+    where BE: Backend + NativeBackend + SimdShlVector<T>,
           for<'b> VectorView<'b,T,N>: From<&'b Vector<'b,T,N,BE>> {
     type Output = OwnedVector<T,N>;
 
@@ -1204,7 +1212,7 @@ impl<'a,T,const N: usize> Shr<usize> for &'a Vector<'a,T,N,AutoSelect>
     }
 }
 impl<'a,BE,T,const N: usize> Shr<usize> for &'a Vector<'a,T,N,BE>
-    where BE: Backend + SimdShrVector<T>,
+    where BE: Backend + NativeBackend + SimdShrVector<T>,
           for<'b> VectorView<'b,T,N>: From<&'b Vector<'b,T,N,BE>> {
     type Output = OwnedVector<T,N>;
 
@@ -1213,40 +1221,40 @@ impl<'a,BE,T,const N: usize> Shr<usize> for &'a Vector<'a,T,N,BE>
         self.backend.shr_vector(&self.into(), rhs)
     }
 }
-impl<'a,SL,SR,const N: usize> From<&'a Vector<'a,SL,N,AutoSelect>> for OwnedVector<SR,N>
+impl<'a,SL,SR,const N: usize> Promote<OwnedVector<SR,N>> for &'a Vector<'a,SL,N,AutoSelect>
     where Avx2: Backend + SimdPromoteVector<SL,SR>,
           for<'b> VectorView<'b,SL,N>: From<&'b Vector<'b,SL,N,AutoSelect>> {
     #[inline(always)]
-    fn from(s:&'a Vector<'a,SL,N,AutoSelect>) -> OwnedVector<SR,N> {
-        match s.backend.selected {
-            SelectedBackend::Avx2(ref backend) => backend.promotion_vector(&s.into()),
+    fn promotion(self) -> OwnedVector<SR,N> {
+        match self.backend.selected {
+            SelectedBackend::Avx2(ref backend) => backend.promotion_vector(&self.into()),
         }
     }
 }
-impl<'a,BE,SL,SR,const N: usize> From<&'a Vector<'a,SL,N,BE>> for OwnedVector<SR,N>
-    where BE: Backend + SimdPromoteVector<SL,SR>,
+impl<'a,BE,SL,SR,const N: usize> Promote<OwnedVector<SR,N>> for &'a Vector<'a,SL,N,BE>
+    where BE: Backend + NativeBackend + SimdPromoteVector<SL,SR>,
           for<'b> VectorView<'b,SL,N>: From<&'b Vector<'b,SL,N,BE>> {
     #[inline(always)]
-    fn from(s:&'a Vector<'a,SL,N,BE>) -> OwnedVector<SR,N> {
-        s.backend.promotion_vector(&s.into())
+    fn promotion(self) -> OwnedVector<SR,N> {
+        self.backend.promotion_vector(&self.into())
     }
 }
-impl<'a,SL,SR,const N: usize> From<&'a Vector<'a,SL,N,AutoSelect>> for OwnedVector<SR,N>
+impl<'a,SL,SR,const N: usize> Demote<OwnedVector<SR,N>> for &'a Vector<'a,SL,N,AutoSelect>
     where Avx2: Backend + SimdDemoteVector<SL,SR>,
           for<'b> VectorView<'b,SL,N>: From<&'b Vector<'b,SL,N,AutoSelect>> {
     #[inline(always)]
-    fn from(s:&'a Vector<'a,SL,N,AutoSelect>) -> OwnedVector<SR,N> {
-        match s.backend.selected {
-            SelectedBackend::Avx2(ref backend) => backend.demotion_vector(&s.into()),
+    fn demotion(self) -> OwnedVector<SR,N> {
+        match self.backend.selected {
+            SelectedBackend::Avx2(ref backend) => backend.demotion_vector(&self.into()),
         }
     }
 }
-impl<'a,BE,SL,SR,const N: usize> From<&'a Vector<'a,SL,N,BE>> for OwnedVector<SR,N>
-    where BE: Backend + SimdDemoteVector<SL,SR>,
+impl<'a,BE,SL,SR,const N: usize> Demote<OwnedVector<SR,N>> for &'a Vector<'a,SL,N,BE>
+    where BE: Backend + NativeBackend + SimdDemoteVector<SL,SR>,
           for<'b> VectorView<'b,SL,N>: From<&'b Vector<'b,SL,N,BE>> {
     #[inline(always)]
-    fn from(s:&'a Vector<'a,SL,N,BE>) -> OwnedVector<SR,N> {
-        s.backend.demotion_vector(&s.into())
+    fn demotion(self) -> OwnedVector<SR,N> {
+        self.backend.demotion_vector(&self.into())
     }
 }
 impl<'a,SL,SR,const N: usize> From<&'a Vector<'a,SL,N,AutoSelect>> for OwnedVector<SR,N>
@@ -1260,7 +1268,7 @@ impl<'a,SL,SR,const N: usize> From<&'a Vector<'a,SL,N,AutoSelect>> for OwnedVect
     }
 }
 impl<'a,BE,SL,SR,const N: usize> From<&'a Vector<'a,SL,N,BE>> for OwnedVector<SR,N>
-    where BE: Backend + SimdConvertVector<SL,SR>,
+    where BE: Backend + NativeBackend + SimdConvertVector<SL,SR>,
           for<'b> VectorView<'b,SL,N>: From<&'b Vector<'b,SL,N,BE>> {
     #[inline(always)]
     fn from(s:&'a Vector<'a,SL,N,BE>) -> OwnedVector<SR,N> {
@@ -1327,7 +1335,7 @@ impl<'a,SL,SR,SO,const N: usize> Dot<&Vector<'a,SR,N,AutoSelect>,SO> for Vector<
     }
 }
 impl<'a,BE,SL,SR,SO,const N: usize> Dot<&Vector<'a,SR,N,BE>,SO> for Vector<'a,SL,N,BE>
-    where BE: Backend + SimdDot<SL,SR,SO>,
+    where BE: Backend + NativeBackend + SimdDot<SL,SR,SO>,
           for<'b> VectorView<'b,SL,N>: From<&'b Vector<'b,SL,N,BE>>,
           for<'b> VectorView<'b,SR,N>: From<&'b Vector<'b,SR,N,BE>> {
     #[inline(always)]
@@ -1355,7 +1363,7 @@ impl<'a,SL,SR,SO,const N: usize,const M: usize> Product<&'a Vector<'a,SR,M,AutoS
 }
 impl<'a,BE,SL,SR,SO,const N: usize,const M: usize> Product<&'a Vector<'a,SR,M,BE>,OwnedMatrix<SO,N,M>>
     for Vector<'a,SL,N,BE>
-    where BE: Backend + SimdOuterProduct<SL,SR,SO>,
+    where BE: Backend + NativeBackend + SimdOuterProduct<SL,SR,SO>,
           SO: Default + Copy + Clone,
           for<'b> VectorView<'b,SL,N>: From<&'b Vector<'b,SL,N,BE>>,
           for<'b> VectorView<'b,SR,M>: From<&'b Vector<'b,SR,M,BE>> {
@@ -1386,7 +1394,7 @@ impl<'a,SL,SR,SO,const M: usize,const K: usize> Product<&'a ColumnMajorMatrix<'a
 }
 impl<'a,BE,SL,SR,SO,const M: usize,const K: usize> Product<&'a ColumnMajorMatrix<'a,SR,K,M>,OwnedVector<SO,M>>
     for Vector<'a,SL,K,BE>
-    where BE: Backend + SimdVMat<SL,SR,SO>,
+    where BE: Backend + NativeBackend + SimdVMat<SL,SR,SO>,
           SO: Default + Copy + Clone ,
           for<'b> VectorView<'b,SL,K>: From<&'b Vector<'b,SL,K,BE>> {
     #[inline(always)]
@@ -1418,7 +1426,7 @@ impl<'a,SL,SR,SO,const N: usize,const K: usize> Product<&'a Vector<'a,SR,K,AutoS
 }
 impl<'a,BE,SL,SR,SO,const N: usize,const K: usize> Product<&'a Vector<'a,SR,K,BE>,OwnedVector<SO,N>>
     for Matrix<'a,SL,N,K,BE>
-    where BE: Backend + SimdMatVec<SL,SR,SO>,
+    where BE: Backend + NativeBackend + SimdMatVec<SL,SR,SO>,
         SO: Default + Copy + Clone,
         for<'b> MatrixView<'b,SL,N,K>: From<&'b Matrix<'b,SL,N,K,BE>>,
         for<'b> VectorView<'b,SR,K>: From<&'b Vector<'b,SR,K,BE>> {
