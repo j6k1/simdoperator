@@ -377,7 +377,7 @@ where
 
 fn check_scalar_mul_matrix<BE, T, const N: usize, const M: usize>(scalar: T)
 where
-    BE: Backend + SimdScalarMulMatrix<T, T, T>,
+    BE: Backend + SimdScalarMulMatrix<T,T,OutputScalar=T>,
     T: Copy + Default + From<i8> + Mul<Output = T> + PartialEq + Debug,
 {
     let data: Vec<T> = (0..N * M).map(|i| T::from(((i % 5) + 1) as i8)).collect();

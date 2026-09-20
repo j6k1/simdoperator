@@ -3,6 +3,7 @@
 use crate::backend::avx2::Avx2;
 use crate::backend::common::Backend;
 use crate::error::InstantiationError;
+
 pub enum SelectedBackend {
     Avx2(Avx2)
 }

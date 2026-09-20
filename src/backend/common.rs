@@ -940,7 +940,7 @@ impl<T,BE> SimdAddAssignMatrix<T,T> for BE
               SimdStore<T>,
           T: Default + Add<Output=T> + Copy {
     #[inline]
-    fn add_assign_matrix<'a,const N: usize,const M: usize>(&self, l: &'a mut MatrixMut<'a,T,N,M>, r: &MatrixView<'a,T,N,M>) {
+    fn add_assign_matrix<'a,const N: usize,const M: usize>(&self, l: &mut MatrixMut<'a,T,N,M>, r: &MatrixView<'a,T,N,M>) {
         unsafe {
             for i in 0..N {
                 let rb = r.row(i);
@@ -983,7 +983,7 @@ impl<T,BE> SimdScalarMulAssignMatrix<T,T> for BE
           <Self as SimdMul<T,T,T>>::Output: Copy,
           (T,T): SupportMul<Homogeneous> {
     #[inline]
-    fn scalar_mul_assign_matrix<'a,const N: usize,const M: usize>(&self, l: T, r: &'a mut MatrixMut<'a,T,N,M>) {
+    fn scalar_mul_assign_matrix<'a,const N: usize,const M: usize>(&self, l: T, r: &mut MatrixMut<'a,T,N,M>) {
         unsafe {
             let rl = <Self as SimdSplat<T>>::splat(self,l);
 
@@ -1011,7 +1011,7 @@ impl<T,BE> SimdScalarMulAssignMatrix<T,T> for BE
         }
     }
 }
-impl<SL,SR,SO,BE> SimdScalarMulMatrix<SL,SR,SO> for BE
+impl<SL,SR,SO,BE> SimdScalarMulMatrix<SL,SR> for BE
     where BE: Backend +
               SimdReg<SL> +
               SimdReg<SR> +
@@ -1029,6 +1029,7 @@ impl<SL,SR,SO,BE> SimdScalarMulMatrix<SL,SR,SO> for BE
           <Self as SimdReg<SL>>::Reg: Copy,
           <Self as SimdMul<SL,SR,SO>>::Output: Copy,
           (SL,SO): SupportMul<Homogeneous> {
+    type OutputScalar = SO;
     #[inline]
     fn scalar_mul_matrix<'a,const N: usize,const M: usize>(&self, l: SL, r: &MatrixView<'a,SR,N,M>, acc:&'a mut MatrixMut<'a,SO,N,M>) {
         unsafe {

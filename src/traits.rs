@@ -220,7 +220,7 @@ pub trait SimdAddAssignMatrix<SL,SR> {
     /// # Arguments
     /// * `l` - Left hand side of the Add Assign
     /// * `r` - Right hand side of the Add Assign
-    fn add_assign_matrix<'a,const N: usize,const M: usize>(&self, l:&'a mut MatrixMut<'a,SL,N,M>, r:& MatrixView<'a,SR,N,M>);
+    fn add_assign_matrix<'a,const N: usize,const M: usize>(&self, l:&mut MatrixMut<'a,SL,N,M>, r:& MatrixView<'a,SR,N,M>);
 }
 /// Update each element of the Matrix with the result of multiplying it by a scalar value
 pub trait SimdScalarMulAssignMatrix<SL,SR> {
@@ -228,16 +228,17 @@ pub trait SimdScalarMulAssignMatrix<SL,SR> {
     /// # Arguments
     /// * `l` - Scalar value to multiply each element of the Matrix by
     /// * `r` - Matrix to multiply each element of by the scalar value
-    fn scalar_mul_assign_matrix<'a,const N: usize,const M: usize>(&self, l: SL, r:&'a mut MatrixMut<'a,SR,N,M>);
+    fn scalar_mul_assign_matrix<'a,const N: usize,const M: usize>(&self, l: SL, r:&mut MatrixMut<'a,SR,N,M>);
 }
 /// Writes the result of multiplying each element of the array by a scalar value to the argument `acc`
-pub trait SimdScalarMulMatrix<SL,SR,SO> {
+pub trait SimdScalarMulMatrix<SL,SR> {
+    type OutputScalar: Default + Copy;
     ///
     /// # Arguments
     /// * `l` - Scalar value to multiply each element of the Matrix by
     /// * `r` - Matrix to multiply each element of by the scalar value
     /// * `acc` - Matrix to write the result of the multiplication to
-    fn scalar_mul_matrix<'a,const N: usize,const M: usize>(&self, l: SL, r:&MatrixView<'a,SR,N,M>, acc:&'a mut MatrixMut<'a,SO,N,M>);
+    fn scalar_mul_matrix<'a,const N: usize,const M: usize>(&self, l: SL, r:&MatrixView<'a,SR,N,M>, acc:&'a mut MatrixMut<'a,Self::OutputScalar,N,M>);
 }
 /// Converting the data types of each element in a matrix
 pub trait SimdConvertMatrix<SS,SD> {
@@ -541,6 +542,7 @@ pub trait SimdPartialDot<SL,SR,SO>: SimdReg<SL> +
 pub trait SimdZero<S>: SimdReg<S> {
     fn zero() -> <Self as SimdReg<S>>::Reg;
 }
+pub trait NativeBackend: Backend {}
 /// Trait Implemented when multiplication is supported
 pub trait SupportMul<K> {}
 /// A trait that defines the calculation of Dot Product
@@ -551,8 +553,8 @@ pub trait Dot<R,O> {
     fn dot(&self,r:R) -> O;
 }
 /// A trait that defines the calculation of matrix multiplication
-pub trait Product<R,O> {
-    fn product(&self, r: R) -> O;
+pub trait Product<T,O> {
+    fn product(&self, r: T) -> O;
 }
 /// A characteristic that defines a horizontal sum
 pub trait HSum<S> {
