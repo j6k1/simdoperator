@@ -4,11 +4,14 @@ use crate::backend::avx2::Avx2;
 use crate::backend::common::Backend;
 use crate::error::InstantiationError;
 
+/// The selected backend.
 pub enum SelectedBackend {
     Avx2(Avx2)
 }
+/// The auto-selected backend.
 pub struct AutoSelect {
-    pub selected: SelectedBackend
+    /// The selected backend.
+    pub(crate) selected: SelectedBackend
 }
 impl Backend for AutoSelect {
     fn new() -> Result<Self, InstantiationError> {

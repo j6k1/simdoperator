@@ -2,9 +2,12 @@
 
 use std::{error, fmt};
 
+/// An error that occurs during the instantiation of a SIMD arithmetic backend.
 #[derive(Debug)]
 pub enum InstantiationError {
+    /// Error converting to fixed-size slices
     TryFromSliceError(TryFromSliceError),
+    /// This environment is not supported.
     NotSupportingError
 }
 
@@ -38,6 +41,7 @@ impl From<std::array::TryFromSliceError> for InstantiationError {
     }
 }
 
+/// Error converting to fixed-size slices
 #[derive(Debug)]
 pub struct TryFromSliceError;
 

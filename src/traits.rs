@@ -1,6 +1,7 @@
 //! Trait and data type features for abstracting SIMD operations
 
 use crate::{ColumnMajorMatrix, MatrixMut, MatrixView, OwnedMatrix, OwnedVector, VectorMut, VectorView};
+use crate::backend::autoselect::AutoSelect;
 use crate::backend::common::{Backend};
 use crate::error::InstantiationError;
 
@@ -544,10 +545,19 @@ pub trait SimdPartialDot<SL,SR,SO>: SimdReg<SL> +
 pub trait SimdZero<S>: SimdReg<S> {
     fn zero() -> <Self as SimdReg<S>>::Reg;
 }
+/// A marker trait that indicates you are implementing backend functionality yourself
 pub trait NativeBackend: Backend {}
-pub trait BindBackend<'a> {
+/// A feature that converts and returns a backend-independent type into a type bound to a specific backend
+pub trait BindBackend<'a>: Sized {
+    /// Backend-bound types
     type Output<BE: Backend>: 'a;
+    /// Binds a backend-independent type to a specific backend
     fn bind<BE: Backend>(self) -> Result<Self::Output<BE>,InstantiationError>;
+
+    /// Binds a backend-independent type to the auto-selected backend
+    fn bind_auto(self) -> Result<Self::Output<AutoSelect>,InstantiationError> {
+        self.bind()
+    }
 }
 /// Trait Implemented when multiplication is supported
 pub trait SupportMul<K> {}

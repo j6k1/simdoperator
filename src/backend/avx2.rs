@@ -7,6 +7,7 @@ use crate::traits::{SimdCols, SimdDot, SimdHSum, SimdLanes, SimdLoad, SimdMask, 
 use crate::{derive_matmul, matmul_tile, ColumnMajorMatrix, MatrixMut, MatrixView, OwnedVector, VectorView};
 use crate::error::InstantiationError;
 
+/// Avx2 Backend
 pub struct Avx2 {
 
 }

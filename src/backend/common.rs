@@ -9,6 +9,7 @@ use crate::error::InstantiationError;
 pub trait Backend: 'static + Sized {
     fn new() -> Result<Self,InstantiationError>;
 }
+/// A set of one or more registers
 #[derive(Clone,Copy)]
 pub struct Regs<R,const N:usize> where R: Copy {
     regs:[R;N]
@@ -1105,7 +1106,6 @@ impl<SS,SD,BE> SimdConvertMatrix<SS,SD> for BE
 impl<SL, SR,SO,BE> SimdOuterProduct<SL,SR,SO> for BE
     where BE: Backend +
               SimdMatMul<SL,SR,SO> {
-
     fn outer_product<'a, const N: usize, const M: usize>(&self, l: &VectorView<'a, SL, N>,
                                                          r: &VectorView<'a, SR, M>,
                                                          o: &mut OwnedMatrix<SO, N, M>) {
@@ -1437,7 +1437,9 @@ impl Assume<i16> for i32 {
         self as i16
     }
 }
+/// Operations Between Elements of the Same Type
 pub enum Homogeneous {}
+/// Operations Between Different Types
 pub enum Heterogeneous {}
 impl SupportMul<Heterogeneous> for (i8,i32) {}
 impl SupportMul<Heterogeneous> for (i16,i32) {}
