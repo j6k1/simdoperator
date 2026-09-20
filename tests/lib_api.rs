@@ -144,7 +144,10 @@ fn vector_operator_traits_with_unspecified_backend() {
         v *= &r;
         v *= Scalar::<i32>::new(2).unwrap();
     }
-    assert_eq!(owned_vector_array(owned), [2, 4, 6, 8, 10, 12, 14, 16, 18]);
+    assert_eq!(
+        owned_vector_array(owned),
+        [18, 32, 42, 48, 50, 48, 42, 32, 18]
+    );
 }
 
 #[test]
@@ -178,7 +181,10 @@ fn vector_operator_traits_with_avx2_backend() {
         v *= &r;
         v *= Scalar::<i32, Avx2>::new(2).unwrap();
     }
-    assert_eq!(owned_vector_array(owned), [2, 4, 6, 8, 10, 12, 14, 16, 18]);
+    assert_eq!(
+        owned_vector_array(owned),
+        [18, 32, 42, 48, 50, 48, 42, 32, 18]
+    );
 }
 
 #[test]
@@ -213,7 +219,7 @@ fn matrix_product_traits_with_unspecified_backend() {
 
     let matrix_data = [1_i32, 2, 3, 4, 5, 6];
     let vector_data = [7_i32, 8, 9];
-    let col_major_data = [1_i32, 4, 2, 5, 3, 6];
+    let col_major_data = [1_i32, 2, 3, 4, 5, 6];
     let matrix = Matrix::<i32, 2, 3>::try_from(&matrix_data[..]).unwrap();
     let vector = Vector::<i32, 3>::try_from(&vector_data[..]).unwrap();
     let col_major = ColumnMajorMatrix::<i32, 3, 2>::try_from(&col_major_data[..]).unwrap();
@@ -237,7 +243,7 @@ fn matrix_product_and_assign_traits_with_avx2_backend() {
     let matrix_data = [1_i32, 2, 3, 4, 5, 6];
     let rhs_matrix_data = [6_i32, 5, 4, 3, 2, 1];
     let vector_data = [7_i32, 8, 9];
-    let col_major_data = [1_i32, 4, 2, 5, 3, 6];
+    let col_major_data = [1_i32, 2, 3, 4, 5, 6];
     let matrix = Matrix::<i32, 2, 3, Avx2>::try_from(&matrix_data[..]).unwrap();
     let vector = Vector::<i32, 3, Avx2>::try_from(&vector_data[..]).unwrap();
     let col_major = ColumnMajorMatrix::<i32, 3, 2>::try_from(&col_major_data[..]).unwrap();
@@ -284,7 +290,7 @@ fn matrix_product_traits_with_autoselect_backend() {
 
     let matrix_data = [1_i32, 2, 3, 4, 5, 6];
     let vector_data = [7_i32, 8, 9];
-    let col_major_data = [1_i32, 4, 2, 5, 3, 6];
+    let col_major_data = [1_i32, 2, 3, 4, 5, 6];
     let matrix = Matrix::<i32, 2, 3, AutoSelect>::try_from(&matrix_data[..]).unwrap();
     let vector = Vector::<i32, 3, AutoSelect>::try_from(&vector_data[..]).unwrap();
     let col_major = ColumnMajorMatrix::<i32, 3, 2>::try_from(&col_major_data[..]).unwrap();
