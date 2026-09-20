@@ -2,6 +2,8 @@
 
 use crate::{ColumnMajorMatrix, MatrixMut, MatrixView, OwnedMatrix, OwnedVector, VectorMut, VectorView};
 use crate::backend::common::{Backend};
+use crate::error::InstantiationError;
+
 /// Addition at the SIMD register level
 pub trait SimdAdd<SL,SR,SO>: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> {
     ///
@@ -543,6 +545,10 @@ pub trait SimdZero<S>: SimdReg<S> {
     fn zero() -> <Self as SimdReg<S>>::Reg;
 }
 pub trait NativeBackend: Backend {}
+pub trait BindBackend<'a> {
+    type Output<BE: Backend>: 'a;
+    fn bind<BE: Backend>(self) -> Result<Self::Output<BE>,InstantiationError>;
+}
 /// Trait Implemented when multiplication is supported
 pub trait SupportMul<K> {}
 /// A trait that defines the calculation of Dot Product

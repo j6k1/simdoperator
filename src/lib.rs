@@ -5,7 +5,7 @@ use crate::backend::autoselect::{AutoSelect, SelectedBackend};
 use crate::backend::avx2::Avx2;
 use crate::error::{InstantiationError, TryFromSliceError};
 use crate::backend::common::{Backend};
-use crate::traits::{BitsBitAnd, BitsBitOr, BitsBitXor, Dims, Dot, NativeBackend, Product, SimdAddAssignMatrix, SimdAddAssignVector, SimdAddVector, SimdBitAndVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdConvertMatrix, SimdConvertVector, SimdDemoteVector, SimdDot, SimdMatMul, SimdMatVec, SimdMulAssignVector, SimdMulVector, SimdOuterProduct, SimdPromoteVector, SimdReg, SimdScalarMulAssignMatrix, SimdScalarMulAssignVector, SimdScalarMulMatrix, SimdScalarMulVector, SimdShlVector, SimdShrVector, SimdSubAssignVector, SimdSubVector, SimdVMat, ToColumnMajor, Transpose};
+use crate::traits::{BindBackend, BitsBitAnd, BitsBitOr, BitsBitXor, Dims, Dot, NativeBackend, Product, SimdAddAssignMatrix, SimdAddAssignVector, SimdAddVector, SimdBitAndVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdConvertMatrix, SimdConvertVector, SimdDemoteVector, SimdDot, SimdMatMul, SimdMatVec, SimdMulAssignVector, SimdMulVector, SimdOuterProduct, SimdPromoteVector, SimdReg, SimdScalarMulAssignMatrix, SimdScalarMulAssignVector, SimdScalarMulMatrix, SimdScalarMulVector, SimdShlVector, SimdShrVector, SimdSubAssignVector, SimdSubVector, SimdVMat, ToColumnMajor, Transpose};
 
 pub mod backend;
 pub mod traits;
@@ -29,7 +29,42 @@ impl<T,BE> Scalar<T,BE>
         })
     }
 }
-pub struct Vector<'a,T,const N: usize,BE: Backend> {
+impl BindBackend<'static> for i8 {
+    type Output<BE: Backend> = Scalar<i8, BE>;
+
+    fn bind<BE: Backend>(self) -> Result<Self::Output<BE>,InstantiationError> {
+        Ok(Scalar::new(self)?)
+    }
+}
+impl BindBackend<'static> for i16 {
+    type Output<BE: Backend> = Scalar<i16, BE>;
+
+    fn bind<BE: Backend>(self) -> Result<Self::Output<BE>,InstantiationError> {
+        Ok(Scalar::new(self)?)
+    }
+}
+impl BindBackend<'static> for i32 {
+    type Output<BE: Backend> = Scalar<i32, BE>;
+
+    fn bind<BE: Backend>(self) -> Result<Self::Output<BE>,InstantiationError> {
+        Ok(Scalar::new(self)?)
+    }
+}
+impl BindBackend<'static> for f32 {
+    type Output<BE: Backend> = Scalar<f32, BE>;
+
+    fn bind<BE: Backend>(self) -> Result<Self::Output<BE>,InstantiationError> {
+        Ok(Scalar::new(self)?)
+    }
+}
+impl BindBackend<'static> for f64 {
+    type Output<BE: Backend> = Scalar<f64, BE>;
+
+    fn bind<BE: Backend>(self) -> Result<Self::Output<BE>,InstantiationError> {
+        Ok(Scalar::new(self)?)
+    }
+}
+pub struct Vector<'a,T,const N: usize,BE: Backend = AutoSelect> {
     data: &'a [T; N],
     backend: BE
 }
@@ -215,7 +250,14 @@ impl<T,const N: usize> IndexMut<usize> for OwnedVector<T,N> {
         &mut self.data[index]
     }
 }
-pub struct Matrix<'a,T,const N: usize,const M: usize,BE: Backend> {
+impl<'a,T,const N: usize> BindBackend<'a> for &'a OwnedVector<T,N> where T: 'static {
+    type Output<BE: Backend> = Vector<'a,T,N,BE>;
+
+    fn bind<BE: Backend>(self) -> Result<Self::Output<BE>, InstantiationError> {
+        Ok(Vector::try_from(self)?)
+    }
+}
+pub struct Matrix<'a,T,const N: usize,const M: usize,BE: Backend = AutoSelect> {
     data: &'a [T],
     backend: BE
 }
@@ -503,6 +545,13 @@ impl<T,const N: usize,const M: usize> AsMut<[T]> for OwnedMatrix<T,N,M> {
     }
 }
 impl<T,const N: usize,const M:usize> Dims<N,M> for OwnedMatrix<T,N,M> {}
+impl<'a,T,const N: usize,const M: usize> BindBackend<'a> for &'a OwnedMatrix<T,N,M> {
+    type Output<BE: Backend> = Matrix<'a,T,N,M,BE>;
+
+    fn bind<BE: Backend>(self) -> Result<Self::Output<BE>, InstantiationError> {
+        Ok(Matrix::try_from(self)?)
+    }
+}
 impl<'a,T,const N: usize,const M: usize> ColumnMajorMatrix<'a,T,N,M> {
     #[inline]
     pub fn col(&self,index:usize) -> VectorView<'a,T,N> {
