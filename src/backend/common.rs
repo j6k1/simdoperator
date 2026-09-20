@@ -164,7 +164,7 @@ impl<T,BE> SimdAddVector<T,T,T> for BE
 
         let mut l = VectorMut::<T,N>::from(&mut acc);
 
-        <Self as SimdAddAssignVector<T,T>>::add_assign_vector(self,&mut l,r);
+        <Self as SimdAddAssignVector<T,T>>::add_assign_vector(self,&mut l,&r);
 
         acc
     }

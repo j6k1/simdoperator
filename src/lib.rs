@@ -174,9 +174,10 @@ impl<T,const N: usize> AsRef<[T;N]> for VectorView<'_,T,N> {
         &self.data
     }
 }
-impl<'a,T,const N: usize> From<&'a Vector<'a,T,N>> for VectorView<'a,T,N> {
+impl<'a,'data,T,BE,const N: usize> From<&'a Vector<'data,T,N,BE>> for VectorView<'a,T,N>
+    where BE: Backend {
     #[inline(always)]
-    fn from(value: &'a Vector<'a,T,N>) -> VectorView<'a,T,N> {
+    fn from(value: &'a Vector<'data,T,N,BE>) -> VectorView<'a,T,N> {
         VectorView {
             data: &value.data
         }
@@ -739,7 +740,7 @@ impl<'a,BE,T,const N: usize> Add<&'a Vector<'a,T,N,BE>> for &'a Vector<'a,T,N,BE
 }
 impl<'a,T,const N: usize> AddAssign<&'a Vector<'a,T,N,AutoSelect>> for VectorMut<'a,T,N>
     where Avx2: Backend + SimdAddAssignVector<T,T>,
-          VectorView<'a,T,N>: From<&'a Vector<'a,T,N,AutoSelect>> {
+          for<'b> VectorView<'b,T,N>: From<&'b Vector<'b,T,N,AutoSelect>> {
     #[inline(always)]
     fn add_assign(&mut self, rhs: &'a Vector<'a,T,N,AutoSelect>) {
         match rhs.backend.selected {
@@ -748,8 +749,7 @@ impl<'a,T,const N: usize> AddAssign<&'a Vector<'a,T,N,AutoSelect>> for VectorMut
     }
 }
 impl<'a,BE,T,const N: usize> AddAssign<&'a Vector<'a,T,N,BE>> for VectorMut<'a,T,N>
-    where BE: Backend + SimdAddAssignVector<T,T>,
-          for<'b> VectorMut<'b,T,N>: From<&'b mut Vector<'b,T,N,BE>>,
+    where BE: Backend + NativeBackend + SimdAddAssignVector<T,T>,
           for<'b> VectorView<'b,T,N>: From<&'b Vector<'b,T,N,BE>> {
     #[inline(always)]
     fn add_assign(&mut self, rhs: &'a Vector<'a,T,N,BE>) {
@@ -798,7 +798,7 @@ impl<'a,BE,T,const N: usize> Sub<&'a Vector<'a,T,N,BE>> for &'a Vector<'a,T,N,BE
 }
 impl<'a,const N: usize> Mul<&'a Vector<'a,i8,N,AutoSelect>> for &'a Vector<'a,i8,N,AutoSelect>
     where Avx2: Backend + SimdMulVector<i8,i8,i32>,
-                for<'b> VectorView<'b,i8,N>: From<&'b Vector<'a,i8,N,AutoSelect>> {
+                for<'b> VectorView<'b,i8,N>: From<&'b Vector<'b,i8,N,AutoSelect>> {
     type Output = OwnedVector<i32,N>;
 
     #[inline(always)]
@@ -810,7 +810,7 @@ impl<'a,const N: usize> Mul<&'a Vector<'a,i8,N,AutoSelect>> for &'a Vector<'a,i8
 }
 impl<'a,BE,const N: usize> Mul<&'a Vector<'a,i8,N,BE>> for &'a Vector<'a,i8,N,BE>
     where BE: Backend + SimdMulVector<i8,i8,i32>,
-          for<'b> VectorView<'b,i8,N>: From<&'b Vector<'a,i8,N,BE>> {
+          for<'b> VectorView<'b,i8,N>: From<&'b Vector<'b,i8,N,BE>> {
     type Output = OwnedVector<i32,N>;
 
     #[inline(always)]
@@ -820,7 +820,7 @@ impl<'a,BE,const N: usize> Mul<&'a Vector<'a,i8,N,BE>> for &'a Vector<'a,i8,N,BE
 }
 impl<'a,const N: usize> Mul<&'a Vector<'a,i16,N,AutoSelect>> for &'a Vector<'a,i16,N,AutoSelect>
     where Avx2: Backend + SimdMulVector<i16,i16,i32>,
-      for<'b> VectorView<'b,i16,N>: From<&'b Vector<'a,i16,N,AutoSelect>> {
+      for<'b> VectorView<'b,i16,N>: From<&'b Vector<'b,i16,N,AutoSelect>> {
     type Output = OwnedVector<i32,N>;
 
     #[inline(always)]
@@ -832,7 +832,7 @@ impl<'a,const N: usize> Mul<&'a Vector<'a,i16,N,AutoSelect>> for &'a Vector<'a,i
 }
 impl<'a,BE,const N: usize> Mul<&'a Vector<'a,i16,N,BE>> for &'a Vector<'a,i16,N,BE>
     where BE: Backend + SimdMulVector<i16,i16,i32>,
-          for<'b> VectorView<'b,i16,N>: From<&'b Vector<'a,i16,N,BE>> {
+          for<'b> VectorView<'b,i16,N>: From<&'b Vector<'b,i16,N,BE>> {
     type Output = OwnedVector<i32,N>;
 
     #[inline(always)]
@@ -842,7 +842,7 @@ impl<'a,BE,const N: usize> Mul<&'a Vector<'a,i16,N,BE>> for &'a Vector<'a,i16,N,
 }
 impl<'a,const N: usize> Mul<&'a Vector<'a,i32,N,AutoSelect>> for &'a Vector<'a,i32,N,AutoSelect>
     where Avx2: Backend + SimdMulVector<i32,i32,i32>,
-          for<'b> VectorView<'b,i32,N>: From<&'b Vector<'a,i32,N,AutoSelect>> {
+          for<'b> VectorView<'b,i32,N>: From<&'b Vector<'b,i32,N,AutoSelect>> {
     type Output = OwnedVector<i32,N>;
 
     #[inline(always)]
@@ -854,7 +854,7 @@ impl<'a,const N: usize> Mul<&'a Vector<'a,i32,N,AutoSelect>> for &'a Vector<'a,i
 }
 impl<'a,BE,const N: usize> Mul<&'a Vector<'a,i32,N,BE>> for &'a Vector<'a,i32,N,BE>
     where BE: Backend + SimdMulVector<i32,i32,i32>,
-          for<'b> VectorView<'b,i32,N>: From<&'b Vector<'a,i32,N,BE>> {
+          for<'b> VectorView<'b,i32,N>: From<&'b Vector<'b,i32,N,BE>> {
     type Output = OwnedVector<i32,N>;
 
     #[inline(always)]
@@ -864,7 +864,7 @@ impl<'a,BE,const N: usize> Mul<&'a Vector<'a,i32,N,BE>> for &'a Vector<'a,i32,N,
 }
 impl<'a,const N: usize> Mul<&'a Vector<'a,i8,N,AutoSelect>> for i8
     where Avx2: Backend + SimdScalarMulVector<i8,i8,i32>,
-          for<'b> VectorView<'b,i8,N>: From<&'b Vector<'a,i8,N,AutoSelect>> {
+          for<'b> VectorView<'b,i8,N>: From<&'b Vector<'b,i8,N,AutoSelect>> {
     type Output = OwnedVector<i32,N>;
 
     #[inline(always)]
@@ -876,7 +876,7 @@ impl<'a,const N: usize> Mul<&'a Vector<'a,i8,N,AutoSelect>> for i8
 }
 impl<'a,BE,const N: usize> Mul<&'a Vector<'a,i8,N,BE>> for i8
     where BE: Backend + SimdScalarMulVector<i8,i8,i32>,
-          for<'b> VectorView<'b,i8,N>: From<&'b Vector<'a,i8,N,BE>> {
+          for<'b> VectorView<'b,i8,N>: From<&'b Vector<'b,i8,N,BE>> {
     type Output = OwnedVector<i32,N>;
 
     #[inline(always)]
@@ -886,7 +886,7 @@ impl<'a,BE,const N: usize> Mul<&'a Vector<'a,i8,N,BE>> for i8
 }
 impl<'a,const N: usize> Mul<&'a Vector<'a,i16,N,AutoSelect>> for i16
     where Avx2: Backend + SimdScalarMulVector<i16,i16,i32>,
-          for<'b> VectorView<'b,i16,N>: From<&'b Vector<'a,i16,N,AutoSelect>> {
+          for<'b> VectorView<'b,i16,N>: From<&'b Vector<'b,i16,N,AutoSelect>> {
     type Output = OwnedVector<i32,N>;
 
     #[inline(always)]
@@ -898,7 +898,7 @@ impl<'a,const N: usize> Mul<&'a Vector<'a,i16,N,AutoSelect>> for i16
 }
 impl<'a,const N: usize> Mul<&'a Vector<'a,i32,N,AutoSelect>> for i32
     where Avx2: Backend + SimdScalarMulVector<i32,i32,i32>,
-          for<'b> VectorView<'b,i32,N>: From<&'b Vector<'a,i32,N,AutoSelect>> {
+          for<'b> VectorView<'b,i32,N>: From<&'b Vector<'b,i32,N,AutoSelect>> {
     type Output = OwnedVector<i32,N>;
 
     #[inline(always)]
@@ -910,7 +910,7 @@ impl<'a,const N: usize> Mul<&'a Vector<'a,i32,N,AutoSelect>> for i32
 }
 impl<'a,BE,const N: usize> Mul<&'a Vector<'a,i32,N,BE>> for i32
     where BE: Backend + SimdScalarMulVector<i32,i32,i32>,
-          for<'b> VectorView<'b,i32,N>: From<&'b Vector<'a,i32,N,BE>> {
+          for<'b> VectorView<'b,i32,N>: From<&'b Vector<'b,i32,N,BE>> {
     type Output = OwnedVector<i32,N>;
 
     #[inline(always)]
@@ -920,7 +920,7 @@ impl<'a,BE,const N: usize> Mul<&'a Vector<'a,i32,N,BE>> for i32
 }
 impl<'a,const N: usize> Mul<&'a Vector<'a,f32,N,AutoSelect>> for f32
     where Avx2: Backend + SimdScalarMulVector<f32,f32,f32>,
-          for<'b> VectorView<'b,f32,N>: From<&'b Vector<'a,f32,N,AutoSelect>> {
+          for<'b> VectorView<'b,f32,N>: From<&'b Vector<'b,f32,N,AutoSelect>> {
     type Output = OwnedVector<f32,N>;
 
     #[inline(always)]
@@ -932,7 +932,7 @@ impl<'a,const N: usize> Mul<&'a Vector<'a,f32,N,AutoSelect>> for f32
 }
 impl<'a,BE,const N: usize> Mul<&'a Vector<'a,f32,N,BE>> for f32
     where BE: Backend + SimdScalarMulVector<f32,f32,f32>,
-          for<'b> VectorView<'b,f32,N>: From<&'b Vector<'a,f32,N,BE>> {
+          for<'b> VectorView<'b,f32,N>: From<&'b Vector<'b,f32,N,BE>> {
     type Output = OwnedVector<f32,N>;
 
     #[inline(always)]
@@ -942,7 +942,7 @@ impl<'a,BE,const N: usize> Mul<&'a Vector<'a,f32,N,BE>> for f32
 }
 impl<'a,const N: usize> Mul<&'a Vector<'a,f64,N,AutoSelect>> for f64
     where Avx2: Backend + SimdScalarMulVector<f64,f64,f64>,
-          for<'b> VectorView<'b,f64,N>: From<&'b Vector<'a,f64,N,AutoSelect>> {
+          for<'b> VectorView<'b,f64,N>: From<&'b Vector<'b,f64,N,AutoSelect>> {
     type Output = OwnedVector<f64,N>;
 
     #[inline(always)]
@@ -954,7 +954,7 @@ impl<'a,const N: usize> Mul<&'a Vector<'a,f64,N,AutoSelect>> for f64
 }
 impl<'a,BE,const N: usize> Mul<&'a Vector<'a,f64,N,BE>> for f64
     where BE: Backend + SimdScalarMulVector<f64,f64,f64>,
-          for<'b> VectorView<'b,f64,N>: From<&'b Vector<'a,f64,N,BE>> {
+          for<'b> VectorView<'b,f64,N>: From<&'b Vector<'b,f64,N,BE>> {
     type Output = OwnedVector<f64,N>;
 
     #[inline(always)]
@@ -964,7 +964,7 @@ impl<'a,BE,const N: usize> Mul<&'a Vector<'a,f64,N,BE>> for f64
 }
 impl<'a,const N: usize> MulAssign<&'a Vector<'a,i32,N,AutoSelect>> for VectorMut<'a,i32,N>
     where Avx2: Backend + SimdMulAssignVector<i32,i32>,
-          for<'b> VectorView<'b,i32,N>: From<&'b Vector<'a,i32,N,AutoSelect>> {
+          for<'b> VectorView<'b,i32,N>: From<&'b Vector<'b,i32,N,AutoSelect>> {
     #[inline(always)]
     fn mul_assign(&mut self, rhs: &'a Vector<'a,i32,N,AutoSelect>) {
         match rhs.backend.selected {
@@ -974,7 +974,7 @@ impl<'a,const N: usize> MulAssign<&'a Vector<'a,i32,N,AutoSelect>> for VectorMut
 }
 impl<'a,BE,const N: usize> MulAssign<&'a Vector<'a,i32,N,BE>> for VectorMut<'a,i32,N>
     where BE: Backend + SimdMulAssignVector<i32,i32>,
-          for<'b> VectorView<'b,i32,N>: From<&'b Vector<'a,i32,N,BE>> {
+          for<'b> VectorView<'b,i32,N>: From<&'b Vector<'b,i32,N,BE>> {
     #[inline(always)]
     fn mul_assign(&mut self, rhs: &'a Vector<'a,i32,N,BE>) {
         rhs.backend.mul_assign_vector(self, &rhs.into())
@@ -998,7 +998,7 @@ impl<'a,BE,const N: usize> MulAssign<Scalar<i32,BE>> for VectorMut<'a,i32,N>
 }
 impl<'a,const N: usize> MulAssign<&'a Vector<'a,f32,N,AutoSelect>> for VectorMut<'a,f32,N>
     where Avx2: Backend + SimdMulAssignVector<f32,f32>,
-          for<'b> VectorView<'b,f32,N>: From<&'b Vector<'a,f32,N,AutoSelect>> {
+          for<'b> VectorView<'b,f32,N>: From<&'b Vector<'b,f32,N,AutoSelect>> {
     #[inline(always)]
     fn mul_assign(&mut self, rhs: &'a Vector<'a,f32,N,AutoSelect>) {
         match rhs.backend.selected {
@@ -1008,7 +1008,7 @@ impl<'a,const N: usize> MulAssign<&'a Vector<'a,f32,N,AutoSelect>> for VectorMut
 }
 impl<'a,BE,const N: usize> MulAssign<&'a Vector<'a,f32,N,BE>> for VectorMut<'a,f32,N>
     where BE: Backend + SimdMulAssignVector<f32,f32>,
-          for<'b> VectorView<'b,f32,N>: From<&'b Vector<'a,f32,N,BE>> {
+          for<'b> VectorView<'b,f32,N>: From<&'b Vector<'b,f32,N,BE>> {
     #[inline(always)]
     fn mul_assign(&mut self, rhs: &'a Vector<'a,f32,N,BE>) {
         rhs.backend.mul_assign_vector(self, &rhs.into())
@@ -1032,7 +1032,7 @@ impl<'a,BE,const N: usize> MulAssign<Scalar<f32,BE>> for VectorMut<'a,f32,N>
 }
 impl<'a,const N: usize> MulAssign<&'a Vector<'a,f64,N,AutoSelect>> for VectorMut<'a,f64,N>
     where Avx2: Backend + SimdMulAssignVector<f64,f64>,
-          for<'b> VectorView<'b,f64,N>: From<&'b Vector<'a,f64,N,AutoSelect>> {
+          for<'b> VectorView<'b,f64,N>: From<&'b Vector<'b,f64,N,AutoSelect>> {
     #[inline(always)]
     fn mul_assign(&mut self, rhs: &'a Vector<'a,f64,N,AutoSelect>) {
         match rhs.backend.selected {
@@ -1042,7 +1042,7 @@ impl<'a,const N: usize> MulAssign<&'a Vector<'a,f64,N,AutoSelect>> for VectorMut
 }
 impl<'a,BE,const N: usize> MulAssign<&'a Vector<'a,f64,N,BE>> for VectorMut<'a,f64,N>
     where BE: Backend + SimdMulAssignVector<f64,f64>,
-          for<'b> VectorView<'b,f64,N>: From<&'b Vector<'a,f64,N,BE>> {
+          for<'b> VectorView<'b,f64,N>: From<&'b Vector<'b,f64,N,BE>> {
     #[inline(always)]
     fn mul_assign(&mut self, rhs: &'a Vector<'a,f64,N,BE>) {
         rhs.backend.mul_assign_vector(self, &rhs.into())
@@ -1068,7 +1068,7 @@ impl<'a,T,const N: usize> BitXor<&'a Vector<'a,<T as BitsBitXor>::Bits,N,AutoSel
     where Avx2: Backend + SimdBitXorVector<T>,
           T: BitsBitXor,
           for<'b> VectorView<'b,T,N>: From<&'b Vector<'b,T,N,AutoSelect>>,
-          for<'b> VectorView<'b,<T as BitsBitXor>::Bits,N>: From<&'b Vector<'a,<T as BitsBitXor>::Bits,N,AutoSelect>> {
+          for<'b> VectorView<'b,<T as BitsBitXor>::Bits,N>: From<&'b Vector<'b,<T as BitsBitXor>::Bits,N,AutoSelect>> {
     type Output = OwnedVector<T,N>;
 
     #[inline(always)]
@@ -1079,13 +1079,13 @@ impl<'a,T,const N: usize> BitXor<&'a Vector<'a,<T as BitsBitXor>::Bits,N,AutoSel
     }
 }
 impl<'a,BE,T,const N: usize> BitXor<&'a Vector<'a,<T as BitsBitXor>::Bits,N,BE>> for &'a Vector<'a,T,N,BE>
-    where BE: Backend +
+    where BE: Backend + NativeBackend +
               SimdReg<T,Bits=<T as BitsBitXor>::Bits> +
               SimdReg<<T as BitsBitXor>::Bits> +
               SimdBitXorVector<T>,
               T: BitsBitXor,
               for<'b> VectorView<'b,T,N>: From<&'b Vector<'b,T,N,BE>>,
-              for<'b> VectorView<'b,<T as BitsBitXor>::Bits,N>: From<&'b Vector<'a,<T as BitsBitXor>::Bits,N,BE>> {
+              for<'b> VectorView<'b,<T as BitsBitXor>::Bits,N>: From<&'b Vector<'b,<T as BitsBitXor>::Bits,N,BE>> {
     type Output = OwnedVector<T,N>;
 
     #[inline(always)]
@@ -1097,7 +1097,7 @@ impl<'a,T,const N: usize> BitOr<&'a Vector<'a,<T as BitsBitOr>::Bits,N,AutoSelec
     where Avx2: Backend + SimdBitOrVector<T>,
           T: BitsBitOr,
           for<'b> VectorView<'b,T,N>: From<&'b Vector<'b,T,N,AutoSelect>>,
-          for<'b> VectorView<'b,<T as BitsBitOr>::Bits,N>: From<&'b Vector<'a,<T as BitsBitOr>::Bits,N,AutoSelect>> {
+          for<'b> VectorView<'b,<T as BitsBitOr>::Bits,N>: From<&'b Vector<'b,<T as BitsBitOr>::Bits,N,AutoSelect>> {
     type Output = OwnedVector<T,N>;
 
     #[inline(always)]
@@ -1108,13 +1108,13 @@ impl<'a,T,const N: usize> BitOr<&'a Vector<'a,<T as BitsBitOr>::Bits,N,AutoSelec
     }
 }
 impl<'a,BE,T,const N: usize> BitOr<&'a Vector<'a,<BE as SimdReg<T>>::Bits,N,BE>> for &'a Vector<'a,T,N,BE>
-    where BE: Backend +
+    where BE: Backend + NativeBackend +
               SimdReg<T,Bits=<T as BitsBitOr>::Bits> +
               SimdReg<<T as BitsBitOr>::Bits> +
               SimdBitOrVector<T>,
               T: BitsBitOr,
               for<'b> VectorView<'b,T,N>: From<&'b Vector<'b,T,N,BE>>,
-              for<'b> VectorView<'b,<T as BitsBitOr>::Bits,N>: From<&'b Vector<'a,<T as BitsBitOr>::Bits,N,BE>> {
+              for<'b> VectorView<'b,<T as BitsBitOr>::Bits,N>: From<&'b Vector<'b,<T as BitsBitOr>::Bits,N,BE>> {
     type Output = OwnedVector<T,N>;
 
     #[inline(always)]
@@ -1126,7 +1126,7 @@ impl<'a,T,const N: usize> BitAnd<&'a Vector<'a,<T as BitsBitAnd>::Bits,N,AutoSel
     where Avx2: Backend + SimdBitAndVector<T>,
       T: BitsBitAnd,
       for<'b> VectorView<'b,T,N>: From<&'b Vector<'b,T,N,AutoSelect>>,
-      for<'b> VectorView<'b,<T as BitsBitAnd>::Bits,N>: From<&'b Vector<'a,<T as BitsBitAnd>::Bits,N,AutoSelect>> {
+      for<'b> VectorView<'b,<T as BitsBitAnd>::Bits,N>: From<&'b Vector<'b,<T as BitsBitAnd>::Bits,N,AutoSelect>> {
 
     type Output = OwnedVector<T,N>;
 
@@ -1138,13 +1138,13 @@ impl<'a,T,const N: usize> BitAnd<&'a Vector<'a,<T as BitsBitAnd>::Bits,N,AutoSel
     }
 }
 impl<'a,BE,T,const N: usize> BitAnd<&'a Vector<'a,<BE as SimdReg<T>>::Bits,N,BE>> for &'a Vector<'a,T,N,BE>
-    where BE: Backend +
+    where BE: Backend + NativeBackend +
               SimdReg<T,Bits=<T as BitsBitAnd>::Bits> +
               SimdReg<<T as BitsBitAnd>::Bits> +
               SimdBitAndVector<T>,
               T: BitsBitAnd,
               for<'b> VectorView<'b,T,N>: From<&'b Vector<'b,T,N,BE>>,
-              for<'b> VectorView<'b,<T as BitsBitAnd>::Bits,N>: From<&'b Vector<'a,<T as BitsBitAnd>::Bits,N,BE>> {
+              for<'b> VectorView<'b,<T as BitsBitAnd>::Bits,N>: From<&'b Vector<'b,<T as BitsBitAnd>::Bits,N,BE>> {
 
     type Output = OwnedVector<T,N>;
 
@@ -1276,8 +1276,7 @@ impl<'a,BE,SL,SR,const N: usize> From<&'a Vector<'a,SL,N,BE>> for OwnedVector<SR
     }
 }
 impl<'a,BE,T,const N: usize,const M: usize> AddAssign<&'a Matrix<'a,T,N,M,BE>> for MatrixMut<'a,T,N,M>
-    where BE: Backend + SimdAddAssignMatrix<T,T>,
-          for<'b> MatrixMut<'b,T,N,M>: From<&'b mut Matrix<'b,T,N,M,BE>>,
+    where BE: Backend + NativeBackend + SimdAddAssignMatrix<T,T>,
           for<'b> MatrixView<'b,T,N,M>: From<&'b Matrix<'b,T,N,M,BE>> {
     #[inline(always)]
     fn add_assign(&mut self, rhs: &'a Matrix<'a,T,N,M,BE>) {
@@ -1285,9 +1284,8 @@ impl<'a,BE,T,const N: usize,const M: usize> AddAssign<&'a Matrix<'a,T,N,M,BE>> f
     }
 }
 impl<'a,BE,T,const N: usize,const M: usize> MulAssign<Scalar<T,BE>> for MatrixMut<'a,T,N,M>
-    where BE: Backend + SimdScalarMulAssignMatrix<T,T>,
+    where BE: Backend + NativeBackend + SimdScalarMulAssignMatrix<T,T>,
           T: Copy,
-          for<'b> MatrixMut<'b,T,N,M>: From<&'b mut Matrix<'b,T,N,M,BE>>,
           for<'b> MatrixView<'b,T,N,M>: From<&'b Matrix<'b,T,N,M,BE>> {
     #[inline(always)]
     fn mul_assign(&mut self, rhs: Scalar<T,BE>) {
