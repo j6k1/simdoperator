@@ -327,16 +327,16 @@ impl<'a,BE: Backend,T,const N: usize,const M: usize> Matrix<'a,T,N,M,BE> {
     }
 }
 impl<'a,BE: Backend,T,const N: usize,const M: usize> TryFrom<&'a [T]> for Matrix<'a,T,M,N,BE> {
-    type Error = TryFromSliceError;
+    type Error = InstantiationError;
 
     #[inline]
     fn try_from(value: &'a [T]) -> Result<Self,Self::Error> {
         if value.len() != N * M {
-            Err(TryFromSliceError)
+            Err(InstantiationError::from(TryFromSliceError))
         } else {
             Ok(Matrix {
                 data: value,
-                backend: BE::new().unwrap()
+                backend: BE::new()?
             })
         }
     }
@@ -446,12 +446,12 @@ impl<'a,T,BE: Backend,const N: usize,const M: usize> From<&'a Matrix<'a,T,N,M,BE
     }
 }
 impl<'a,T,const N: usize,const M: usize> TryFrom<&'a [T]> for MatrixView<'a,T,M,N> {
-    type Error = TryFromSliceError;
+    type Error = InstantiationError;
 
     #[inline]
     fn try_from(value: &'a [T]) -> Result<Self,Self::Error> {
         if value.len() != N * M {
-            Err(TryFromSliceError)
+            Err(InstantiationError::from(TryFromSliceError))
         } else {
             Ok(MatrixView {
                 data: value
@@ -576,6 +576,20 @@ impl<'a,T,const M: usize> From<&'a mut OwnedVector<T,M>> for MatrixMut<'a,T,1,M>
         }
     }
 }
+impl<'a,T,const N: usize,const M: usize> TryFrom<&'a mut [T]> for MatrixMut<'a,T,M,N> {
+    type Error = InstantiationError;
+
+    #[inline]
+    fn try_from(value: &'a mut [T]) -> Result<Self,Self::Error> {
+        if value.len() != N * M {
+            Err(InstantiationError::from(TryFromSliceError))
+        } else {
+            Ok(MatrixMut {
+                data: value
+            })
+        }
+    }
+}
 impl<'a,T,const N: usize,const M: usize> AsMut<[T]> for MatrixMut<'a,T,N,M> {
     #[inline(always)]
     fn as_mut(&mut self) -> &mut [T] {
@@ -655,12 +669,12 @@ pub struct ColumnMajorMatrix<'a,T,const N: usize,const M: usize> {
 }
 impl<'a,T,const N: usize,const M: usize> Dims<N,M> for ColumnMajorMatrix<'a,T,N,M> {}
 impl<'a,T,const N: usize,const M: usize> TryFrom<&'a [T]> for ColumnMajorMatrix<'a,T,M,N> {
-    type Error = TryFromSliceError;
+    type Error = InstantiationError;
 
     #[inline]
     fn try_from(value: &'a [T]) -> Result<Self,Self::Error> {
         if value.len() != N * M {
-            Err(TryFromSliceError)
+            Err(InstantiationError::from(TryFromSliceError))
         } else {
             Ok(ColumnMajorMatrix {
                 data: value
@@ -1277,6 +1291,17 @@ impl<'a,BE,SL,SR,const N: usize> From<&'a Vector<'a,SL,N,BE>> for OwnedVector<SR
     #[inline(always)]
     fn from(s:&'a Vector<'a,SL,N,BE>) -> OwnedVector<SR,N> {
         s.backend.convert_vector(&s.into())
+    }
+}
+impl<'a,T,const N: usize,const M: usize> AddAssign<&'a Matrix<'a,T,N,M,AutoSelect>> for MatrixMut<'a,T,N,M>
+    where AutoSelect: Backend,
+          Avx2: SimdAddAssignMatrix<T,T>,
+          for<'b> MatrixView<'b,T,N,M>: From<&'b Matrix<'b,T,N,M,AutoSelect>> {
+    #[inline(always)]
+    fn add_assign(&mut self, rhs: &'a Matrix<'a,T,N,M,AutoSelect>) {
+        match rhs.backend.selected {
+            SelectedBackend::Avx2(ref backend) => backend.add_assign_matrix(self, &rhs.into())
+        }
     }
 }
 impl<'a,BE,T,const N: usize,const M: usize> AddAssign<&'a Matrix<'a,T,N,M,BE>> for MatrixMut<'a,T,N,M>

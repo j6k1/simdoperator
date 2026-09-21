@@ -1103,7 +1103,7 @@ impl<SS,SD,BE> SimdConvertMatrix<SS,SD> for BE
         }
     }
 }
-impl<SL, SR,SO,BE> SimdOuterProduct<SL,SR,SO> for BE
+impl<SL,SR,SO,BE> SimdOuterProduct<SL,SR,SO> for BE
     where BE: Backend +
               SimdMatMul<SL,SR,SO> {
     fn outer_product<'a, const N: usize, const M: usize>(&self, l: &VectorView<'a, SL, N>,
