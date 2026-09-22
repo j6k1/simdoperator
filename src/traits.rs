@@ -1,8 +1,9 @@
 //! Trait and data type features for abstracting SIMD operations
 
+use std::ops::Deref;
 use crate::{ColumnMajorMatrix, MatrixMut, MatrixView, OwnedMatrix, OwnedVector, VectorMut, VectorView};
 use crate::backend::autoselect::AutoSelect;
-use crate::backend::common::{Backend};
+use crate::backend::common::{Backend, Regs};
 use crate::error::InstantiationError;
 
 /// Addition at the SIMD register level
@@ -21,9 +22,14 @@ pub trait SimdSub<SL,SR,SO>: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> {
     /// * `r` - Right hand side of the Subtraction
     fn sub(&self,l:<Self as SimdReg<SL>>::Reg,r:<Self as SimdReg<SR>>::Reg) -> <Self as SimdReg<SO>>::Reg;
 }
+pub trait RegsInto {
+    type Output;
+    fn regs_into(self) -> Self::Output;
+}
 /// Multiply at the SIMD register level
 pub trait SimdMul<SL,SR,SO>: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> + SimdAdd<SO,SO,SO> + Sized {
-    type Output: FoldRegs<SO,Self>;
+    type Output;
+    type Regs: FoldRegs<SO,Self>;
     ///
     /// # Arguments
     /// * `l` - Left hand side of the Multiply
@@ -166,6 +172,14 @@ pub trait SimdScalarMulVector<SL,SR,SO> {
     /// * `l` - Left hand side of the Mul
     /// * `r` - Right hand side of the Mul
     fn scalarmul_vector<'a,const N: usize>(&self, l:SL, r:&VectorView<'a,SR,N>) -> OwnedVector<SO,N>;
+}
+/// Multiply each element of the vector by a scalar value into accumulator
+pub trait SimdScalarMulVectorInto<SL,SR,SO> {
+    ///
+    /// # Arguments
+    /// * `l` - Left hand side of the Mul
+    /// * `r` - Right hand side of the Mul
+    fn scalarmul_vector_into<'a,const N: usize>(&self, l:SL, r:&VectorView<'a,SR,N>,acc:&'a mut VectorMut<'a,SO,N>);
 }
 /// Apply a bitwise XOR to each element of a Vector
 pub trait SimdBitXorVector<S>
@@ -462,7 +476,7 @@ pub trait SimdReinterpret<SS,SD>: SimdReg<SS> + SimdReg<SD> {
 pub trait SimdPromote<SS,SD>: SimdReg<SS> +
                               SimdReg<SD> +
                               SimdAdd<SD,SD,SD> where Self: Sized {
-    type Output: FoldRegs<SD,Self>;
+    type Output;
     /// # Arguments
     /// * `reg` - SIMD register to promote
     fn promotion(&self, reg:<Self as SimdReg<SS>>::Reg) -> Self::Output;
@@ -471,7 +485,7 @@ pub trait SimdPromote<SS,SD>: SimdReg<SS> +
 pub trait SimdDemote<SS,SD>: SimdReg<SS> +
                              SimdReg<SD> +
                              SimdAdd<SS,SS,SS> where Self: Sized {
-    type Input: FoldRegs<SS,Self>;
+    type Input;
     /// # Arguments
     /// * `reg` - SIMD register to demote
     fn demotion(&self, reg:Self::Input) -> <Self as SimdReg<SD>>::Reg;
@@ -480,7 +494,7 @@ pub trait SimdDemote<SS,SD>: SimdReg<SS> +
 pub trait SimdConvert<SS,SD>: SimdReg<SS> +
                               SimdReg<SD> +
                               SimdAdd<SD,SD,SD> where Self: Sized {
-    type Output: FoldRegs<SD,Self>;
+    type Output;
     /// # Arguments
     /// * `reg` - SIMD register to convert
     fn convert(&self,reg:<Self as SimdReg<SS>>::Reg) -> Self::Output;
@@ -515,8 +529,6 @@ pub trait SimdMulAdd<SL,SR,SO>:
     SimdReg<SR> +
     SimdReg<SO> + SimdMul<SL,SR,SO>
     where <Self as SimdReg<SO>>::Reg: Copy {
-    /// Returns an accumulator initialized to zero
-    fn zero_acc(&self) -> <Self as SimdMul<SL,SR,SO>>::Output;
     /// Returns the result of applying multiplication and addition simultaneously to the SIMD registers
     /// # Arguments
     /// * `l` - Left-hand side
@@ -524,22 +536,24 @@ pub trait SimdMulAdd<SL,SR,SO>:
     /// * `acc` - Accumulator
     fn mul_add(&self,l:<Self as SimdReg<SL>>::Reg,
                r:<Self as SimdReg<SR>>::Reg,
-               acc:<Self as SimdMul<SL,SR,SO>>::Output) -> <Self as SimdMul<SL,SR,SO>>::Output;
+               acc:<Self as SimdReg<SO>>::Reg) -> <Self as SimdReg<SO>>::Reg;
 }
 /// Returns a partial dot product using SIMD registers
-pub trait SimdPartialDot<SL,SR,SO>: SimdReg<SL> +
-                                    SimdReg<SR> +
-                                    SimdReg<SO> +
-                                    SimdAdd<SO,SO,SO> + Backend + Sized {
-    type Output: FoldRegs<SO,Self>;
-    /// Returns an accumulator initialized to zero
-    fn zero_acc(&self) -> Self::Output;
+pub trait SimdPartialDot<SL,SR,SO,BE>:
+    where BE: SimdReg<SL> +
+              SimdReg<SR> +
+              SimdReg<SO> +
+              SimdMul<SL,SR,SO> +
+              SimdAdd<SO,SO,SO> + Backend + Sized {
+    fn new() -> Self;
     /// Returns a partial dot product using SIMD registers
     /// # Arguments
     /// * `l` - Left-hand side
     /// * `r` - Right-hand side
     /// * `acc` - Accumulator
-    fn partial_dot(&self,l:<Self as SimdReg<SL>>::Reg,r:<Self as SimdReg<SR>>::Reg,acc:Self::Output) -> Self::Output;
+    fn partial_dot(&mut self,backend:&BE,l:<BE as SimdReg<SL>>::Reg,r:<BE as SimdReg<SR>>::Reg);
+
+    fn finalize(self) -> <BE as SimdMul<SL,SR,SO>>::Regs;
 }
 /// Returns a zero-initialized SIMD register
 pub trait SimdZero<S>: SimdReg<S> {

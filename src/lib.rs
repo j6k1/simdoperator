@@ -227,6 +227,20 @@ impl<'a,T,const N: usize> From<&'a mut OwnedVector<T,N>> for VectorMut<'a,T,N> {
         }
      }
 }
+impl<'a,T,const N: usize> TryFrom<&'a mut [T]> for VectorMut<'a,T,N> {
+    type Error = InstantiationError;
+
+    #[inline]
+    fn try_from(value: &'a mut [T]) -> Result<Self,Self::Error> {
+        if value.len() != N {
+            Err(InstantiationError::from(TryFromSliceError))
+        } else {
+            Ok(VectorMut {
+                data: value.try_into()?
+            })
+        }
+    }
+}
 impl<'a,T,const N: usize> Index<usize> for VectorMut<'a,T,N> {
     type Output = T;
     #[inline(always)]
@@ -268,6 +282,11 @@ impl<T,const N: usize> From<Box<[T;N]>> for OwnedVector<T,N> {
         OwnedVector {
             data: value
         }
+    }
+}
+impl<T,const N: usize> From<OwnedVector<T,N>> for Box<[T]> {
+    fn from(value: OwnedVector<T, N>) -> Self {
+        value.data
     }
 }
 impl<T,const N: usize> AsMut<[T;N]> for OwnedVector<T,N> {
@@ -605,6 +624,20 @@ impl<T,const N: usize,const M: usize> Default for OwnedMatrix<T,N,M> where T: De
     fn default() -> Self {
         Self {
             data: vec![T::default();N*M].into_boxed_slice()
+        }
+    }
+}
+impl<T,const N: usize,const M: usize> OwnedMatrix<T,N,M> {
+    /// Retrieve a specified row of a matrix as a vector
+    ///
+    /// # Arguments
+    /// * `index` - The index of the row to retrieve
+    #[inline]
+    pub fn row_mut<'a>(&'a mut self,index:usize) -> VectorMut<'a,T,M> {
+        let view = &mut self.data[index * M..(index + 1) * M];
+
+        VectorMut {
+            data: view.try_into().unwrap()
         }
     }
 }
@@ -1403,7 +1436,8 @@ impl<'a,BE,SL,SR,SO,const N: usize,const M: usize> Product<&'a Vector<'a,SR,M,BE
     }
 }
 impl<'a,SL,SR,SO,const M: usize,const K: usize> Product<&'a ColumnMajorMatrix<'a,SR,K,M>,OwnedVector<SO,M>> for Vector<'a,SL,K,AutoSelect>
-    where Avx2: Backend + SimdVMat<SL,SR,SO>,
+    where AutoSelect: Backend,
+          Avx2: Backend + SimdVMat<SL,SR,SO>,
           SO: Default + Copy + Clone ,
           for<'b> VectorView<'b,SL,K>: From<&'b Vector<'b,SL,K,AutoSelect>> {
     #[inline(always)]

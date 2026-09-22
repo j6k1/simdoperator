@@ -1,9 +1,11 @@
 //! Implementation of SIMD Operations Using AVX2
 
 use std::arch::x86_64::{__m256, __m256d, __m256i, _mm256_add_epi16, _mm256_add_epi32, _mm256_add_epi8, _mm256_add_pd, _mm256_add_ps, _mm256_and_pd, _mm256_and_ps, _mm256_and_si256, _mm256_andnot_si256, _mm256_blendv_epi8, _mm256_blendv_pd, _mm256_blendv_ps, _mm256_castpd256_pd128, _mm256_castpd_si256, _mm256_castps256_ps128, _mm256_castps_si256, _mm256_castsi256_pd, _mm256_castsi256_ps, _mm256_castsi256_si128, _mm256_cmp_pd, _mm256_cmp_ps, _mm256_cmpeq_epi16, _mm256_cmpeq_epi32, _mm256_cmpeq_epi8, _mm256_cmpgt_epi16, _mm256_cmpgt_epi32, _mm256_cmpgt_epi8, _mm256_cvtepi16_epi32, _mm256_cvtepi32_ps, _mm256_cvtepi8_epi16, _mm256_extractf128_pd, _mm256_extractf128_ps, _mm256_extracti128_si256, _mm256_fmadd_pd, _mm256_fmadd_ps, _mm256_loadu_pd, _mm256_loadu_ps, _mm256_loadu_si256, _mm256_mul_pd, _mm256_mul_ps, _mm256_mullo_epi16, _mm256_mullo_epi32, _mm256_or_si256, _mm256_set1_epi16, _mm256_set1_epi32, _mm256_set1_epi64x, _mm256_set1_epi8, _mm256_set1_pd, _mm256_set1_ps, _mm256_set_m128i, _mm256_setzero_pd, _mm256_setzero_ps, _mm256_setzero_si256, _mm256_sllv_epi32, _mm256_sllv_epi64, _mm256_srlv_epi32, _mm256_srlv_epi64, _mm256_storeu_pd, _mm256_storeu_ps, _mm256_storeu_si256, _mm256_sub_epi16, _mm256_sub_epi32, _mm256_sub_epi8, _mm256_sub_pd, _mm256_sub_ps, _mm256_unpackhi_epi32, _mm256_unpackhi_ps, _mm256_unpacklo_epi32, _mm256_unpacklo_ps, _mm256_xor_si256, _mm_add_epi32, _mm_add_pd, _mm_add_ps, _mm_add_sd, _mm_add_ss, _mm_cvtsd_f64, _mm_cvtsi128_si32, _mm_cvtss_f32, _mm_movehl_ps, _mm_packs_epi16, _mm_packs_epi32, _mm_setzero_si128, _mm_shuffle_ps, _mm_srli_si128, _mm_unpackhi_pd, _CMP_EQ_OQ, _CMP_GT_OQ};
+use std::convert::Into;
+use std::marker::PhantomData;
 use std::ops::{Add, AddAssign, Mul};
-use crate::backend::common::{Backend, Regs};
-use crate::traits::{SimdCols, SimdDot, SimdHSum, SimdLanes, SimdLoad, SimdMask, SimdMatMul, SimdMatVec, SimdMulAdd, SimdPartialDot, SimdReg, SimdRows, SimdStore, SimdTranspose, SimdVMat, SimdZero, SimdAdd, SimdSub, SimdMul, SimdPromote, SimdScalarMul, SimdSplat, SimdBitOr, SimdBitAnd, SimdReinterpret, SimdBitXor, SimdBitNot, BitsBitAnd, BitsBitOr, BitsBitXor, SimdShl, SimdShr, SimdDemote, SimdConvert, FoldRegs, SimdShiftWidth, NativeBackend};
+use crate::backend::common::{Backend, PartialDotAcc, Regs};
+use crate::traits::{SimdCols, SimdDot, SimdHSum, SimdLanes, SimdLoad, SimdMask, SimdMatMul, SimdMatVec, SimdMulAdd, SimdPartialDot, SimdReg, SimdRows, SimdStore, SimdTranspose, SimdVMat, SimdZero, SimdAdd, SimdSub, SimdMul, SimdPromote, SimdScalarMul, SimdSplat, SimdBitOr, SimdBitAnd, SimdReinterpret, SimdBitXor, SimdBitNot, BitsBitAnd, BitsBitOr, BitsBitXor, SimdShl, SimdShr, SimdDemote, SimdConvert, FoldRegs, SimdShiftWidth, NativeBackend, RegsInto};
 use crate::{derive_matmul, matmul_tile, ColumnMajorMatrix, MatrixMut, MatrixView, OwnedVector, VectorView};
 use crate::error::InstantiationError;
 
@@ -392,7 +394,7 @@ impl SimdMask<f64> for Avx2 where Self: SimdReg<f64> {
     }
 }
 impl SimdPromote<i8,i16> for Avx2 where Self: SimdReg<i8> + SimdReg<i16> {
-    type Output = Regs<<Self as SimdReg<i16>>::Reg,2>;
+    type Output = [<Self as SimdReg<i16>>::Reg;2];
 
     #[inline(always)]
     fn promotion(&self, reg: <Self as SimdReg<i8>>::Reg) -> Self::Output {
@@ -400,12 +402,12 @@ impl SimdPromote<i8,i16> for Avx2 where Self: SimdReg<i8> + SimdReg<i16> {
             let lo = _mm256_castsi256_si128(reg);
             let hi = _mm256_extracti128_si256(reg,1);
 
-           Regs::new([_mm256_cvtepi8_epi16(lo),_mm256_cvtepi8_epi16(hi)])
+           [_mm256_cvtepi8_epi16(lo),_mm256_cvtepi8_epi16(hi)]
         }
     }
 }
 impl SimdPromote<i16,i32> for Avx2 where Self: SimdReg<i16> + SimdReg<i32> {
-    type Output = Regs<<Self as SimdReg<i32>>::Reg,2>;
+    type Output = [<Self as SimdReg<i32>>::Reg;2];
 
     #[inline(always)]
     fn promotion(&self, reg: <Self as SimdReg<i16>>::Reg) -> Self::Output {
@@ -416,16 +418,16 @@ impl SimdPromote<i16,i32> for Avx2 where Self: SimdReg<i16> + SimdReg<i32> {
             let lo32 = _mm256_cvtepi16_epi32(lo);
             let hi32 = _mm256_cvtepi16_epi32(hi);
 
-            Regs::new([lo32,hi32])
+            [lo32,hi32]
         }
     }
 }
 impl SimdDemote<i32,i16> for Avx2 where Self: SimdReg<i32> + SimdReg<i16> {
-    type Input = Regs<<Self as SimdReg<i32>>::Reg,2>;
+    type Input = [<Self as SimdReg<i32>>::Reg;2];
 
-    fn demotion(&self, reg: Regs<<Self as SimdReg<i32>>::Reg,2>) -> <Self as SimdReg<i16>>::Reg {
+    fn demotion(&self, reg: [<Self as SimdReg<i32>>::Reg;2]) -> <Self as SimdReg<i16>>::Reg {
         unsafe {
-            let &[lo32,hi32] = reg.as_ref();
+            let [lo32,hi32] = reg;
 
             let lo_lo = _mm256_castsi256_si128(lo32);
             let lo_hi = _mm256_extracti128_si256(lo32, 1);
@@ -440,10 +442,10 @@ impl SimdDemote<i32,i16> for Avx2 where Self: SimdReg<i32> + SimdReg<i16> {
     }
 }
 impl SimdDemote<i16,i8> for Avx2 where Self: SimdReg<i16> + SimdReg<i8> {
-    type Input = Regs<<Self as SimdReg<i16>>::Reg,1>;
-    fn demotion(&self, reg: Regs<<Self as SimdReg<i16>>::Reg,1>) -> <Self as SimdReg<i8>>::Reg {
+    type Input = [<Self as SimdReg<i16>>::Reg;1];
+    fn demotion(&self, reg: [<Self as SimdReg<i16>>::Reg;1]) -> <Self as SimdReg<i8>>::Reg {
         unsafe {
-            let &[reg16] = reg.as_ref();
+            let [reg16] = reg;
 
             let lo16 = _mm256_castsi256_si128(reg16);
             let hi16 = _mm256_extracti128_si256(reg16, 1);
@@ -455,7 +457,7 @@ impl SimdDemote<i16,i8> for Avx2 where Self: SimdReg<i16> + SimdReg<i8> {
     }
 }
 impl SimdConvert<i16,f32> for Avx2 where Self: SimdReg<i16> + SimdReg<f32> {
-    type Output = Regs<<Self as SimdReg<f32>>::Reg,2>;
+    type Output = [<Self as SimdReg<f32>>::Reg;2];
 
     fn convert(&self, reg: <Self as SimdReg<i16>>::Reg) -> Self::Output {
         unsafe {
@@ -468,16 +470,16 @@ impl SimdConvert<i16,f32> for Avx2 where Self: SimdReg<i16> + SimdReg<f32> {
             let lo_f32 = _mm256_cvtepi32_ps(lo_i32);
             let hi_f32 = _mm256_cvtepi32_ps(hi_i32);
 
-            Regs::new([lo_f32,hi_f32])
+            [lo_f32,hi_f32]
         }
     }
 }
 impl SimdConvert<i32,f32> for Avx2 where Self: SimdReg<i32> + SimdReg<f32> {
-    type Output = Regs<<Self as SimdReg<f32>>::Reg,1>;
+    type Output = [<Self as SimdReg<f32>>::Reg;1];
 
     fn convert(&self, reg: <Self as SimdReg<i32>>::Reg) -> Self::Output {
         unsafe {
-            Regs::new([_mm256_cvtepi32_ps(reg)])
+            [_mm256_cvtepi32_ps(reg)]
         }
     }
 }
@@ -571,26 +573,27 @@ impl SimdSub<f64,f64,f64> for Avx2 where Self: SimdReg<f64> {
     }
 }
 impl SimdMul<i8,i8,i32> for Avx2 where Self: SimdReg<i8> + SimdReg<i32> {
-    type Output = Regs<<Self as SimdReg<i32>>::Reg,4>;
-
+    type Output = [<Self as SimdReg<i32>>::Reg;4];
+    type Regs = Regs<<Self as SimdReg<i32>>::Reg,4>;
     #[inline(always)]
     fn mul(&self, l: <Self as SimdReg<i8>>::Reg, r: <Self as SimdReg<i8>>::Reg)
-        -> Regs<<Self as SimdReg<i32>>::Reg,4> {
-        let &[lo,hi] = <Self as SimdPromote<i8,i16>>::promotion(self,l).as_ref();
-        let &[lo_r,hi_r] = <Self as SimdPromote<i8,i16>>::promotion(self,r).as_ref();
+        -> [<Self as SimdReg<i32>>::Reg;4] {
+        let [lo,hi] = <Self as SimdPromote<i8,i16>>::promotion(self,l);
+        let [lo_r,hi_r] = <Self as SimdPromote<i8,i16>>::promotion(self,r);
 
-        let &[lo32_lo,lo32_hi] = <Self as SimdMul<i16,i16,i32>>::mul(self,lo,lo_r).as_ref();
-        let &[hi32_lo,hi32_hi] = <Self as SimdMul<i16,i16,i32>>::mul(self,hi,hi_r).as_ref();
+        let [lo32_lo,lo32_hi] = <Self as SimdMul<i16,i16,i32>>::mul(self,lo,lo_r);
+        let [hi32_lo,hi32_hi] = <Self as SimdMul<i16,i16,i32>>::mul(self,hi,hi_r);
 
-        Regs::new([lo32_lo,lo32_hi,hi32_lo,hi32_hi])
+        [lo32_lo,lo32_hi,hi32_lo,hi32_hi]
     }
 }
 impl SimdMul<i16,i16,i32> for Avx2 where Self: SimdReg<i16> + SimdReg<i32> {
-    type Output = Regs<<Self as SimdReg<i32>>::Reg,2>;
+    type Output = [<Self as SimdReg<i32>>::Reg;2];
+    type Regs = Regs<<Self as SimdReg<i32>>::Reg,2>;
 
     #[inline(always)]
     fn mul(&self, l: <Self as SimdReg<i16>>::Reg, r: <Self as SimdReg<i16>>::Reg)
-        -> Regs<<Self as SimdReg<i32>>::Reg,2> {
+        -> [<Self as SimdReg<i32>>::Reg;2] {
         unsafe {
             let prod16 = _mm256_mullo_epi16(l, r);
 
@@ -599,32 +602,35 @@ impl SimdMul<i16,i16,i32> for Avx2 where Self: SimdReg<i16> + SimdReg<i32> {
     }
 }
 impl SimdMul<i32,i32,i32> for Avx2 where Self: SimdReg<i32> {
-    type Output = Regs<<Self as SimdReg<i32>>::Reg,1>;
+    type Output = [<Self as SimdReg<i32>>::Reg;1];
+    type Regs = Regs<<Self as SimdReg<i32>>::Reg,1>;
 
     #[inline(always)]
-    fn mul(&self, l: <Self as SimdReg<i32>>::Reg, r: <Self as SimdReg<i32>>::Reg) -> Regs<<Self as SimdReg<i32>>::Reg,1> {
+    fn mul(&self, l: <Self as SimdReg<i32>>::Reg, r: <Self as SimdReg<i32>>::Reg) -> [<Self as SimdReg<i32>>::Reg;1] {
         unsafe {
-            Regs::new([_mm256_mullo_epi32(l, r)])
+            [_mm256_mullo_epi32(l, r)]
         }
     }
 }
 impl SimdMul<f32,f32,f32> for Avx2 where Self: SimdReg<f32> {
-    type Output = Regs<<Self as SimdReg<f32>>::Reg,1>;
+    type Output = [<Self as SimdReg<f32>>::Reg;1];
+    type Regs = Regs<<Self as SimdReg<f32>>::Reg,1>;
 
     #[inline(always)]
-    fn mul(&self, l: <Self as SimdReg<f32>>::Reg, r: <Self as SimdReg<f32>>::Reg) -> Regs<<Self as SimdReg<f32>>::Reg,1> {
+    fn mul(&self, l: <Self as SimdReg<f32>>::Reg, r: <Self as SimdReg<f32>>::Reg) -> [<Self as SimdReg<f32>>::Reg;1] {
         unsafe {
-            Regs::new([_mm256_mul_ps(l, r)])
+            [_mm256_mul_ps(l, r)]
         }
     }
 }
 impl SimdMul<f64,f64,f64> for Avx2 where Self: SimdReg<f64> {
-    type Output = Regs<<Self as SimdReg<f64>>::Reg,1>;
+    type Output = [<Self as SimdReg<f64>>::Reg;1];
+    type Regs = Regs<<Self as SimdReg<f64>>::Reg,1>;
 
     #[inline(always)]
-    fn mul(&self, l: <Self as SimdReg<f64>>::Reg, r: <Self as SimdReg<f64>>::Reg) -> Regs<<Self as SimdReg<f64>>::Reg,1> {
+    fn mul(&self, l: <Self as SimdReg<f64>>::Reg, r: <Self as SimdReg<f64>>::Reg) -> [<Self as SimdReg<f64>>::Reg;1] {
         unsafe {
-            Regs::new([_mm256_mul_pd(l, r)])
+            [_mm256_mul_pd(l, r)]
         }
     }
 }
@@ -946,12 +952,12 @@ impl SimdShl<i16> for Avx2 where Self: SimdReg<i16> {
 
     #[inline(always)]
     fn shl(&self, v: <Self as SimdReg<i16>>::Reg, w: <Self as SimdReg<i16>>::ShiftWidth) -> <Self as SimdReg<i16>>::Reg {
-        let &[lo,hi] = <Self as SimdPromote<i16,i32>>::promotion(self,v).as_ref();
+        let [lo,hi] = <Self as SimdPromote<i16,i32>>::promotion(self,v);
 
-        let regs = Regs::new([
+        let regs = [
                                  <Self as SimdShl<i32>>::shl(self,lo,w),
                                  <Self as SimdShl<i32>>::shl(self,hi,w)
-                             ]);
+                             ];
 
         <Self as SimdDemote<i32,i16>>::demotion(self,regs)
     }
@@ -1005,12 +1011,12 @@ impl SimdShr<i16> for Avx2 where Self: SimdReg<i16> {
 
     #[inline(always)]
     fn shr(&self, v: <Self as SimdReg<i16>>::Reg, w: <Self as SimdReg<i16>>::ShiftWidth) -> <Self as SimdReg<i16>>::Reg {
-        let &[lo,hi] = <Self as SimdPromote<i16,i32>>::promotion(self,v).as_ref();
+        let [lo,hi] = <Self as SimdPromote<i16,i32>>::promotion(self,v);
 
-        let regs = Regs::new([
+        let regs = [
             <Self as SimdShr<i32>>::shr(self,lo,w),
             <Self as SimdShr<i32>>::shr(self,hi,w)
-        ]);
+        ];
 
         <Self as SimdDemote<i32,i16>>::demotion(self,regs)
     }
@@ -1176,108 +1182,34 @@ impl SimdHSum<f64> for Avx2 {
         }
     }
 }
-impl SimdMulAdd<i8,i8,i32> for Avx2
-    where Self: SimdMul<i8,i8,i32> +
-                SimdAdd<i32,i32,i32> {
-
-    #[inline(always)]
-    fn zero_acc(&self) -> <Self as SimdMul<i8, i8, i32>>::Output {
-        Regs::new([<Self as SimdZero<i32>>::zero();4])
-    }
-    #[inline(always)]
-    fn mul_add(&self, l: <Self as SimdReg<i8>>::Reg, r: <Self as SimdReg<i8>>::Reg,
-                acc: <Self as SimdMul<i8,i8,i32>>::Output) -> <Self as SimdMul<i8,i8,i32>>::Output {
-        let &[r0,r1,r2,r3] = <Self as SimdMul<i8,i8,i32>>::mul(self,l,r).as_ref();
-
-        let &[acc0,acc1,acc2,acc3] = acc.as_ref();
-
-        Regs::new([
-            <Self as SimdAdd<i32,i32,i32>>::add(self,acc0,r0),
-            <Self as SimdAdd<i32,i32,i32>>::add(self,acc1,r1),
-            <Self as SimdAdd<i32,i32,i32>>::add(self,acc2,r2),
-            <Self as SimdAdd<i32,i32,i32>>::add(self,acc3,r3)
-        ])
-    }
-}
-impl SimdMulAdd<i16,i16,i32> for Avx2
-    where Self: SimdMul<i16,i16,i32> +
-                SimdAdd<i32,i32,i32> {
-    #[inline(always)]
-    fn zero_acc(&self) -> <Self as SimdMul<i16, i16, i32>>::Output {
-        Regs::new([<Self as SimdZero<i32>>::zero();2])
-    }
-    #[inline(always)]
-    fn mul_add(&self, l: <Self as SimdReg<i16>>::Reg, r: <Self as SimdReg<i16>>::Reg,
-                acc: <Self as SimdMul<i16,i16,i32>>::Output) -> <Self as SimdMul<i16,i16,i32>>::Output {
-        let &[r0,r1] = <Self as SimdMul<i16,i16,i32>>::mul(self,l,r).as_ref();
-
-        let &[acc0,acc1] = acc.as_ref();
-
-        Regs::new([
-            <Self as SimdAdd<i32,i32,i32>>::add(self,acc0,r0),
-            <Self as SimdAdd<i32,i32,i32>>::add(self,acc1,r1)
-        ])
-    }
-}
 impl SimdMulAdd<i32,i32,i32> for Avx2
     where Self: SimdMul<i32,i32,i32> +
                 SimdAdd<i32,i32,i32> {
     #[inline(always)]
-    fn zero_acc(&self) -> <Self as SimdMul<i32, i32, i32>>::Output {
-        Regs::new([<Self as SimdZero<i32>>::zero()])
-    }
-    #[inline(always)]
     fn mul_add(&self, l: <Self as SimdReg<i32>>::Reg, r: <Self as SimdReg<i32>>::Reg,
-               acc: <Self as SimdMul<i32,i32,i32>>::Output) -> <Self as SimdMul<i32,i32,i32>>::Output {
-        let &[r] = <Self as SimdMul<i32,i32,i32>>::mul(self,l,r).as_ref();
+               acc: <Self as SimdReg<i32>>::Reg) -> <Self as SimdReg<i32>>::Reg {
+        let [r] = <Self as SimdMul<i32,i32,i32>>::mul(self,l,r);
 
-        let &[acc] = acc.as_ref();
-
-        Regs::new([<Self as SimdAdd<i32,i32,i32>>::add(self,acc,r)])
+        <Self as SimdAdd<i32,i32,i32>>::add(self,acc,r)
     }
 }
 impl SimdMulAdd<f32,f32,f32> for Avx2 {
     #[inline(always)]
-    fn zero_acc(&self) -> <Self as SimdMul<f32, f32, f32>>::Output {
-        Regs::new([<Self as SimdZero<f32>>::zero()])
-    }
-    #[inline(always)]
     fn mul_add(&self, l: <Self as SimdReg<f32>>::Reg, r: <Self as SimdReg<f32>>::Reg,
-               acc:<Self as SimdMul<f32,f32,f32>>::Output) -> <Self as SimdMul<f32,f32,f32>>::Output {
-        let &[acc] = acc.as_ref();
-
+               acc:<Self as SimdReg<f32>>::Reg) -> <Self as SimdReg<f32>>::Reg {
         unsafe {
-            Regs::new([_mm256_fmadd_ps(l,r,acc)])
+            _mm256_fmadd_ps(l,r,acc)
         }
     }
 }
 impl SimdMulAdd<f64,f64,f64> for Avx2 {
     #[inline(always)]
-    fn zero_acc(&self) -> <Self as SimdMul<f64, f64, f64>>::Output {
-        Regs::new([<Self as SimdZero<f64>>::zero()])
-    }
-    #[inline(always)]
     fn mul_add(&self, l: <Self as SimdReg<f64>>::Reg, r: <Self as SimdReg<f64>>::Reg,
-               acc: <Self as SimdMul<f64,f64,f64>>::Output) -> <Self as SimdMul<f64,f64,f64>>::Output {
+               acc: <Self as SimdReg<f64>>::Reg
+    ) -> <Self as SimdReg<f64>>::Reg {
         unsafe {
-            let &[acc] = acc.as_ref();
-
-            Regs::new([_mm256_fmadd_pd(l,r,acc)])
+            _mm256_fmadd_pd(l, r, acc)
         }
-    }
-}
-impl<SL,SR,SO> SimdPartialDot<SL,SR,SO> for Avx2
-    where Self: SimdMul<SL,SR,SO> +
-                SimdMulAdd<SL,SR,SO> {
-    type Output = <Self as SimdMul<SL,SR,SO>>::Output;
-    fn zero_acc(&self) -> Self::Output {
-        <Self as SimdMulAdd<SL,SR,SO>>::zero_acc(self)
-    }
-    #[inline(always)]
-    fn partial_dot(&self, l: <Self as SimdReg<SL>>::Reg, r: <Self as SimdReg<SR>>::Reg,
-                   acc: Self::Output)
-        -> Self::Output {
-        self.mul_add(l, r, acc)
     }
 }
 impl SimdZero<i8> for Avx2 where Self: SimdReg<i8> {
@@ -1319,12 +1251,14 @@ impl<SL,SR,SO> SimdDot<SL,SR,SO> for Avx2
     where Self: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> + SimdAdd<SO,SO,SO> + SimdHSum<SO> +
                 SimdLoad<SL> + SimdLoad<SR> + SimdZero<SO> +
                 SimdLanes<SL> + SimdLanes<SR> + SimdLanes<SO> +
-                SimdPartialDot<SL,SR,SO>,
+                SimdMul<SL,SR,SO>,
+          PartialDotAcc<SL,SR,SO,Self>: SimdPartialDot<SL,SR,SO,Self>,
           SL: Clone + Copy,
           SR: Clone + Copy,
           SO: From<SL> + From<SR> + Mul<SO,Output=SO> + AddAssign {
+    #[inline(always)]
     fn dot<'a, const N: usize>(&self, l: &VectorView<'a, SL, N>, r: &VectorView<'a, SR, N>) -> SO {
-        let mut acc = <Self as SimdPartialDot<SL,SR,SO>>::zero_acc(self);
+        let mut acc = PartialDotAcc::new();
 
         let mut i = 0;
         let mut pa = l.as_ref().as_ptr();
@@ -1335,13 +1269,15 @@ impl<SL,SR,SO> SimdDot<SL,SR,SO> for Avx2
                 let lr = self.load(pa);
                 let rr = self.load(pb);
 
-                acc = self.partial_dot(lr,rr,acc);
+                acc.partial_dot(self,lr,rr);
 
                 pa = pa.add(<Self as SimdLanes<SL>>::LANES);
                 pb = pb.add(<Self as SimdLanes<SR>>::LANES);
 
                 i += <Self as SimdLanes<SL>>::LANES;
             }
+
+            let acc = acc.finalize();
 
             let mut sum = <Self as SimdHSum<SO>>::hsum(self,acc.fold(self));
 
@@ -1359,30 +1295,31 @@ impl<SL,SR,SO> SimdDot<SL,SR,SO> for Avx2
 }
 impl<SL,SR,SO> SimdMatVec<SL,SR,SO> for Avx2
     where Self: SimdZero<SO> +
-                SimdPartialDot<SL,SR,SO> +
                 SimdAdd<SO,SO,SO> +
+                SimdMul<SL,SR,SO> +
                 SimdHSum<SO> +
                 SimdLanes<SL> +
                 SimdLoad<SL> +
-                SimdLoad<SR> +
-                SimdPartialDot<SL,SR,SO>,
+                SimdLoad<SR>,
                 SL: Add<SR,Output = SO> + Clone + Copy,
                 SR: Clone + Copy,
                 SO: From<SL> + From<SR> + Mul<SO,Output=SO> + AddAssign,
+                PartialDotAcc<SL,SR,SO,Self>: SimdPartialDot<SL,SR,SO,Self>,
                 <Self as SimdReg<SO>>::Reg: Copy {
 
     fn matvec<'a, const N: usize, const K: usize>(&self, l: &MatrixView<'a, SL, N, K>, r: &VectorView<'a, SR, K>, o: &mut OwnedVector<SO, N>) {
         unsafe {
             for i in 0..N {
-                let mut acc = <Self as SimdPartialDot<SL,SR,SO>>::zero_acc(self);
+                let mut acc = PartialDotAcc::<SL,SR,SO,Self>::new();
 
                 for k in (0..(K - K % <Self as SimdLanes<SL>>::LANES)).step_by(<Self as SimdLanes<SL>>::LANES) {
                     let lr = self.load(l.row(i).as_ref().as_ptr().add(k));
                     let rr = self.load(r.as_ref().as_ptr().add(k));
 
-                    acc = self.partial_dot(lr,rr,acc);
+                    acc.partial_dot(self,lr,rr);
                 }
 
+                let acc = acc.finalize();
                 let mut acc = <Self as SimdHSum<SO>>::hsum(self,acc.fold(self));
 
                 if K % <Self as SimdLanes<SL>>::LANES != 0 {
@@ -1402,11 +1339,150 @@ derive_matmul! { Avx2,i32,i32,i32 }
 derive_matmul! { Avx2,f32,f32,f32 }
 derive_matmul! { Avx2,f64,f64,f64 }
 impl<SL,SR,SO> SimdVMat<SL,SR,SO> for Avx2
-    where Self: SimdMatMul<SL,SR,SO> {
-
+    where Self: SimdDot<SL,SR,SO> +
+                SimdLanes<SL> {
+    #[inline]
     fn vmat<'a, const M: usize, const K: usize>(&self, l: &VectorView<'a, SL, K>, r: &ColumnMajorMatrix<'a, SR, K, M>, o: &mut OwnedVector<SO, M>) {
-        let l = l.as_horizontal();
-        let mut o = o.into();
-        <Self as SimdMatMul<SL,SR,SO>>::matmul::<1,M,K>(self,&l,&r,&mut o)
+        for i in 0..M {
+            let s = self.dot(l,&r.col(i).into());
+
+            o[i] = s;
+        }
+    }
+}
+impl SimdPartialDot<i8,i8,i32,Avx2> for PartialDotAcc<i8,i8,i32,<Avx2 as SimdMul<i8,i8,i32>>::Output>
+    where Avx2: SimdReg<i8> +
+                SimdReg<i32> +
+                SimdMul<i8,i8,i32> +
+                SimdAdd<i32,i32,i32> + Backend + Sized {
+    #[inline(always)]
+    fn new() -> Self {
+        PartialDotAcc {
+            acc: [<Avx2 as SimdZero<i32>>::zero();4],
+            l:PhantomData::<i8>,
+            r:PhantomData::<i8>,
+            o:PhantomData::<i32>
+        }
+    }
+
+    #[inline(always)]
+    fn partial_dot(&mut self, backend: &Avx2, l: <Avx2 as SimdReg<i8>>::Reg, r: <Avx2 as SimdReg<i8>>::Reg) {
+        let regs = <Avx2 as SimdMul<i8,i8,i32>>::mul(backend,l,r);
+
+        self.acc[0] = <Avx2 as SimdAdd<i32,i32,i32>>::add(backend,self.acc[0], regs[0]);
+        self.acc[1] = <Avx2 as SimdAdd<i32,i32,i32>>::add(backend,self.acc[1], regs[1]);
+        self.acc[2] = <Avx2 as SimdAdd<i32,i32,i32>>::add(backend,self.acc[2], regs[2]);
+        self.acc[3] = <Avx2 as SimdAdd<i32,i32,i32>>::add(backend,self.acc[3], regs[3]);
+    }
+
+    #[inline(always)]
+    fn finalize(self) -> <Avx2 as SimdMul<i8,i8,i32>>::Regs {
+        Regs::new(self.acc)
+    }
+}
+impl SimdPartialDot<i16,i16,i32,Avx2> for PartialDotAcc<i16,i16,i32,<Avx2 as SimdMul<i16,i16,i32>>::Output>
+    where Avx2: SimdReg<i16> +
+                SimdReg<i32> +
+                SimdMul<i16,i16,i32> +
+                SimdAdd<i32,i32,i32> + Backend + Sized {
+    #[inline(always)]
+    fn new() -> Self {
+        PartialDotAcc {
+            acc: [<Avx2 as SimdZero<i32>>::zero();2],
+            l:PhantomData::<i16>,
+            r:PhantomData::<i16>,
+            o:PhantomData::<i32>
+        }
+    }
+
+    #[inline(always)]
+    fn partial_dot(&mut self, backend: &Avx2, l: <Avx2 as SimdReg<i16>>::Reg, r: <Avx2 as SimdReg<i16>>::Reg) {
+        let regs = <Avx2 as SimdMul<i16,i16,i32>>::mul(backend,l,r);
+
+        self.acc[0] = <Avx2 as SimdAdd<i32,i32,i32>>::add(backend,self.acc[0], regs[0]);
+        self.acc[1] = <Avx2 as SimdAdd<i32,i32,i32>>::add(backend,self.acc[1], regs[1]);
+    }
+
+    #[inline(always)]
+    fn finalize(self) -> <Avx2 as SimdMul<i16,i16,i32>>::Regs {
+        Regs::new(self.acc)
+    }
+}
+impl SimdPartialDot<i32,i32,i32,Avx2> for PartialDotAcc<i32,i32,i32,<Avx2 as SimdMul<i32,i32,i32>>::Output>
+    where Avx2: SimdReg<i32> +
+                SimdMul<i32,i32,i32> +
+                SimdAdd<i32,i32,i32> + Backend + Sized {
+    #[inline(always)]
+    fn new() -> Self {
+        PartialDotAcc {
+            acc: [<Avx2 as SimdZero<i32>>::zero();1],
+            l:PhantomData::<i32>,
+            r:PhantomData::<i32>,
+            o:PhantomData::<i32>
+        }
+    }
+
+    #[inline(always)]
+    fn partial_dot(&mut self, backend: &Avx2, l: <Avx2 as SimdReg<i32>>::Reg, r: <Avx2 as SimdReg<i32>>::Reg) {
+        let regs = <Avx2 as SimdMul<i32,i32,i32>>::mul(backend,l,r);
+
+        self.acc[0] = <Avx2 as SimdAdd<i32,i32,i32>>::add(backend,self.acc[0], regs[0]);
+    }
+
+    #[inline(always)]
+    fn finalize(self) -> <Avx2 as SimdMul<i32,i32,i32>>::Regs {
+        Regs::new(self.acc)
+    }
+}
+impl SimdPartialDot<f32,f32,f32,Avx2> for PartialDotAcc<f32,f32,f32,<Avx2 as SimdMul<f32,f32,f32>>::Output>
+where Avx2: SimdReg<f32> +
+SimdMul<f32,f32,f32> +
+SimdAdd<f32,f32,f32> + Backend + Sized {
+    #[inline(always)]
+    fn new() -> Self {
+        PartialDotAcc {
+            acc: [<Avx2 as SimdZero<f32>>::zero();1],
+            l:PhantomData::<f32>,
+            r:PhantomData::<f32>,
+            o:PhantomData::<f32>
+        }
+    }
+
+    #[inline(always)]
+    fn partial_dot(&mut self, backend: &Avx2, l: <Avx2 as SimdReg<f32>>::Reg, r: <Avx2 as SimdReg<f32>>::Reg) {
+        let regs = <Avx2 as SimdMul<f32,f32,f32>>::mul(backend,l,r);
+
+        self.acc[0] = <Avx2 as SimdAdd<f32,f32,f32>>::add(backend,self.acc[0], regs[0]);
+    }
+
+    #[inline(always)]
+    fn finalize(self) -> <Avx2 as SimdMul<f32,f32,f32>>::Regs {
+        Regs::new(self.acc)
+    }
+}
+impl SimdPartialDot<f64,f64,f64,Avx2> for PartialDotAcc<f64,f64,f64,<Avx2 as SimdMul<f64,f64,f64>>::Output>
+    where Avx2: SimdReg<f64> +
+                SimdMul<f64,f64,f64> +
+                SimdAdd<f64,f64,f64> + Backend + Sized {
+    #[inline(always)]
+    fn new() -> Self {
+        PartialDotAcc {
+            acc: [<Avx2 as SimdZero<f64>>::zero();1],
+            l:PhantomData::<f64>,
+            r:PhantomData::<f64>,
+            o:PhantomData::<f64>
+        }
+    }
+
+    #[inline(always)]
+    fn partial_dot(&mut self, backend: &Avx2, l: <Avx2 as SimdReg<f64>>::Reg, r: <Avx2 as SimdReg<f64>>::Reg) {
+        let regs = <Avx2 as SimdMul<f64,f64,f64>>::mul(backend,l,r);
+
+        self.acc[0] = <Avx2 as SimdAdd<f64,f64,f64>>::add(backend,self.acc[0], regs[0]);
+    }
+
+    #[inline(always)]
+    fn finalize(self) -> <Avx2 as SimdMul<f64,f64,f64>>::Regs {
+        Regs::new(self.acc)
     }
 }

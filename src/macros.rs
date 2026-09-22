@@ -1,3 +1,6 @@
+use crate::backend::common::PartialDotAcc;
+use crate::traits::{FoldRegs, SimdPartialDot};
+
 #[macro_export]
 macro_rules! matmul_tile {
     ($func_name:ident,$ROWS:expr,$COLS:expr,$SL:ty,$SR:ty,$SO:ty) => {
@@ -9,7 +12,7 @@ macro_rules! matmul_tile {
             j:usize,
             acc:&mut MatrixMut<'a,$SO,N,M>
         ) {
-            let mut acc_tile = [[<Self as SimdPartialDot<$SL,$SR,$SO>>::zero_acc(self);COLS];ROWS];
+            let mut acc_tile = [[PartialDotAcc::<$SL,$SR,$SO,<Self as SimdMul<$SL,$SR,$SO>>::Output>::new();COLS];ROWS];
 
             unsafe {
                 for k in (0..(K - K % <Self as SimdLanes<$SL>>::LANES)).step_by(<Self as SimdLanes<$SL>>::LANES) {
@@ -26,15 +29,17 @@ macro_rules! matmul_tile {
 
                     for r in 0..$ROWS {
                         for c in 0..$COLS {
-                            acc_tile[r][c] = <Self as SimdPartialDot<$SL,$SR,$SO>>::partial_dot(self,rr[r],cr[c],acc_tile[r][c]);
+                            acc_tile[r][c].partial_dot(self,rr[r],cr[c]);
                         }
                     }
                 }
 
                 for r in 0..$ROWS {
                     for c in 0..$COLS {
+                        let t = <PartialDotAcc::<$SL,$SR,$SO,<Self as SimdMul<$SL,$SR,$SO>>::Output> as SimdPartialDot<$SL,$SR,$SO,Self>>::finalize(acc_tile[r][c]);
+
                         acc[(i+r,j+c)] = <Self as SimdHSum<$SO>>::hsum(self,
-                            <<Self as SimdMul<$SL,$SR,$SO>>::Output as FoldRegs<$SO,Self>>::fold(&acc_tile[r][c],self)
+                            <<Self as SimdMul<$SL,$SR,$SO>>::Regs as FoldRegs<$SO,Self>>::fold(&t,self)
                         );
                     }
                 }
@@ -60,14 +65,15 @@ macro_rules! matmul_tile {
 macro_rules! derive_matmul {
     ($BE:ty,$SL:ty,$SR:ty,$SO:ty) => {
         impl SimdMatMul<$SL,$SR,$SO> for $BE
-            where Self: SimdPartialDot<$SL,$SR,$SO> +
-                        SimdRows<$SL> + SimdZero<$SL> + SimdReg<$SL> + SimdLoad<$SL> +
+            where Self: SimdRows<$SL> + SimdZero<$SL> + SimdReg<$SL> + SimdLoad<$SL> +
                         SimdCols<$SR> + SimdZero<$SR> + SimdReg<$SR> + SimdLoad<$SR> +
                         SimdZero<$SO> + SimdHSum<$SO> +
                         SimdLanes<$SR>,
                         <Self as SimdReg<$SL>>::Reg: Clone + Copy,
                         <Self as SimdReg<$SR>>::Reg: Clone + Copy,
                         <Self as SimdReg<$SO>>::Reg: Clone + Copy,
+                        PartialDotAcc<$SL,$SR,$SO,<Self as SimdMul<$SL,$SR,$SO>>::Output>: SimdPartialDot<$SL,$SR,$SO,Self>,
+                        <Self as SimdMul<$SL,$SR,$SO>>::Regs: FoldRegs<$SO,Self>,
                         $SL: Copy,
                         $SO: Default + AddAssign + From<$SL> + From<$SR> + Copy {
             fn matmul<'a, const N: usize, const M: usize, const K: usize>(&self, l: &MatrixView<'a, $SL, N, K>, r: &ColumnMajorMatrix<'a, $SR, K, M>, acc: &mut MatrixMut<'a,$SO, N, M>) {
