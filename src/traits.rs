@@ -28,7 +28,7 @@ pub trait RegsInto {
 }
 /// Multiply at the SIMD register level
 pub trait SimdMul<SL,SR,SO>: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> + SimdAdd<SO,SO,SO> + Sized {
-    type Output: IntoIterator<Item=<Self as SimdReg<SO>>::Reg>;
+    type Output;
     type Regs: FoldRegs<SO,Self>;
     ///
     /// # Arguments
@@ -539,11 +539,21 @@ pub trait SimdMulAdd<SL,SR,SO>:
                acc:<Self as SimdReg<SO>>::Reg) -> <Self as SimdReg<SO>>::Reg;
 }
 /// Returns a partial dot product using SIMD registers
-pub trait SimdPartialDot<SL,SR,SO>:
-    where Self: SimdReg<SO> +
-                SimdMul<SL,SR,SO> + Backend + Sized,
-          <Self as SimdMul<SL,SR,SO>>::Output: IntoIterator<Item=<Self as SimdReg<SO>>::Reg> + Copy {
-    fn zero_acc() -> <Self as SimdMul<SL,SR,SO>>::Output;
+pub trait SimdPartialDot<SL,SR,SO,BE>:
+    where BE: SimdReg<SL> +
+              SimdReg<SR> +
+              SimdReg<SO> +
+              SimdMul<SL,SR,SO> +
+              SimdAdd<SO,SO,SO> + Backend + Sized {
+    fn new() -> Self;
+    /// Returns a partial dot product using SIMD registers
+    /// # Arguments
+    /// * `l` - Left-hand side
+    /// * `r` - Right-hand side
+    /// * `acc` - Accumulator
+    fn partial_dot(&mut self,backend:&BE,l:<BE as SimdReg<SL>>::Reg,r:<BE as SimdReg<SR>>::Reg);
+
+    fn finalize(self) -> <BE as SimdMul<SL,SR,SO>>::Regs;
 }
 /// Returns a zero-initialized SIMD register
 pub trait SimdZero<S>: SimdReg<S> {

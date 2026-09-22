@@ -20,68 +20,6 @@ impl Backend for Avx2 {
     }
 }
 impl NativeBackend for Avx2 {}
-macro_rules! derive_simd_dot {
-    ($SL:ty,$SR:ty,$SO:ty; $s:ident,$lr:ident,$rr:ident,$acc:ident; $partial_dot:tt) => {
-        impl SimdDot<$SL,$SR,$SO> for Avx2
-            where Self: SimdReg<$SL> + SimdReg<$SR> + SimdReg<$SO> + SimdAdd<$SO,$SO,$SO> + SimdHSum<$SO> +
-                        SimdLoad<$SL> + SimdLoad<$SR> + SimdZero<$SO> +
-                        SimdLanes<$SL> + SimdLanes<$SR> + SimdLanes<$SO> +
-                        SimdMul<$SL,$SR,$SO> + SimdPartialDot<$SL,$SR,$SO>,
-                  $SL: Clone + Copy,
-                  $SR: Clone + Copy,
-                  $SO: From<$SL> + From<$SR> + Mul<$SO,Output=$SO> + AddAssign {
-            #[inline(always)]
-            fn dot<'a, const N: usize>(& $s, l: &VectorView<'a, $SL, N>, r: &VectorView<'a, $SR, N>) -> $SO {
-                let mut $acc = <Self as SimdPartialDot<$SL,$SR,$SO>>::zero_acc();
-
-                let mut i = 0;
-                let mut pa = l.as_ref().as_ptr();
-                let mut pb = r.as_ref().as_ptr();
-
-                unsafe {
-                    while i + <Self as SimdLanes<$SL>>::LANES <= N {
-                        let $lr = $s.load(pa);
-                        let $rr = $s.load(pb);
-
-                        $partial_dot
-
-                        pa = pa.add(<Self as SimdLanes<$SL>>::LANES);
-                        pb = pb.add(<Self as SimdLanes<$SR>>::LANES);
-
-                        i += <Self as SimdLanes<$SL>>::LANES;
-                    }
-
-                    let mut sum = <Self as SimdHSum<$SO>>::hsum($s,$acc.into_iter().fold(<Self as SimdZero<$SO>>::zero(), |acc,r| {
-                        <Self as SimdAdd<$SO,$SO,$SO>>::add($s,acc,r)
-                    }));
-
-                    if N % <Self as SimdLanes<$SL>>::LANES != 0 {
-                        for _ in i..N {
-                            sum += <$SO>::from(*pa) * <$SO>::from(*pb);
-                            pa = pa.add(1);
-                            pb = pb.add(1);
-                        }
-                    }
-
-                    sum
-                }
-            }
-        }
-   };
-}
-derive_simd_dot! { i16,i16,i32; self,lr,rr,acc;
-    {
-        let regs = <Avx2 as SimdMul<i16,i16,i32>>::mul(self,lr,rr);
-
-        acc[0] = <Avx2 as SimdAdd<i32,i32,i32>>::add(self,acc[0], regs[0]);
-        acc[1] = <Avx2 as SimdAdd<i32,i32,i32>>::add(self,acc[1], regs[1]);
-    }
-}
-impl SimdPartialDot<i16,i16,i32> for Avx2 {
-    fn zero_acc() -> <Self as SimdMul<i16, i16, i32>>::Output {
-        [<Self as SimdZero<i32>>::zero();2]
-    }
-}
 impl SimdLanes<f32> for Avx2 {
     const LANES: usize = 8;
 }
@@ -1309,6 +1247,52 @@ impl SimdZero<f64> for Avx2 where Self: SimdReg<f64> {
         }
     }
 }
+impl<SL,SR,SO> SimdDot<SL,SR,SO> for Avx2
+    where Self: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> + SimdAdd<SO,SO,SO> + SimdHSum<SO> +
+                SimdLoad<SL> + SimdLoad<SR> + SimdZero<SO> +
+                SimdLanes<SL> + SimdLanes<SR> + SimdLanes<SO> +
+                SimdMul<SL,SR,SO>,
+          PartialDotAcc<SL,SR,SO,Self>: SimdPartialDot<SL,SR,SO,Self>,
+          SL: Clone + Copy,
+          SR: Clone + Copy,
+          SO: From<SL> + From<SR> + Mul<SO,Output=SO> + AddAssign {
+    #[inline(always)]
+    fn dot<'a, const N: usize>(&self, l: &VectorView<'a, SL, N>, r: &VectorView<'a, SR, N>) -> SO {
+        let mut acc = PartialDotAcc::new();
+
+        let mut i = 0;
+        let mut pa = l.as_ref().as_ptr();
+        let mut pb = r.as_ref().as_ptr();
+
+        unsafe {
+            while i + <Self as SimdLanes<SL>>::LANES <= N {
+                let lr = self.load(pa);
+                let rr = self.load(pb);
+
+                acc.partial_dot(self,lr,rr);
+
+                pa = pa.add(<Self as SimdLanes<SL>>::LANES);
+                pb = pb.add(<Self as SimdLanes<SR>>::LANES);
+
+                i += <Self as SimdLanes<SL>>::LANES;
+            }
+
+            let acc = acc.finalize();
+
+            let mut sum = <Self as SimdHSum<SO>>::hsum(self,acc.fold(self));
+
+            if N % <Self as SimdLanes<SL>>::LANES != 0 {
+                for _ in i..N {
+                    sum += SO::from(*pa) * SO::from(*pb);
+                    pa = pa.add(1);
+                    pb = pb.add(1);
+                }
+            }
+
+            sum
+        }
+    }
+}
 impl<SL,SR,SO> SimdMatVec<SL,SR,SO> for Avx2
     where Self: SimdZero<SO> +
                 SimdAdd<SO,SO,SO> +
@@ -1316,27 +1300,27 @@ impl<SL,SR,SO> SimdMatVec<SL,SR,SO> for Avx2
                 SimdHSum<SO> +
                 SimdLanes<SL> +
                 SimdLoad<SL> +
-                SimdLoad<SR> +
-                SimdPartialDot<SL,SR,SO>,
+                SimdLoad<SR>,
                 SL: Add<SR,Output = SO> + Clone + Copy,
                 SR: Clone + Copy,
                 SO: From<SL> + From<SR> + Mul<SO,Output=SO> + AddAssign,
-                <Self as SimdMul<SL,SR,SO>>::Output: Copy,
+                PartialDotAcc<SL,SR,SO,Self>: SimdPartialDot<SL,SR,SO,Self>,
                 <Self as SimdReg<SO>>::Reg: Copy {
 
     fn matvec<'a, const N: usize, const K: usize>(&self, l: &MatrixView<'a, SL, N, K>, r: &VectorView<'a, SR, K>, o: &mut OwnedVector<SO, N>) {
         unsafe {
             for i in 0..N {
-                let mut acc = <Self as SimdPartialDot<SL,SR,SO>>::zero_acc();
+                let mut acc = PartialDotAcc::<SL,SR,SO,Self>::new();
 
                 for k in (0..(K - K % <Self as SimdLanes<SL>>::LANES)).step_by(<Self as SimdLanes<SL>>::LANES) {
                     let lr = self.load(l.row(i).as_ref().as_ptr().add(k));
                     let rr = self.load(r.as_ref().as_ptr().add(k));
+
+                    acc.partial_dot(self,lr,rr);
                 }
 
-                let mut acc = <Self as SimdHSum<SO>>::hsum(self,acc.into_iter().fold(<Self as SimdZero<SO>>::zero(),|acc,r| {
-                    <Self as SimdAdd<SO,SO,SO>>::add(self,acc,r)
-                }));
+                let acc = acc.finalize();
+                let mut acc = <Self as SimdHSum<SO>>::hsum(self,acc.fold(self));
 
                 if K % <Self as SimdLanes<SL>>::LANES != 0 {
                     for k in (K - K % <Self as SimdLanes<SL>>::LANES)..K {
@@ -1349,18 +1333,11 @@ impl<SL,SR,SO> SimdMatVec<SL,SR,SO> for Avx2
         }
     }
 }
-//derive_matmul! { Avx2,i8,i8,i32 }
-derive_matmul! { Avx2,i16,i16,i32;rr,cr,acc_tile,self,r,c;
-    {
-        let regs = <Avx2 as SimdMul<i16,i16,i32>>::mul(self,rr[r],cr[c]);
-
-        acc_tile[r][c][0] = <Avx2 as SimdAdd<i32,i32,i32>>::add(self,acc_tile[r][c][0], regs[0]);
-        acc_tile[r][c][1] = <Avx2 as SimdAdd<i32,i32,i32>>::add(self,acc_tile[r][c][1], regs[1]);
-    }
-}
-//derive_matmul! { Avx2,i32,i32,i32 }
-//derive_matmul! { Avx2,f32,f32,f32 }
-//derive_matmul! { Avx2,f64,f64,f64 }
+derive_matmul! { Avx2,i8,i8,i32 }
+derive_matmul! { Avx2,i16,i16,i32 }
+derive_matmul! { Avx2,i32,i32,i32 }
+derive_matmul! { Avx2,f32,f32,f32 }
+derive_matmul! { Avx2,f64,f64,f64 }
 impl<SL,SR,SO> SimdVMat<SL,SR,SO> for Avx2
     where Self: SimdDot<SL,SR,SO> +
                 SimdLanes<SL> {
@@ -1373,7 +1350,6 @@ impl<SL,SR,SO> SimdVMat<SL,SR,SO> for Avx2
         }
     }
 }
-/*
 impl SimdPartialDot<i8,i8,i32,Avx2> for PartialDotAcc<i8,i8,i32,<Avx2 as SimdMul<i8,i8,i32>>::Output>
     where Avx2: SimdReg<i8> +
                 SimdReg<i32> +
@@ -1423,14 +1399,8 @@ impl SimdPartialDot<i16,i16,i32,Avx2> for PartialDotAcc<i16,i16,i32,<Avx2 as Sim
     fn partial_dot(&mut self, backend: &Avx2, l: <Avx2 as SimdReg<i16>>::Reg, r: <Avx2 as SimdReg<i16>>::Reg) {
         let regs = <Avx2 as SimdMul<i16,i16,i32>>::mul(backend,l,r);
 
-        let mut acc0 = self.acc[0];
-        let mut acc1 = self.acc[1];
-
-        acc0 = <Avx2 as SimdAdd<i32,i32,i32>>::add(backend,self.acc[0], regs[0]);
-        acc1 = <Avx2 as SimdAdd<i32,i32,i32>>::add(backend,self.acc[1], regs[1]);
-
-        self.acc[0] = acc0;
-        self.acc[1] = acc1;
+        self.acc[0] = <Avx2 as SimdAdd<i32,i32,i32>>::add(backend,self.acc[0], regs[0]);
+        self.acc[1] = <Avx2 as SimdAdd<i32,i32,i32>>::add(backend,self.acc[1], regs[1]);
     }
 
     #[inline(always)]
@@ -1516,4 +1486,3 @@ impl SimdPartialDot<f64,f64,f64,Avx2> for PartialDotAcc<f64,f64,f64,<Avx2 as Sim
         Regs::new(self.acc)
     }
 }
- */
