@@ -252,6 +252,19 @@ impl<'a,T,const N: usize> AsMut<[T;N]> for VectorMut<'a,T,N> {
         &mut self.data
     }
 }
+impl<'a,T,const N: usize> TryFrom<&'a mut [T]> for VectorMut<'a,T,N> {
+    type Error = InstantiationError;
+    #[inline(always)]
+    fn try_from(value: &'a mut [T]) -> Result<Self,Self::Error> {
+        if value.len() != N {
+            Err(InstantiationError::from(TryFromSliceError))
+        } else {
+            Ok(VectorMut {
+                data: value.try_into()?
+            })
+        }
+    }
+}
 /// Vector Types with Ownership
 pub struct OwnedVector<T,const N: usize> {
     data: Box<[T; N]>
@@ -268,6 +281,12 @@ impl<T,const N: usize> From<Box<[T;N]>> for OwnedVector<T,N> {
         OwnedVector {
             data: value
         }
+    }
+}
+impl<T,const N: usize> From<OwnedVector<T,N>> for Box<[T]> {
+    #[inline(always)]
+    fn from(value: OwnedVector<T,N>) -> Box<[T]> {
+        value.data
     }
 }
 impl<T,const N: usize> AsMut<[T;N]> for OwnedVector<T,N> {
