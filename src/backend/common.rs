@@ -1,7 +1,7 @@
 //! Common Backend Implementation
 
 use std::ops::{Add, Mul, Sub};
-use crate::traits::{SimdAddVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportMul, FoldRegs, SimdOuterProduct, SimdMatMul, SimdMulAssignVector, SimdAddAssignVector, SimdSubAssignVector, SimdShiftWidth, SimdScalarMulAssignVector, SimdAddAssignMatrix, SimdScalarMulAssignMatrix, SimdScalarMulMatrix, SimdConvertMatrix, SimdLoadSeq};
+use crate::traits::{SimdAddVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportMul, FoldRegs, SimdOuterProduct, SimdMatMul, SimdMulAssignVector, SimdAddAssignVector, SimdSubAssignVector, SimdShiftWidth, SimdScalarMulAssignVector, SimdAddAssignMatrix, SimdScalarMulAssignMatrix, SimdScalarMulMatrix, SimdConvertMatrix, SimdLoadSeq, SimdScalarMulVectorInto};
 use crate::{ColumnMajorMatrix, MatrixMut, MatrixView, OwnedMatrix, OwnedVector, VectorMut, VectorView};
 use crate::error::InstantiationError;
 
@@ -15,30 +15,35 @@ pub struct Regs<R,const N:usize> where R: Copy {
     regs:[R;N]
 }
 impl<R,const N:usize> Regs<R,N> where R: Copy {
+    #[inline(always)]
     pub fn new(regs:[R;N]) -> Self {
         Regs { regs }
     }
 }
 impl<R,const N:usize> AsRef<[R;N]> for Regs<R,N>
     where R: Copy {
+    #[inline(always)]
     fn as_ref(&self) -> &[R;N] {
         &self.regs
     }
 }
 impl<S,BE: SimdReg<S> + SimdAdd<S,S,S>> FoldRegs<S,BE> for Regs<<BE as SimdReg<S>>::Reg,1>
     where <BE as SimdReg<S>>::Reg: Copy {
+    #[inline(always)]
     fn fold(&self,_: &BE) -> <BE as SimdReg<S>>::Reg {
         self.regs[0]
     }
 }
 impl<S,BE: SimdReg<S> + SimdAdd<S,S,S>> FoldRegs<S,BE> for Regs<<BE as SimdReg<S>>::Reg,2>
     where <BE as SimdReg<S>>::Reg: Copy {
+    #[inline(always)]
     fn fold(&self,backend: &BE) -> <BE as SimdReg<S>>::Reg {
         backend.add(self.regs[0],self.regs[1])
     }
 }
 impl<S,BE: SimdReg<S> + SimdAdd<S,S,S>> FoldRegs<S,BE> for Regs<<BE as SimdReg<S>>::Reg,4>
     where <BE as SimdReg<S>>::Reg: Copy {
+    #[inline(always)]
     fn fold(&self,backend: &BE) -> <BE as SimdReg<S>>::Reg {
         backend.add(backend.add(self.regs[0],self.regs[1]),backend.add(self.regs[2],self.regs[3]))
     }
@@ -48,6 +53,7 @@ impl<T,BE> SimdLoadSeq<T,Regs<<Self as SimdReg<T>>::Reg,1>> for BE
               SimdLanes<T> +
               SimdReg<T> +
               SimdLoad<T> {
+    #[inline(always)]
     unsafe fn load_seq(&self, ptr: *const T) -> Regs<<Self as SimdReg<T>>::Reg,1> {
         let reg = unsafe { self.load(ptr) };
         Regs::new([reg])
@@ -58,6 +64,7 @@ impl<T,BE> SimdLoadSeq<T,Regs<<Self as SimdReg<T>>::Reg,2>> for BE
               SimdLanes<T> +
               SimdReg<T> +
               SimdLoad<T> {
+    #[inline(always)]
     unsafe fn load_seq(&self, ptr: *const T) -> Regs<<Self as SimdReg<T>>::Reg,2> {
         let a = unsafe { self.load(ptr) };
         let b = unsafe { self.load(ptr.add(<Self as SimdLanes<T>>::LANES)) };
@@ -126,28 +133,30 @@ impl<T,BE> SimdAddAssignVector<T,T> for BE
               SimdLoad<T> +
               SimdStore<T>,
           T: Default + Add<Output=T> + Copy {
-    #[inline]
-    fn add_assign_vector<'a,const N: usize>(&self, l: &mut VectorMut<'a,T,N>, r: &VectorView<'a,T,N>) {
-        let mut i = 0;
-
+    #[target_feature(enable = "avx2")]
+    unsafe fn add_assign_vector<'a,const N: usize>(&self, l: &mut VectorMut<'a,T,N>, r: &VectorView<'a,T,N>) {
         unsafe {
-            let pa = l.as_mut().as_mut_ptr();
-            let pb = r.as_ref().as_ptr();
+            let mut ref_l = l.as_mut();
+            let ref_r = r.as_ref();
 
-            while i + <Self as SimdLanes<T>>::LANES <= N {
-                let ra = self.load(pa.add(i));
-                let rb = self.load(pb.add(i));
+            let mut chunks_l = ref_l.chunks_exact_mut(<Self as SimdLanes<T>>::LANES);
+            let chunks_r = ref_r.chunks_exact(<Self as SimdLanes<T>>::LANES);
+
+            for (mut cl,cr) in chunks_l.zip(chunks_r) {
+                let ra = self.load(cl.as_mut_ptr());
+                let rb = self.load(cr.as_ptr());
 
                 let rr = self.add(ra,rb);
 
-                self.store(pa.add(i),rr);
-
-                i += <Self as SimdLanes<T>>::LANES;
+                self.store(cl.as_mut_ptr(),rr);
             }
 
+            let mut chuks_l_remainder = ref_l.chunks_exact_mut(<Self as SimdLanes<T>>::LANES).into_remainder();
+            let chuks_r_remainder = ref_r.chunks_exact(<Self as SimdLanes<T>>::LANES).remainder();
+
             if N % <Self as SimdLanes<T>>::LANES != 0 {
-                for j in i..N {
-                    l[j] = l[j] + r[j];
+                for (l,r) in chuks_l_remainder.iter_mut().zip(chuks_r_remainder.iter()) {
+                    *l = *l + *r;
                 }
             }
         }
@@ -157,14 +166,14 @@ impl<T,BE> SimdAddVector<T,T,T> for BE
     where BE: Backend +
               SimdAddAssignVector<T,T>,
               T: Copy {
-    #[inline]
-    fn add_vector<'a,const N: usize>(&self, l: &VectorView<'a,T,N>, r: &VectorView<'a,T,N>)
+    #[target_feature(enable = "avx2")]
+    unsafe fn add_vector<'a,const N: usize>(&self, l: &VectorView<'a,T,N>, r: &VectorView<'a,T,N>)
         -> OwnedVector<T,N> {
         let mut acc = OwnedVector::from(Box::<[T;N]>::from(l));
 
         let mut l = VectorMut::<T,N>::from(&mut acc);
 
-        <Self as SimdAddAssignVector<T,T>>::add_assign_vector(self,&mut l,&r);
+        unsafe { <Self as SimdAddAssignVector<T,T>>::add_assign_vector(self,&mut l,&r) };
 
         acc
     }
@@ -179,28 +188,30 @@ impl<T,BE> SimdSubAssignVector<T,T> for BE
               SimdLoad<T> +
               SimdStore<T>,
           T: Default + Sub<Output=T> + Copy {
-    #[inline]
-    fn sub_assign_vector<'a,const N: usize>(&self, l: &mut VectorMut<'a,T,N>, r: &VectorView<'a,T,N>) {
-        let mut i = 0;
-
+    #[target_feature(enable = "avx2")]
+    unsafe fn sub_assign_vector<'a,const N: usize>(&self, l: &mut VectorMut<'a,T,N>, r: &VectorView<'a,T,N>) {
         unsafe {
-            let pa = l.as_mut().as_mut_ptr();
-            let pb = r.as_ref().as_ptr();
+            let mut ref_l = l.as_mut();
+            let ref_r = r.as_ref();
 
-            while i + <Self as SimdLanes<T>>::LANES <= N {
-                let ra = self.load(pa.add(i));
-                let rb = self.load(pb.add(i));
+            let mut chunks_l = ref_l.chunks_exact_mut(<Self as SimdLanes<T>>::LANES);
+            let chunks_r = ref_r.chunks_exact(<Self as SimdLanes<T>>::LANES);
+
+            for (mut cl,cr) in chunks_l.zip(chunks_r) {
+                let ra = self.load(cl.as_mut_ptr());
+                let rb = self.load(cr.as_ptr());
 
                 let rr = self.sub(ra,rb);
 
-                self.store(pa.add(i),rr);
-
-                i += <Self as SimdLanes<T>>::LANES;
+                self.store(cl.as_mut_ptr(),rr);
             }
 
+            let mut chuks_l_remainder = ref_l.chunks_exact_mut(<Self as SimdLanes<T>>::LANES).into_remainder();
+            let chuks_r_remainder = ref_r.chunks_exact(<Self as SimdLanes<T>>::LANES).remainder();
+
             if N % <Self as SimdLanes<T>>::LANES != 0 {
-                for j in i..N {
-                    l[j] = l[j] - r[j];
+                for (l,r) in chuks_l_remainder.iter_mut().zip(chuks_r_remainder.iter()) {
+                    *l = *l - *r;
                 }
             }
         }
@@ -210,14 +221,14 @@ impl<T,BE> SimdSubVector<T,T,T> for BE
     where BE: Backend +
               SimdSubAssignVector<T,T>,
       T: Copy {
-    #[inline]
-    fn sub_vector<'a,const N: usize>(&self, l: &VectorView<'a,T,N>, r: &VectorView<'a,T,N>)
+    #[target_feature(enable = "avx2")]
+    unsafe fn sub_vector<'a,const N: usize>(&self, l: &VectorView<'a,T,N>, r: &VectorView<'a,T,N>)
         -> OwnedVector<T,N> {
         let mut acc = OwnedVector::from(Box::<[T;N]>::from(l));
 
         let mut l = VectorMut::<T,N>::from(&mut acc);
 
-        <Self as SimdSubAssignVector<T,T>>::sub_assign_vector(self,&mut l,r);
+        unsafe { <Self as SimdSubAssignVector<T,T>>::sub_assign_vector(self,&mut l,r) };
 
         acc
     }
@@ -238,32 +249,36 @@ impl<SL,SR,SO,BE> SimdMulVector<SL,SR,SO> for BE
               SR: Copy,
               <Self as SimdMul<SL,SR,SO>>::Output: Copy,
               (SL,SO): SupportMul<Heterogeneous> {
-    #[inline]
-    fn mul_vector<'a,const N: usize>(&self, l: &VectorView<'a,SL,N>, r: &VectorView<'a,SR,N>)
+    #[target_feature(enable = "avx2")]
+    unsafe fn mul_vector<'a,const N: usize>(&self, l: &VectorView<'a,SL,N>, r: &VectorView<'a,SR,N>)
         -> OwnedVector<SO,N> {
-        let mut i = 0;
-
         let mut rs = OwnedVector::from(Box::new([SO::default(); N]));
 
         unsafe {
-            let pa = l.as_ref().as_ptr();
-            let pb = r.as_ref().as_ptr();
-            let po = rs.as_mut().as_mut_ptr();
+            let ref_l = l.as_ref();
+            let ref_r = r.as_ref();
+            let ref_o = rs.as_mut();
 
-            while i + <Self as SimdLanes<SL>>::LANES <= N {
-                let ra = self.load(pa.add(i));
-                let rb = self.load(pb.add(i));
+            let chunks_l = ref_l.chunks_exact(<Self as SimdLanes<SL>>::LANES);
+            let chunks_r = ref_r.chunks_exact(<Self as SimdLanes<SL>>::LANES);
+            let chunks_o = ref_o.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES);
+
+            for (co,(cl,cr)) in chunks_o.zip(chunks_l.zip(chunks_r)) {
+                let ra = self.load(cl.as_ptr());
+                let rb = self.load(cr.as_ptr());
 
                 let prod = self.mul(ra,rb);
 
-                self.store_seq(po.add(i),prod);
-
-                i += <Self as SimdLanes<SL>>::LANES;
+                self.store_seq(co.as_mut_ptr(),prod);
             }
 
             if N % <Self as SimdLanes<SL>>::LANES != 0 {
-                for j in i..N {
-                    rs[j] = SO::from(l[j]) * SO::from(r[j]);
+                let chunck_l_remainder = ref_l.chunks_exact(<Self as SimdLanes<SL>>::LANES).remainder();
+                let chunck_r_remainder = ref_r.chunks_exact(<Self as SimdLanes<SL>>::LANES).remainder();
+                let mut chunck_o_remainder = ref_o.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES).into_remainder();
+
+                for (o,(&l,&r)) in chunck_o_remainder.iter_mut().zip(chunck_l_remainder.iter().zip(chunck_r_remainder.iter())) {
+                    *o = SO::from(l) * SO::from(r);
                 }
             }
         }
@@ -285,28 +300,30 @@ impl<SL,SR,BE> SimdMulAssignVector<SL,SR> for BE
           SR: Copy,
           <Self as SimdMul<SL,SR,SL>>::Output: Copy,
           (SL,SL): SupportMul<Homogeneous> {
-    #[inline]
-    fn mul_assign_vector<'a,const N: usize>(&self, l: &mut VectorMut<'a,SL,N>, r: &VectorView<'a,SR,N>) {
-        let mut i = 0;
-
+    #[target_feature(enable = "avx2")]
+    unsafe fn mul_assign_vector<'a,const N: usize>(&self, l: &mut VectorMut<'a,SL,N>, r: &VectorView<'a,SR,N>) {
         unsafe {
-            let pa = l.as_mut().as_mut_ptr();
-            let pb = r.as_ref().as_ptr();
+            let mut ref_l = l.as_mut();
+            let ref_r = r.as_ref();
 
-            while i + <Self as SimdLanes<SL>>::LANES <= N {
-                let ra = self.load(pa.add(i));
-                let rb = self.load(pb.add(i));
+            let mut chunks_l = ref_l.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES);
+            let chunks_r = ref_r.chunks_exact(<Self as SimdLanes<SL>>::LANES);
+
+            for (mut cl,cr) in chunks_l.zip(chunks_r) {
+                let ra = self.load(cl.as_ptr());
+                let rb = self.load(cr.as_ptr());
 
                 let prod = self.mul(ra,rb);
 
-                self.store_seq(pa.add(i),prod);
-
-                i += <Self as SimdLanes<SL>>::LANES;
+                self.store_seq(cl.as_mut_ptr(),prod);
             }
 
             if N % <Self as SimdLanes<SL>>::LANES != 0 {
-                for j in i..N {
-                    l[j] = l[j] * r[j];
+                let mut chunck_l_remainder = ref_l.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES).into_remainder();
+                let chunck_r_remainder = ref_r.chunks_exact(<Self as SimdLanes<SL>>::LANES).remainder();
+
+                for (l,r) in chunck_l_remainder.iter_mut().zip(chunck_r_remainder.iter()) {
+                    *l = *l * *r;
                 }
             }
         }
@@ -328,32 +345,36 @@ impl<SL,SR,SO,BE> SimdMulVector<SL,SR,SO> for BE
               SR: Copy,
               <Self as SimdMul<SL,SR,SO>>::Output: Copy,
               (SL,SO): SupportMul<Homogeneous> {
-    #[inline]
-    fn mul_vector<'a,const N: usize>(&self, l: &VectorView<'a,SL,N>, r: &VectorView<'a,SR,N>)
+    #[target_feature(enable = "avx2")]
+    unsafe fn mul_vector<'a,const N: usize>(&self, l: &VectorView<'a,SL,N>, r: &VectorView<'a,SR,N>)
         -> OwnedVector<SO,N> {
-        let mut i = 0;
-
         let mut rs = OwnedVector::from(Box::new([SO::default(); N]));
 
         unsafe {
-            let pa = l.as_ref().as_ptr();
-            let pb = r.as_ref().as_ptr();
-            let po = rs.as_mut().as_mut_ptr();
+            let ref_l = l.as_ref();
+            let ref_r = r.as_ref();
+            let mut ref_o = rs.as_mut();
 
-            while i + <Self as SimdLanes<SL>>::LANES <= N {
-                let ra = self.load(pa.add(i));
-                let rb = self.load(pb.add(i));
+            let chunks_l = ref_l.chunks_exact(<Self as SimdLanes<SL>>::LANES);
+            let chunks_r = ref_r.chunks_exact(<Self as SimdLanes<SL>>::LANES);
+            let chunks_o = ref_o.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES);
+
+            for (co,(cl,cr)) in chunks_o.zip(chunks_l.zip(chunks_r)) {
+                let ra = self.load(cl.as_ptr());
+                let rb = self.load(cr.as_ptr());
 
                 let prod = self.mul(ra,rb);
 
-                self.store_seq(po.add(i),prod);
-
-                i += <Self as SimdLanes<SL>>::LANES;
+                self.store_seq(co.as_mut_ptr(),prod);
             }
 
             if N % <Self as SimdLanes<SL>>::LANES != 0 {
-                for j in i..N {
-                    rs[j] = l[j] * r[j];
+                let chunck_l_remainder = ref_l.chunks_exact(<Self as SimdLanes<SL>>::LANES).remainder();
+                let chunck_r_remainder = ref_r.chunks_exact(<Self as SimdLanes<SL>>::LANES).remainder();
+                let mut chunck_o_remainder = ref_o.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES).into_remainder();
+
+                for (o,(&l,&r)) in chunck_o_remainder.iter_mut().zip(chunck_l_remainder.iter().zip(chunck_r_remainder.iter())) {
+                    *o = l * r;
                 }
             }
         }
@@ -379,44 +400,47 @@ impl<SL,SR,SO,BE> SimdScalarMulVector<SL,SR,SO> for BE
               <Self as SimdReg<SL>>::Reg: Copy,
               <Self as SimdMul<SL,SR,SO>>::Output: Copy,
               (SL,SO): SupportMul<Heterogeneous> {
-    #[inline]
-    fn scalarmul_vector<'a, const N: usize>(&self, l:SL, r: &VectorView<'a, SR, N>) -> OwnedVector<SO, N> {
-        let mut i = 0;
-
+    #[target_feature(enable = "avx2")]
+    unsafe fn scalarmul_vector<'a, const N: usize>(&self, l:SL, r: &VectorView<'a, SR, N>) -> OwnedVector<SO, N> {
         let mut rs = OwnedVector::from(Box::new([SO::default(); N]));
 
         unsafe {
             let s = self.splat(l);
-            let pb = r.as_ref().as_ptr();
-            let po = rs.as_mut().as_mut_ptr();
+            let ref_r = r.as_ref();
+            let mut ref_o = rs.as_mut();
 
-            while i + <Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS <= N {
-                for j in 0..<Self as SimdCols<SL>>::COLS {
-                    let rr = self.load(pb.add(i + j * <Self as SimdLanes<SL>>::LANES));
+            let chunks_r = ref_r.chunks_exact(<Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS);
+            let chunks_o = ref_o.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS);
+
+            for (co,cr) in chunks_o.zip(chunks_r) {
+                for (co,cr) in co.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES).zip(cr.chunks_exact(<Self as SimdLanes<SL>>::LANES)) {
+                    let rr = self.load(cr.as_ptr());
 
                     let o = self.mul(s,rr);
 
-                    self.store_seq(po.add(i + j * <Self as SimdLanes<SL>>::LANES),o);
+                    self.store_seq(co.as_mut_ptr(),o);
                 }
-
-                i += <Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS;
             }
 
             if N % (<Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS) != 0 {
-                while i + <Self as SimdLanes<SL>>::LANES <= N {
-                    let rr = self.load(pb.add(i));
+                let chunks_r = ref_r.chunks_exact(<Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS).remainder();
+                let chunks_o = ref_o.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS).into_remainder();
 
-                    let o = self.mul(s,rr);
+                for (o,r) in chunks_o.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES).zip(chunks_r.chunks_exact(<Self as SimdLanes<SL>>::LANES)) {
+                    let rr = self.load(r.as_ptr());
 
-                    self.store_seq(po.add(i),o);
+                    let rs = self.mul(s,rr);
 
-                    i += <Self as SimdLanes<SL>>::LANES;
+                    self.store_seq(o.as_mut_ptr(),rs);
                 }
             }
 
             if N % <Self as SimdLanes<SL>>::LANES != 0 {
-                for j in i..N {
-                    rs[j] = SO::from(l) * SO::from(r[j]);
+                let chunks_r = ref_r.chunks_exact(<Self as SimdLanes<SL>>::LANES).remainder();
+                let chunks_o = ref_o.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES).into_remainder();
+
+                for (o,r) in chunks_o.iter_mut().zip(chunks_r.iter()) {
+                    *o = SO::from(l) * SO::from(*r);
                 }
             }
         }
@@ -434,46 +458,47 @@ impl<SL,SR,BE> SimdScalarMulAssignVector<SL,SR> for BE
               SimdSplat<SL> +
               SimdLoad<SR> +
               SimdStoreSeq<SR,<Self as SimdMul<SL,SR,SR>>::Output>,
-      SL: Mul<SR,Output=SR> + Copy,
+      SL: Copy,
+      SR: From<SL> + Mul<Output=SR> + Copy,
       SR: Copy,
       <Self as SimdReg<SR>>::Reg: Copy,
       <Self as SimdMul<SL,SR,SR>>::Output: Copy,
       (SL,SR): SupportMul<Homogeneous> {
-    #[inline]
-    fn scalarmul_assign_vector<'a, const N: usize>(&self, l:SL, r: &mut VectorMut<'a, SR, N>) {
-        let mut i = 0;
-
+    #[target_feature(enable = "avx2")]
+    unsafe fn scalarmul_assign_vector<'a, const N: usize>(&self, l:SL, r: &mut VectorMut<'a, SR, N>) {
         unsafe {
             let s = self.splat(l);
-            let pb = r.as_mut().as_mut_ptr();
+            let ref_r = r.as_mut();
 
-            while i + <Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS <= N {
-                for j in 0..<Self as SimdCols<SL>>::COLS {
-                    let rr = self.load(pb.add(i + j * <Self as SimdLanes<SL>>::LANES));
+            let mut chunks_r = ref_r.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES);
 
-                    let o = self.mul(s,rr);
+            for cr in chunks_r {
+                for cr in cr.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES) {
+                    let rr = self.load(cr.as_ptr());
 
-                    self.store_seq(pb.add(i + j * <Self as SimdLanes<SL>>::LANES),o);
+                    let rs = self.mul(s,rr);
+
+                    self.store_seq(cr.as_mut_ptr(),rs);
                 }
-
-                i += <Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS;
             }
 
             if N % (<Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS) != 0 {
-                while i + <Self as SimdLanes<SL>>::LANES <= N {
-                    let rr = self.load(pb.add(i));
+                let mut chunks_r = ref_r.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS).into_remainder();
+
+                for cr in chunks_r.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES) {
+                    let rr = self.load(cr.as_ptr());
 
                     let o = self.mul(s,rr);
 
-                    self.store_seq(pb.add(i),o);
-
-                    i += <Self as SimdLanes<SL>>::LANES;
+                    self.store_seq(cr.as_mut_ptr(),o);
                 }
             }
 
             if N % <Self as SimdLanes<SL>>::LANES != 0 {
-                for j in i..N {
-                    r[j] = l * r[j];
+                let mut chunks_r = ref_r.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES).into_remainder();
+
+                for r in chunks_r.iter_mut() {
+                    *r = SR::from(l) * *r;
                 }
             }
         }
@@ -496,49 +521,176 @@ impl<SL,SR,SO,BE> SimdScalarMulVector<SL,SR,SO> for BE
           <Self as SimdReg<SL>>::Reg: Copy,
           <Self as SimdMul<SL,SR,SO>>::Output: Copy,
           (SL,SO): SupportMul<Homogeneous> {
-    #[inline]
-    fn scalarmul_vector<'a, const N: usize>(&self, l:SL, r: &VectorView<'a, SR, N>) -> OwnedVector<SO, N> {
-        let mut i = 0;
-
+    #[target_feature(enable = "avx2")]
+    unsafe fn scalarmul_vector<'a, const N: usize>(&self, l:SL, r: &VectorView<'a, SR, N>) -> OwnedVector<SO, N> {
         let mut rs = OwnedVector::from(Box::new([SO::default(); N]));
 
         unsafe {
-            let s = self.splat(l);
-            let pb = r.as_ref().as_ptr();
-            let po = rs.as_mut().as_mut_ptr();
+            let ref_r = r.as_ref();
+            let ref_o = rs.as_mut();
 
-            while i + <Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS <= N {
-                for j in 0..<Self as SimdCols<SL>>::COLS {
-                    let rr = self.load(pb.add(i + j * <Self as SimdLanes<SL>>::LANES));
+            let chunks_r = ref_r.chunks_exact(<Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS);
+            let chunks_o = ref_o.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS);
+
+            let s = self.splat(l);
+
+            for (co,cr) in chunks_o.zip(chunks_r) {
+                for (co,cr) in co.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES).zip(cr.chunks_exact(<Self as SimdLanes<SL>>::LANES)) {
+                    let rr = self.load(cr.as_ptr());
 
                     let o = self.mul(s,rr);
 
-                    self.store_seq(po.add(i + j * <Self as SimdLanes<SL>>::LANES),o);
+                    self.store_seq(co.as_mut_ptr(),o);
                 }
-
-                i += <Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS;
             }
 
             if N % (<Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS) != 0 {
-                while i + <Self as SimdLanes<SL>>::LANES <= N {
-                    let rr = self.load(pb.add(i));
+                let chunks_r = ref_r.chunks_exact(<Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS).remainder();
+                let chunks_o = ref_o.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS).into_remainder();
+
+                for (co,cr) in chunks_o.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES).zip(chunks_r.chunks_exact(<Self as SimdLanes<SL>>::LANES)) {
+                    let rr = self.load(cr.as_ptr());
 
                     let o = self.mul(s,rr);
 
-                    self.store_seq(po.add(i),o);
-
-                    i += <Self as SimdLanes<SL>>::LANES;
+                    self.store_seq(co.as_mut_ptr(),o);
                 }
             }
 
             if N % <Self as SimdLanes<SL>>::LANES != 0 {
-                for j in i..N {
-                    rs[j] = l * r[j];
+                let chunks_r = ref_r.chunks_exact(<Self as SimdLanes<SL>>::LANES).remainder();
+                let chunks_o = ref_o.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES).into_remainder();
+
+                for (co,cr) in chunks_o.iter_mut().zip(chunks_r.iter()) {
+                    *co = l * *cr;
                 }
             }
         }
 
         rs
+    }
+}
+impl<SL,SR,SO,BE> SimdScalarMulVectorInto<SL,SR,SO> for BE
+    where BE: Backend +
+              SimdReg<SL> +
+              SimdReg<SR> +
+              SimdReg<SO> +
+              SimdLanes<SL> +
+              SimdCols<SL> +
+              SimdMul<SL,SR,SO> +
+              SimdSplat<SL> +
+              SimdLoad<SR> +
+              SimdStoreSeq<SO,<Self as SimdMul<SL,SR,SO>>::Output> +
+              SimdStore<SO>,
+          SO: Default + From<SL> + From<SR> + Mul<SO,Output=SO> + Copy,
+          SL: Copy,
+          SR: Copy,
+          <Self as SimdReg<SL>>::Reg: Copy,
+          <Self as SimdMul<SL,SR,SO>>::Output: Copy,
+          (SL,SO): SupportMul<Heterogeneous> {
+    #[target_feature(enable = "avx2")]
+    unsafe fn scalarmul_vector_into<'a, const N: usize>(&self, l:SL, r: &VectorView<'a, SR, N>, o: &mut VectorMut<'a, SO, N>) {
+        unsafe {
+            let s = self.splat(l);
+            let ref_r = r.as_ref();
+            let ref_o = o.as_mut();
+
+            let chunks_r = ref_r.chunks_exact(<Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS);
+            let chunks_o = ref_o.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS);
+
+            for (co,cr) in chunks_o.zip(chunks_r) {
+                for (co,cr) in co.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES).zip(cr.chunks_exact(<Self as SimdLanes<SL>>::LANES)) {
+                    let rr = self.load(cr.as_ptr());
+
+                    let o = self.mul(s,rr);
+
+                    self.store_seq(co.as_mut_ptr(),o);
+                }
+            }
+
+            if N % (<Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS) != 0 {
+                let chunks_r = ref_r.chunks_exact(<Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS).remainder();
+                let chunks_o = ref_o.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS).into_remainder();
+
+                for (co,cr) in chunks_o.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES).zip(chunks_r.chunks_exact(<Self as SimdLanes<SL>>::LANES)) {
+                    let rr = self.load(cr.as_ptr());
+
+                    let o = self.mul(s,rr);
+
+                    self.store_seq(co.as_mut_ptr(),o);
+                }
+            }
+
+            if N % <Self as SimdLanes<SL>>::LANES != 0 {
+                let chunks_r = ref_r.chunks_exact(<Self as SimdLanes<SL>>::LANES).remainder();
+                let chunks_o = ref_o.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES).into_remainder();
+
+                for (o,r) in chunks_o.iter_mut().zip(chunks_r.iter()) {
+                    *o = SO::from(l) * SO::from(*r);
+                }
+            }
+        }
+    }
+}
+impl<SL,SR,SO,BE> SimdScalarMulVectorInto<SL,SR,SO> for BE
+    where BE: Backend +
+              SimdReg<SL> +
+              SimdReg<SR> +
+              SimdReg<SO> +
+              SimdLanes<SL> +
+              SimdCols<SL> +
+              SimdMul<SL,SR,SO> +
+              SimdSplat<SL> +
+              SimdLoad<SR> +
+              SimdStoreSeq<SO,<Self as SimdMul<SL,SR,SO>>::Output>,
+          SO: Default + Copy,
+          SL: Mul<SR,Output=SO> + Copy,
+          SR: Copy,
+          <Self as SimdReg<SL>>::Reg: Copy,
+          <Self as SimdMul<SL,SR,SO>>::Output: Copy,
+          (SL,SO): SupportMul<Homogeneous> {
+    #[target_feature(enable = "avx2")]
+    unsafe fn scalarmul_vector_into<'a, const N: usize>(&self, l:SL, r: &VectorView<'a, SR, N>, o: &mut VectorMut<'a, SO, N>) {
+        unsafe {
+            let s = self.splat(l);
+            let ref_r = r.as_ref();
+            let ref_o = o.as_mut();
+
+            let chunks_r = ref_r.chunks_exact(<Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS);
+            let mut chunks_o = ref_o.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS);
+
+            for (co,cr) in chunks_o.zip(chunks_r) {
+                 for (co,cr) in co.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES).zip(cr.chunks_exact(<Self as SimdLanes<SL>>::LANES)) {
+                    let rr = self.load(cr.as_ptr());
+
+                    let o = self.mul(s,rr);
+
+                    self.store_seq(co.as_mut_ptr(),o);
+                }
+            }
+
+            if N % (<Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS) != 0 {
+                let chunks_r = ref_r.chunks_exact(<Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS).remainder();
+                let mut chunks_o = ref_o.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS).into_remainder();
+
+                for (co,cr) in chunks_o.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES).zip(chunks_r.chunks_exact(<Self as SimdLanes<SL>>::LANES)) {
+                    let rr = self.load(cr.as_ptr());
+
+                    let o = self.mul(s,rr);
+
+                    self.store_seq(co.as_mut_ptr(),o);
+                }
+            }
+
+            if N % <Self as SimdLanes<SL>>::LANES != 0 {
+                let chunks_r = ref_r.chunks_exact(<Self as SimdLanes<SL>>::LANES).remainder();
+                let mut chunks_o = ref_o.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES).into_remainder();
+
+                for (o,r) in chunks_o.iter_mut().zip(chunks_r.iter()) {
+                    *o = l * *r;
+                }
+            }
+        }
     }
 }
 impl<T,BE> SimdBitAndVector<T> for BE
@@ -554,8 +706,8 @@ impl<T,BE> SimdBitAndVector<T> for BE
               SimdBitAnd<T> +,
               T: BitsBitAnd + Default + Copy,
               <T as BitsBitAnd>::Bits: Copy {
-    #[inline]
-    fn bitand_vector<'a,const N: usize>(&self, l: &VectorView<'a,T,N>, r: &VectorView<'a,<T as BitsBitAnd>::Bits,N>)
+    #[target_feature(enable = "avx2")]
+    unsafe fn bitand_vector<'a,const N: usize>(&self, l: &VectorView<'a,T,N>, r: &VectorView<'a,<T as BitsBitAnd>::Bits,N>)
         -> OwnedVector<T,N> {
         let mut i = 0;
 
@@ -600,8 +752,8 @@ impl<T,BE> SimdBitOrVector<T> for BE
               SimdBitOr<T>,
               T: BitsBitOr + Default + Copy,
               <T as BitsBitOr>::Bits: Copy {
-    #[inline]
-    fn bitor_vector<'a,const N: usize>(&self, l: &VectorView<'a,T,N>, r: &VectorView<'a,<T as BitsBitOr>::Bits,N>)
+    #[target_feature(enable = "avx2")]
+    unsafe fn bitor_vector<'a,const N: usize>(&self, l: &VectorView<'a,T,N>, r: &VectorView<'a,<T as BitsBitOr>::Bits,N>)
                                         -> OwnedVector<T,N> {
         let mut i = 0;
 
@@ -646,9 +798,9 @@ impl<T,BE> SimdBitXorVector<T> for BE
               SimdBitXor<T>,
               T: BitsBitXor + Default + Copy,
               <T as BitsBitXor>::Bits: Copy {
-    #[inline]
-    fn bitxor_vector<'a,const N: usize>(&self, l: &VectorView<'a,T,N>, r: &VectorView<'a,<T as BitsBitXor>::Bits,N>)
-                                       -> OwnedVector<T,N> {
+    #[target_feature(enable = "avx2")]
+    unsafe fn bitxor_vector<'a,const N: usize>(&self, l: &VectorView<'a,T,N>, r: &VectorView<'a,<T as BitsBitXor>::Bits,N>)
+        -> OwnedVector<T,N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from(Box::new([T::default(); N]));
@@ -689,8 +841,8 @@ impl<T,BE> SimdBitNotVector<T> for BE
               SimdMask<T> +
               SimdBitNot<T>,
               T: BitsBitNot + Default + Copy {
-    #[inline]
-    fn bitnot_vector<'a,const N: usize>(&self, l: &VectorView<'a,T,N>)
+    #[target_feature(enable = "avx2")]
+    unsafe fn bitnot_vector<'a,const N: usize>(&self, l: &VectorView<'a,T,N>)
         -> OwnedVector<T,N> {
         let mut i = 0;
 
@@ -729,8 +881,8 @@ impl<T,BE> SimdShlVector<T> for BE
               SimdLanes<T> +
               SimdShiftWidth<T>,
               T: BitsShl + Default + Copy {
-    #[inline]
-    fn shl_vector<'a,const N: usize>(&self, v: &VectorView<'a,T,N>, w:usize)
+    #[target_feature(enable = "avx2")]
+    unsafe fn shl_vector<'a,const N: usize>(&self, v: &VectorView<'a,T,N>, w:usize)
                                      -> OwnedVector<T,N> {
         let mut i = 0;
 
@@ -770,8 +922,8 @@ impl<T,BE> SimdShrVector<T> for BE
               SimdLanes<T> +
               SimdShiftWidth<T>,
               T: BitsShr + Default + Copy {
-    #[inline]
-    fn shr_vector<'a,const N: usize>(&self, v: &VectorView<'a,T,N>, w:usize)
+    #[target_feature(enable = "avx2")]
+    unsafe fn shr_vector<'a,const N: usize>(&self, v: &VectorView<'a,T,N>, w:usize)
                                      -> OwnedVector<T,N> {
         let mut i = 0;
 
@@ -815,8 +967,8 @@ impl<SS,SD,BE> SimdPromoteVector<SS,SD> for BE
           SD: Default + Copy + From<SS>,
           <Self as SimdPromote<SS,SD>>::Output: Copy,
           <Self as SimdReg<SS>>::Reg: Copy {
-    #[inline]
-    fn promotion_vector<'a, const N: usize>(&self, s: &VectorView<'a, SS, N>) -> OwnedVector<SD, N> {
+    #[target_feature(enable = "avx2")]
+    unsafe fn promotion_vector<'a, const N: usize>(&self, s: &VectorView<'a, SS, N>) -> OwnedVector<SD, N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from(Box::new([SD::default(); N]));
@@ -857,8 +1009,8 @@ impl<SS,SD,BE> SimdDemoteVector<SS,SD> for BE
           SD: Default + Copy,
           <Self as SimdDemote<SS,SD>>::Input: Copy,
           <Self as SimdReg<SD>>::Reg: Copy {
-    #[inline]
-    fn demotion_vector<'a, const N: usize>(&self, s: &VectorView<'a, SS, N>) -> OwnedVector<SD, N> {
+    #[target_feature(enable = "avx2")]
+    unsafe fn demotion_vector<'a, const N: usize>(&self, s: &VectorView<'a, SS, N>) -> OwnedVector<SD, N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from(Box::new([SD::default(); N]));
@@ -900,8 +1052,8 @@ impl<SS,SD,BE> SimdConvertVector<SS,SD> for BE
           SD: Default + Copy,
           <Self as SimdConvert<SS,SD>>::Output: Copy,
           <Self as SimdReg<SS>>::Reg: Copy {
-    #[inline]
-    fn convert_vector<'a, const N: usize>(&self, s: &VectorView<'a, SS, N>) -> OwnedVector<SD, N> {
+    #[target_feature(enable = "avx2")]
+    unsafe fn convert_vector<'a, const N: usize>(&self, s: &VectorView<'a, SS, N>) -> OwnedVector<SD, N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from(Box::new([SD::default(); N]));
@@ -940,30 +1092,34 @@ impl<T,BE> SimdAddAssignMatrix<T,T> for BE
               SimdLoad<T> +
               SimdStore<T>,
           T: Default + Add<Output=T> + Copy {
-    #[inline]
-    fn add_assign_matrix<'a,const N: usize,const M: usize>(&self, l: &mut MatrixMut<'a,T,N,M>, r: &MatrixView<'a,T,N,M>) {
+    #[target_feature(enable = "avx2")]
+    unsafe fn add_assign_matrix<'a,const N: usize,const M: usize>(&self, l: &mut MatrixMut<'a,T,N,M>, r: &MatrixView<'a,T,N,M>) {
         unsafe {
-            for i in 0..N {
-                let rb = r.row(i);
-                let pa = l.as_mut().as_mut_ptr().add(i * M);
-                let pb = rb.as_ref().as_ptr();
+            let mut ref_l = l.as_mut();
+            let ref_r = r.as_ref();
 
-                let mut j = 0;
+            let mut chunks_l = ref_l.chunks_exact_mut(M);
+            let chunks_r = ref_r.chunks_exact(M);
 
-                while j + <Self as SimdLanes<T>>::LANES <= M {
-                    let ra = self.load(pa.add(j));
-                    let rb = self.load(pb.add(j));
+            for (cl,cr) in chunks_l.zip(chunks_r) {
+                let mut chunks_l = cl.chunks_exact_mut(<Self as SimdLanes<T>>::LANES);
+                let chunks_r = cr.chunks_exact(<Self as SimdLanes<T>>::LANES);
+
+                for (cl,cr) in chunks_l.zip(chunks_r) {
+                    let ra = self.load(cl.as_ptr());
+                    let rb = self.load(cr.as_ptr());
 
                     let rr = self.add(ra,rb);
 
-                    self.store(pa.add(j),rr);
-
-                    j += <Self as SimdLanes<T>>::LANES;
+                    self.store(cl.as_mut_ptr(),rr);
                 }
 
                 if M % <Self as SimdLanes<T>>::LANES != 0 {
-                    for k in j..M {
-                        l[(i,k)] = l[(i,k)] + r[i][k];
+                    let chunks_l = cl.chunks_exact_mut(<Self as SimdLanes<T>>::LANES).into_remainder();
+                    let chunks_r = cr.chunks_exact(<Self as SimdLanes<T>>::LANES).remainder();
+
+                    for (l,r) in chunks_l.iter_mut().zip(chunks_r.iter()) {
+                        *l = *l + *r;
                     }
                 }
             }
@@ -983,29 +1139,31 @@ impl<T,BE> SimdScalarMulAssignMatrix<T,T> for BE
           T: Default + Mul<Output=T> + Copy,
           <Self as SimdMul<T,T,T>>::Output: Copy,
           (T,T): SupportMul<Homogeneous> {
-    #[inline]
-    fn scalar_mul_assign_matrix<'a,const N: usize,const M: usize>(&self, l: T, r: &mut MatrixMut<'a,T,N,M>) {
+    #[target_feature(enable = "avx2")]
+    unsafe fn scalar_mul_assign_matrix<'a,const N: usize,const M: usize>(&self, l: T, r: &mut MatrixMut<'a,T,N,M>) {
         unsafe {
             let rl = <Self as SimdSplat<T>>::splat(self,l);
 
-            for i in 0..N {
-                let pb = r.as_mut().as_mut_ptr().add(i * M);
+            let r_ref = r.as_mut();
 
-                let mut j = 0;
+            let mut chunks_r = r_ref.chunks_exact_mut(M);
 
-                while j + <Self as SimdLanes<T>>::LANES <= M {
-                    let rb = self.load(pb.add(j));
+            for cr in chunks_r {
+                let mut chunks_r = cr.chunks_exact_mut(<Self as SimdLanes<T>>::LANES);
+
+                for cr in chunks_r {
+                    let rb = self.load(cr.as_ptr());
 
                     let rr = self.mul(rl,rb);
 
-                    self.store_seq(pb.add(j),rr);
-
-                    j += <Self as SimdLanes<T>>::LANES;
+                    self.store_seq(cr.as_mut_ptr(),rr);
                 }
 
                 if M % <Self as SimdLanes<T>>::LANES != 0 {
-                    for k in j..M {
-                        r[(i,k)] = l * r[(i,k)];
+                    let mut chunks_r = cr.chunks_exact_mut(<Self as SimdLanes<T>>::LANES).into_remainder();
+
+                    for r in chunks_r {
+                        *r = l * *r;
                     }
                 }
             }
@@ -1031,30 +1189,35 @@ impl<SL,SR,SO,BE> SimdScalarMulMatrix<SL,SR> for BE
           <Self as SimdMul<SL,SR,SO>>::Output: Copy,
           (SL,SO): SupportMul<Homogeneous> {
     type OutputScalar = SO;
-    #[inline]
-    fn scalar_mul_matrix<'a,const N: usize,const M: usize>(&self, l: SL, r: &MatrixView<'a,SR,N,M>, acc:&'a mut MatrixMut<'a,SO,N,M>) {
+    #[target_feature(enable = "avx2")]
+    unsafe fn scalar_mul_matrix<'a,const N: usize,const M: usize>(&self, l: SL, r: &MatrixView<'a,SR,N,M>, acc:&'a mut MatrixMut<'a,SO,N,M>) {
         unsafe {
             let rl = <Self as SimdSplat<SL>>::splat(self,l);
 
-            for i in 0..N {
-                let rrow = r.row(i);
-                let pacc = acc.as_mut().as_mut_ptr().add(i * M);
+            let r_ref = r.as_ref();
+            let mut ref_acc = acc.as_mut();
 
-                let mut j = 0;
+            let chunks_r = r_ref.chunks_exact(M);
+            let acc_chunks_r = ref_acc.chunks_exact_mut(M);
 
-                while j + <Self as SimdLanes<SL>>::LANES <= M {
-                    let rb = self.load(rrow.as_ref().as_ptr().add(j));
+            for (cr,acc_cr) in chunks_r.zip(acc_chunks_r) {
+                let chunks_cr = cr.chunks_exact(<Self as SimdLanes<SL>>::LANES);
+                let acc_chunks_cr = acc_cr.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES);
+
+                for (cr,acc_cr) in chunks_cr.zip(acc_chunks_cr) {
+                    let rb = self.load(cr.as_ptr());
 
                     let rr = self.mul(rl,rb);
 
-                    self.store_seq(pacc.add(j),rr);
-
-                    j += <Self as SimdLanes<SL>>::LANES;
+                    self.store_seq(acc_cr.as_mut_ptr(),rr);
                 }
 
                 if M % <Self as SimdLanes<SL>>::LANES != 0 {
-                    for k in j..M {
-                        acc[(i,k)] = l * r[i][k];
+                    let chunks_r = cr.chunks_exact(<Self as SimdLanes<SL>>::LANES).remainder();
+                    let chunks_acc = acc_cr.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES).into_remainder();
+
+                    for (acc,r) in chunks_acc.iter_mut().zip(chunks_r.iter()) {
+                        *acc = l * *r;
                     }
                 }
             }
@@ -1074,8 +1237,8 @@ impl<SS,SD,BE> SimdConvertMatrix<SS,SD> for BE
           SD: Default + Copy,
           <Self as SimdConvert<SS,SD>>::Output: Copy,
           <Self as SimdReg<SS>>::Reg: Copy {
-    #[inline]
-    fn convert_matrix<'a, const N: usize,const M: usize>(&self, s: &MatrixView<'a, SS, N, M>, acc:&'a mut MatrixMut<'a,SD,N,M>) {
+    #[target_feature(enable = "avx2")]
+    unsafe fn convert_matrix<'a, const N: usize,const M: usize>(&self, s: &MatrixView<'a, SS, N, M>, acc:&'a mut MatrixMut<'a,SD,N,M>) {
         unsafe {
             for i in 0..N {
                 let lr = s.row(i);
@@ -1105,15 +1268,26 @@ impl<SS,SD,BE> SimdConvertMatrix<SS,SD> for BE
 }
 impl<SL,SR,SO,BE> SimdOuterProduct<SL,SR,SO> for BE
     where BE: Backend +
-              SimdMatMul<SL,SR,SO> {
-    fn outer_product<'a, const N: usize, const M: usize>(&self, l: &VectorView<'a, SL, N>,
+              SimdScalarMulVectorInto<SL,SR,SO>
+              /* SimdMatMul<SL,SR,SO> */,
+          SL: Copy {
+    #[target_feature(enable = "avx2")]
+    unsafe fn outer_product<'a, const N: usize, const M: usize>(&self, l: &VectorView<'a, SL, N>,
                                                          r: &VectorView<'a, SR, M>,
                                                          o: &mut OwnedMatrix<SO, N, M>) {
+        /*
         let mut o = o.into();
         let l = MatrixView::from(l);
         let r = ColumnMajorMatrix::from(r);
 
-        <Self as SimdMatMul<SL,SR,SO>>::matmul::<N,M,1>(self,&l,&r,&mut o)
+        unsafe { <Self as SimdMatMul<SL,SR,SO>>::matmul::<N,M,1>(self,&l,&r,&mut o) }
+
+         */
+        unsafe {
+            for (row,&l) in o.as_mut().chunks_exact_mut(M).zip(l.as_ref().iter()) {
+                <Self as SimdScalarMulVectorInto<SL,SR,SO>>::scalarmul_vector_into(self,l,r,&mut row.try_into().unwrap());
+            }
+        }
     }
 }
 impl BitsBitAnd for i8 {

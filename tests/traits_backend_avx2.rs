@@ -107,7 +107,7 @@ where
 
     {
         let mut l_mut = VectorMut::from(&mut l);
-        be.add_assign_vector(&mut l_mut, &r);
+        unsafe { be.add_assign_vector(&mut l_mut, &r) };
     }
 
     assert_eq!(owned_vector_array(l), expected);
@@ -122,7 +122,7 @@ where
     let r_data: [T; N] = std::array::from_fn(|i| T::from(3 - (i as i8 % 7)));
     let expected = std::array::from_fn(|i| l_data[i] + r_data[i]);
     let be = BE::new().unwrap();
-    let actual = be.add_vector(&vector::<T, N>(&l_data), &vector::<T, N>(&r_data));
+    let actual = unsafe { be.add_vector(&vector::<T, N>(&l_data), &vector::<T, N>(&r_data)) };
 
     assert_eq!(owned_vector_array(actual), expected);
 }
@@ -140,7 +140,7 @@ where
 
     {
         let mut l_mut = VectorMut::from(&mut l);
-        be.sub_assign_vector(&mut l_mut, &r);
+        unsafe { be.sub_assign_vector(&mut l_mut, &r) };
     }
 
     assert_eq!(owned_vector_array(l), expected);
@@ -155,7 +155,7 @@ where
     let r_data: [T; N] = std::array::from_fn(|i| T::from(3 - (i as i8 % 7)));
     let expected = std::array::from_fn(|i| l_data[i] - r_data[i]);
     let be = BE::new().unwrap();
-    let actual = be.sub_vector(&vector::<T, N>(&l_data), &vector::<T, N>(&r_data));
+    let actual = unsafe { be.sub_vector(&vector::<T, N>(&l_data), &vector::<T, N>(&r_data)) };
 
     assert_eq!(owned_vector_array(actual), expected);
 }
@@ -171,7 +171,7 @@ where
     let r_data: [SR; N] = std::array::from_fn(|i| SR::from(3 - (i as i8 % 5)));
     let expected = std::array::from_fn(|i| SO::from(l_data[i]) * SO::from(r_data[i]));
     let be = BE::new().unwrap();
-    let actual = be.mul_vector(&vector::<SL, N>(&l_data), &vector::<SR, N>(&r_data));
+    let actual = unsafe { be.mul_vector(&vector::<SL, N>(&l_data), &vector::<SR, N>(&r_data)) };
 
     assert_eq!(owned_vector_array(actual), expected);
 }
@@ -191,7 +191,7 @@ where
 
     {
         let mut l_mut = VectorMut::from(&mut l);
-        be.mul_assign_vector(&mut l_mut, &r);
+        unsafe { be.mul_assign_vector(&mut l_mut, &r) };
     }
 
     assert_eq!(owned_vector_array(l), expected);
@@ -207,7 +207,7 @@ where
     let r_data: [SR; N] = std::array::from_fn(|i| SR::from(3 - (i as i8 % 5)));
     let expected = std::array::from_fn(|i| SO::from(scalar) * SO::from(r_data[i]));
     let be = BE::new().unwrap();
-    let actual = be.scalarmul_vector(scalar, &vector::<SR, N>(&r_data));
+    let actual = unsafe { be.scalarmul_vector(scalar, &vector::<SR, N>(&r_data)) };
 
     assert_eq!(owned_vector_array(actual), expected);
 }
@@ -225,7 +225,7 @@ where
 
     {
         let mut r_mut = VectorMut::from(&mut r);
-        be.scalarmul_assign_vector(scalar, &mut r_mut);
+        unsafe { be.scalarmul_assign_vector(scalar, &mut r_mut) };
     }
 
     assert_eq!(owned_vector_array(r), expected);
@@ -257,9 +257,9 @@ where
     let r = vector::<B, N>(&r_data);
     let be = BE::new().unwrap();
 
-    assert_eq!(owned_vector_array(be.bitand_vector(&l, &r)), expected_and);
-    assert_eq!(owned_vector_array(be.bitor_vector(&l, &r)), expected_or);
-    assert_eq!(owned_vector_array(be.bitxor_vector(&l, &r)), expected_xor);
+    assert_eq!(owned_vector_array(unsafe { be.bitand_vector(&l, &r) }), expected_and);
+    assert_eq!(owned_vector_array(unsafe { be.bitor_vector(&l, &r) }), expected_or);
+    assert_eq!(owned_vector_array(unsafe { be.bitxor_vector(&l, &r) }), expected_xor);
 }
 
 fn check_bitnot_vector<BE, T, const N: usize>()
@@ -270,7 +270,7 @@ where
     let data: [T; N] = std::array::from_fn(|i| T::from((i as i8) ^ 0x55));
     let expected = std::array::from_fn(|i| data[i].bits_bitnot());
     let be = BE::new().unwrap();
-    let actual = be.bitnot_vector(&vector::<T, N>(&data));
+    let actual = unsafe { be.bitnot_vector(&vector::<T, N>(&data)) };
 
     assert_eq!(owned_vector_array(actual), expected);
 }
@@ -286,11 +286,11 @@ where
     let be = BE::new().unwrap();
 
     assert_eq!(
-        owned_vector_array(be.shl_vector(&vector::<T, N>(&data), 1)),
+        owned_vector_array(unsafe { be.shl_vector(&vector::<T, N>(&data), 1) }),
         expected_shl
     );
     assert_eq!(
-        owned_vector_array(be.shr_vector(&vector::<T, N>(&data), 1)),
+        owned_vector_array(unsafe { be.shr_vector(&vector::<T, N>(&data), 1) }),
         expected_shr
     );
 }
@@ -304,7 +304,7 @@ where
     let data: [SS; N] = std::array::from_fn(|i| SS::from((i as i8) - 4));
     let expected = std::array::from_fn(|i| SD::from(data[i]));
     let be = BE::new().unwrap();
-    let actual = be.promotion_vector(&vector::<SS, N>(&data));
+    let actual = unsafe { be.promotion_vector(&vector::<SS, N>(&data)) };
 
     assert_eq!(owned_vector_array(actual), expected);
 }
@@ -318,7 +318,7 @@ where
     let data: [SS; N] = std::array::from_fn(|i| SS::from((i as i8) - 4));
     let expected = std::array::from_fn(|i| data[i].assume());
     let be = BE::new().unwrap();
-    let actual = be.demotion_vector(&vector::<SS, N>(&data));
+    let actual = unsafe { be.demotion_vector(&vector::<SS, N>(&data)) };
 
     assert_eq!(owned_vector_array(actual), expected);
 }
@@ -332,7 +332,7 @@ where
     let data: [SS; N] = std::array::from_fn(|i| SS::from((i as i8) - 4));
     let expected = std::array::from_fn(|i| data[i].assume());
     let be = BE::new().unwrap();
-    let actual = be.convert_vector(&vector::<SS, N>(&data));
+    let actual = unsafe { be.convert_vector(&vector::<SS, N>(&data)) };
 
     assert_eq!(owned_vector_array(actual), expected);
 }
@@ -351,7 +351,7 @@ where
 
     {
         let mut l_mut = MatrixMut::from(&mut l);
-        be.add_assign_matrix(&mut l_mut, &r);
+        unsafe { be.add_assign_matrix(&mut l_mut, &r) };
     }
 
     assert_eq!(owned_matrix_vec(l), expected);
@@ -369,7 +369,7 @@ where
 
     {
         let mut m_mut = MatrixMut::from(&mut m);
-        be.scalar_mul_assign_matrix(scalar, &mut m_mut);
+        unsafe { be.scalar_mul_assign_matrix(scalar, &mut m_mut) };
     }
 
     assert_eq!(owned_matrix_vec(m), expected);
@@ -387,7 +387,7 @@ where
 
     {
         let mut acc_mut = MatrixMut::from(&mut acc);
-        be.scalar_mul_matrix(scalar, &matrix::<T, N, M>(&data), &mut acc_mut);
+        unsafe { be.scalar_mul_matrix(scalar, &matrix::<T, N, M>(&data), &mut acc_mut) };
     }
 
     assert_eq!(owned_matrix_vec(acc), expected);
@@ -406,7 +406,7 @@ where
 
     {
         let mut acc_mut = MatrixMut::from(&mut acc);
-        be.convert_matrix(&matrix::<SS, N, M>(&data), &mut acc_mut);
+        unsafe { be.convert_matrix(&matrix::<SS, N, M>(&data), &mut acc_mut) };
     }
 
     assert_eq!(owned_matrix_vec(acc), expected);
@@ -426,7 +426,7 @@ where
         acc
     });
     let be = BE::new().unwrap();
-    let actual = be.dot(&vector::<SL, N>(&l_data), &vector::<SR, N>(&r_data));
+    let actual = unsafe { be.dot(&vector::<SL, N>(&l_data), &vector::<SR, N>(&r_data)) };
 
     assert_eq!(actual, expected);
 }
@@ -465,11 +465,11 @@ where
 
     {
         let mut acc_mut = MatrixMut::from(&mut acc);
-        be.matmul(
+        unsafe { be.matmul(
             &matrix::<SL, N, K>(&l_data),
             &column_major::<SR, K, M>(&r_data),
             &mut acc_mut,
-        );
+        ) };
     }
 
     assert_eq!(owned_matrix_vec(acc), expected);
@@ -502,11 +502,11 @@ where
 
     let be = BE::new().unwrap();
     let mut actual = OwnedMatrix::<SO, N, M>::default();
-    be.outer_product(
+    unsafe { be.outer_product(
         &vector::<SL, N>(&l_data),
         &vector::<SR, M>(&r_data),
         &mut actual,
-    );
+    ) };
 
     assert_eq!(owned_matrix_vec(actual), expected);
 }
@@ -540,11 +540,11 @@ where
 
     let be = BE::new().unwrap();
     let mut actual = OwnedVector::<SO, N>::default();
-    be.matvec(
+    unsafe { be.matvec(
         &matrix::<SL, N, K>(&l_data),
         &vector::<SR, K>(&r_data),
         &mut actual,
-    );
+    ) };
 
     assert_eq!(owned_vector_array(actual), expected);
 }
@@ -578,11 +578,11 @@ where
 
     let be = BE::new().unwrap();
     let mut actual = OwnedVector::<SO, M>::default();
-    be.vmat(
+    unsafe { be.vmat(
         &vector::<SL, K>(&l_data),
         &column_major::<SR, K, M>(&r_data),
         &mut actual,
-    );
+    ) };
 
     assert_eq!(owned_vector_array(actual), expected);
 }

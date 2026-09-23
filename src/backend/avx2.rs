@@ -423,6 +423,7 @@ impl SimdPromote<i16,i32> for Avx2 where Self: SimdReg<i16> + SimdReg<i32> {
 impl SimdDemote<i32,i16> for Avx2 where Self: SimdReg<i32> + SimdReg<i16> {
     type Input = Regs<<Self as SimdReg<i32>>::Reg,2>;
 
+    #[inline(always)]
     fn demotion(&self, reg: Regs<<Self as SimdReg<i32>>::Reg,2>) -> <Self as SimdReg<i16>>::Reg {
         unsafe {
             let &[lo32,hi32] = reg.as_ref();
@@ -441,6 +442,7 @@ impl SimdDemote<i32,i16> for Avx2 where Self: SimdReg<i32> + SimdReg<i16> {
 }
 impl SimdDemote<i16,i8> for Avx2 where Self: SimdReg<i16> + SimdReg<i8> {
     type Input = Regs<<Self as SimdReg<i16>>::Reg,1>;
+    #[inline(always)]
     fn demotion(&self, reg: Regs<<Self as SimdReg<i16>>::Reg,1>) -> <Self as SimdReg<i8>>::Reg {
         unsafe {
             let &[reg16] = reg.as_ref();
@@ -457,6 +459,7 @@ impl SimdDemote<i16,i8> for Avx2 where Self: SimdReg<i16> + SimdReg<i8> {
 impl SimdConvert<i16,f32> for Avx2 where Self: SimdReg<i16> + SimdReg<f32> {
     type Output = Regs<<Self as SimdReg<f32>>::Reg,2>;
 
+    #[inline(always)]
     fn convert(&self, reg: <Self as SimdReg<i16>>::Reg) -> Self::Output {
         unsafe {
             let lo_i16 = _mm256_castsi256_si128(reg);
@@ -475,6 +478,7 @@ impl SimdConvert<i16,f32> for Avx2 where Self: SimdReg<i16> + SimdReg<f32> {
 impl SimdConvert<i32,f32> for Avx2 where Self: SimdReg<i32> + SimdReg<f32> {
     type Output = Regs<<Self as SimdReg<f32>>::Reg,1>;
 
+    #[inline(always)]
     fn convert(&self, reg: <Self as SimdReg<i32>>::Reg) -> Self::Output {
         unsafe {
             Regs::new([_mm256_cvtepi32_ps(reg)])
@@ -630,6 +634,7 @@ impl SimdMul<f64,f64,f64> for Avx2 where Self: SimdReg<f64> {
 }
 impl SimdSplat<i8> for Avx2 where Self: SimdReg<i8> {
 
+    #[inline(always)]
     fn splat(&self, v: i8) -> Self::Reg {
         unsafe {
             _mm256_set1_epi8(v)
@@ -638,6 +643,7 @@ impl SimdSplat<i8> for Avx2 where Self: SimdReg<i8> {
 }
 impl SimdSplat<i16> for Avx2 where Self: SimdReg<i16> {
 
+    #[inline(always)]
     fn splat(&self, v: i16) -> Self::Reg {
         unsafe {
             _mm256_set1_epi16(v)
@@ -646,6 +652,7 @@ impl SimdSplat<i16> for Avx2 where Self: SimdReg<i16> {
 }
 impl SimdSplat<i32> for Avx2 where Self: SimdReg<i32> {
 
+    #[inline(always)]
     fn splat(&self, v: i32) -> Self::Reg {
         unsafe {
             _mm256_set1_epi32(v)
@@ -654,6 +661,7 @@ impl SimdSplat<i32> for Avx2 where Self: SimdReg<i32> {
 }
 impl SimdSplat<f32> for Avx2 where Self: SimdReg<f32> {
 
+    #[inline(always)]
     fn splat(&self, v: f32) -> Self::Reg {
         unsafe {
             _mm256_set1_ps(v)
@@ -662,6 +670,7 @@ impl SimdSplat<f32> for Avx2 where Self: SimdReg<f32> {
 }
 impl SimdSplat<f64> for Avx2 where Self: SimdReg<f64> {
 
+    #[inline(always)]
     fn splat(&self, v: f64) -> Self::Reg {
         unsafe {
             _mm256_set1_pd(v)
@@ -683,6 +692,7 @@ impl<SL,SR,SO> SimdScalarMul<SL,SR,SO> for Avx2
 }
 impl SimdReinterpret<f32,i32> for Avx2 where Self: SimdReg<i32> {
 
+    #[inline(always)]
     fn reinterpret(&self, reg: <Self as SimdReg<f32>>::Reg) -> <Self as SimdReg<i32>>::Reg {
         unsafe {
             _mm256_castps_si256(reg)
@@ -691,6 +701,7 @@ impl SimdReinterpret<f32,i32> for Avx2 where Self: SimdReg<i32> {
 }
 impl SimdReinterpret<f64,i64> for Avx2 where Self: SimdReg<i64> {
 
+    #[inline(always)]
     fn reinterpret(&self, reg: <Self as SimdReg<f64>>::Reg) -> <Self as SimdReg<i64>>::Reg {
         unsafe {
             _mm256_castpd_si256(reg)
@@ -699,6 +710,7 @@ impl SimdReinterpret<f64,i64> for Avx2 where Self: SimdReg<i64> {
 }
 impl SimdReinterpret<i32,f32> for Avx2 where Self: SimdReg<f32> {
 
+    #[inline(always)]
     fn reinterpret(&self, reg: <Self as SimdReg<i32>>::Reg) -> <Self as SimdReg<f32>>::Reg {
         unsafe {
             _mm256_castsi256_ps(reg)
@@ -707,6 +719,7 @@ impl SimdReinterpret<i32,f32> for Avx2 where Self: SimdReg<f32> {
 }
 impl SimdReinterpret<i64,f64> for Avx2 where Self: SimdReg<f64> {
 
+    #[inline(always)]
     fn reinterpret(&self, reg: <Self as SimdReg<i64>>::Reg) -> <Self as SimdReg<f64>>::Reg {
         unsafe {
             _mm256_castsi256_pd(reg)
@@ -1079,7 +1092,7 @@ impl SimdTranspose<i32,1> for Avx2 {
     }
 }
 impl SimdTranspose<i32,2> for Avx2 {
-    #[inline]
+    #[inline(always)]
     fn transpose<'a, const N: usize, const M: usize>(v: [Self::Reg; 2]) -> [Self::Reg; 2] {
         let v0 = v[0];
         let v1 = v[1];
@@ -1099,7 +1112,7 @@ impl SimdTranspose<f32,1> for Avx2 {
     }
 }
 impl SimdTranspose<f32,2> for Avx2 {
-    #[inline]
+    #[inline(always)]
     fn transpose<'a, const N: usize, const M: usize>(v: [Self::Reg; 2]) -> [Self::Reg; 2] {
         let v0 = v[0];
         let v1 = v[1];
@@ -1120,7 +1133,7 @@ impl SimdTranspose<f64,1> for Avx2 {
 }
 impl SimdHSum<i32> for Avx2 {
 
-    #[inline]
+    #[inline(always)]
     fn hsum(&self, v: Self::Reg) -> i32 {
         unsafe {
             let lo128 = _mm256_castsi256_si128(v);
@@ -1141,7 +1154,7 @@ impl SimdHSum<i32> for Avx2 {
 }
 impl SimdHSum<f32> for Avx2 {
 
-    #[inline]
+    #[inline(always)]
     fn hsum(&self, v: Self::Reg) -> f32 {
         unsafe {
             let lo128 = _mm256_castps256_ps128(v);
@@ -1161,7 +1174,7 @@ impl SimdHSum<f32> for Avx2 {
 }
 impl SimdHSum<f64> for Avx2 {
 
-    #[inline]
+    #[inline(always)]
     fn hsum(&self, v: Self::Reg) -> f64 {
         unsafe {
             let lo128 = _mm256_castpd256_pd128(v);
@@ -1270,6 +1283,7 @@ impl<SL,SR,SO> SimdPartialDot<SL,SR,SO> for Avx2
     where Self: SimdMul<SL,SR,SO> +
                 SimdMulAdd<SL,SR,SO> {
     type Output = <Self as SimdMul<SL,SR,SO>>::Output;
+    #[inline(always)]
     fn zero_acc(&self) -> Self::Output {
         <Self as SimdMulAdd<SL,SR,SO>>::zero_acc(self)
     }
@@ -1281,6 +1295,7 @@ impl<SL,SR,SO> SimdPartialDot<SL,SR,SO> for Avx2
     }
 }
 impl SimdZero<i8> for Avx2 where Self: SimdReg<i8> {
+    #[inline(always)]
     fn zero() -> <Self as SimdReg<i8>>::Reg {
         unsafe {
             _mm256_setzero_si256()
@@ -1288,6 +1303,7 @@ impl SimdZero<i8> for Avx2 where Self: SimdReg<i8> {
     }
 }
 impl SimdZero<i16> for Avx2 where Self: SimdReg<i16> {
+    #[inline(always)]
     fn zero() -> <Self as SimdReg<i16>>::Reg {
         unsafe {
             _mm256_setzero_si256()
@@ -1295,6 +1311,7 @@ impl SimdZero<i16> for Avx2 where Self: SimdReg<i16> {
     }
 }
 impl SimdZero<i32> for Avx2 where Self: SimdReg<i32> {
+    #[inline(always)]
     fn zero() -> <Self as SimdReg<i32>>::Reg {
         unsafe {
             _mm256_setzero_si256()
@@ -1302,6 +1319,7 @@ impl SimdZero<i32> for Avx2 where Self: SimdReg<i32> {
     }
 }
 impl SimdZero<f32> for Avx2 where Self: SimdReg<f32> {
+    #[inline(always)]
     fn zero() -> <Self as SimdReg<f32>>::Reg {
         unsafe {
             _mm256_setzero_ps()
@@ -1309,6 +1327,7 @@ impl SimdZero<f32> for Avx2 where Self: SimdReg<f32> {
     }
 }
 impl SimdZero<f64> for Avx2 where Self: SimdReg<f64> {
+    #[inline(always)]
     fn zero() -> <Self as SimdReg<f64>>::Reg {
         unsafe {
             _mm256_setzero_pd()
@@ -1323,38 +1342,37 @@ impl<SL,SR,SO> SimdDot<SL,SR,SO> for Avx2
           SL: Clone + Copy,
           SR: Clone + Copy,
           SO: From<SL> + From<SR> + Mul<SO,Output=SO> + AddAssign {
-    fn dot<'a, const N: usize>(&self, l: &VectorView<'a, SL, N>, r: &VectorView<'a, SR, N>) -> SO {
+    #[target_feature(enable = "avx2")]
+    unsafe fn dot<'a, const N: usize>(&self, l: &VectorView<'a, SL, N>, r: &VectorView<'a, SR, N>) -> SO {
         let mut acc = <Self as SimdPartialDot<SL,SR,SO>>::zero_acc(self);
 
-        let mut i = 0;
-        let mut pa = l.as_ref().as_ptr();
-        let mut pb = r.as_ref().as_ptr();
+        let ref_l = l.as_ref();
+        let ref_r = r.as_ref();
+
+        let l_chuncks = ref_l.chunks_exact(<Self as SimdLanes<SL>>::LANES);
+        let r_chuncks = ref_r.chunks_exact(<Self as SimdLanes<SL>>::LANES);
+
+        let l_remainder = l_chuncks.remainder();
+        let r_remainder = r_chuncks.remainder();
 
         unsafe {
-            while i + <Self as SimdLanes<SL>>::LANES <= N {
-                let lr = self.load(pa);
-                let rr = self.load(pb);
+            for (lc,rc) in l_chuncks.zip(r_chuncks) {
+                let lr = self.load(lc.as_ptr());
+                let rr = self.load(rc.as_ptr());
 
                 acc = self.partial_dot(lr,rr,acc);
-
-                pa = pa.add(<Self as SimdLanes<SL>>::LANES);
-                pb = pb.add(<Self as SimdLanes<SR>>::LANES);
-
-                i += <Self as SimdLanes<SL>>::LANES;
             }
-
-            let mut sum = <Self as SimdHSum<SO>>::hsum(self,acc.fold(self));
-
-            if N % <Self as SimdLanes<SL>>::LANES != 0 {
-                for _ in i..N {
-                    sum += SO::from(*pa) * SO::from(*pb);
-                    pa = pa.add(1);
-                    pb = pb.add(1);
-                }
-            }
-
-            sum
         }
+
+        let mut sum = <Self as SimdHSum<SO>>::hsum(self,acc.fold(self));
+
+        if N % <Self as SimdLanes<SL>>::LANES != 0 {
+            for (&ls,&rs) in l_remainder.iter().zip(r_remainder.iter()) {
+                sum += SO::from(ls) * SO::from(rs);
+            }
+        }
+
+        sum
     }
 }
 impl<SL,SR,SO> SimdMatVec<SL,SR,SO> for Avx2
@@ -1371,7 +1389,8 @@ impl<SL,SR,SO> SimdMatVec<SL,SR,SO> for Avx2
                 SO: From<SL> + From<SR> + Mul<SO,Output=SO> + AddAssign,
                 <Self as SimdReg<SO>>::Reg: Copy {
 
-    fn matvec<'a, const N: usize, const K: usize>(&self, l: &MatrixView<'a, SL, N, K>, r: &VectorView<'a, SR, K>, o: &mut OwnedVector<SO, N>) {
+    #[target_feature(enable = "avx2")]
+    unsafe fn matvec<'a, const N: usize, const K: usize>(&self, l: &MatrixView<'a, SL, N, K>, r: &VectorView<'a, SR, K>, o: &mut OwnedVector<SO, N>) {
         unsafe {
             for i in 0..N {
                 let mut acc = <Self as SimdPartialDot<SL,SR,SO>>::zero_acc(self);
@@ -1403,11 +1422,14 @@ derive_matmul! { Avx2,f32,f32,f32 }
 derive_matmul! { Avx2,f64,f64,f64 }
 impl<SL,SR,SO> SimdVMat<SL,SR,SO> for Avx2
     where Self: SimdDot<SL,SR,SO> {
-    fn vmat<'a, const M: usize, const K: usize>(&self, l: &VectorView<'a, SL, K>, r: &ColumnMajorMatrix<'a, SR, K, M>, o: &mut OwnedVector<SO, M>) {
-        for i in 0..M {
-            let s = self.dot(l,&r.col(i));
+    #[target_feature(enable = "avx2")]
+    unsafe fn vmat<'a, const M: usize, const K: usize>(&self, l: &VectorView<'a, SL, K>, r: &ColumnMajorMatrix<'a, SR, K, M>, o: &mut OwnedVector<SO, M>) {
+        for (o,c) in o.as_mut().iter_mut().zip(r.as_ref().chunks_exact(K)) {
+            let v = VectorView::from(<& [SR;K]>::try_from(c).unwrap());
 
-            o[i] = s;
+            let s = unsafe { self.dot(l,&v) };
+
+            *o = s;
         }
     }
 }
