@@ -1402,11 +1402,12 @@ derive_matmul! { Avx2,i32,i32,i32 }
 derive_matmul! { Avx2,f32,f32,f32 }
 derive_matmul! { Avx2,f64,f64,f64 }
 impl<SL,SR,SO> SimdVMat<SL,SR,SO> for Avx2
-    where Self: SimdMatMul<SL,SR,SO> {
-
+    where Self: SimdDot<SL,SR,SO> {
     fn vmat<'a, const M: usize, const K: usize>(&self, l: &VectorView<'a, SL, K>, r: &ColumnMajorMatrix<'a, SR, K, M>, o: &mut OwnedVector<SO, M>) {
-        let l = l.as_horizontal();
-        let mut o = o.into();
-        <Self as SimdMatMul<SL,SR,SO>>::matmul::<1,M,K>(self,&l,&r,&mut o)
+        for i in 0..M {
+            let s = self.dot(l,&r.col(i));
+
+            o[i] = s;
+        }
     }
 }
