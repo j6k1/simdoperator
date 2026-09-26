@@ -1,6 +1,8 @@
 //! Trait and data type features for abstracting SIMD operations
 
+use rayon::iter::ParallelIterator;
 use std::ops::{Add, AddAssign, BitAnd, BitOr, BitXor, Index, IndexMut, Mul, MulAssign, Not, Shl, Shr, Sub, SubAssign};
+use rayon::prelude::{ParallelSliceMut,IndexedParallelIterator};
 use crate::backend::autoselect::{AutoSelect, SelectedBackend};
 use crate::backend::avx2::Avx2;
 use crate::error::{InstantiationError, TryFromSliceError};
@@ -352,7 +354,7 @@ impl<'a,BE: Backend,T,const N: usize,const M: usize> Matrix<'a,T,N,M,BE> {
         }
     }
 }
-impl<'a,BE: Backend,T,const N: usize,const M: usize> TryFrom<&'a [T]> for Matrix<'a,T,M,N,BE> {
+impl<'a,BE: Backend,T,const N: usize,const M: usize> TryFrom<&'a [T]> for Matrix<'a,T,N,M,BE> {
     type Error = InstantiationError;
 
     #[inline(always)]
@@ -386,8 +388,8 @@ impl<'a,T,BE: Backend,const N: usize,const M: usize> Transpose<T,N,M> for Matrix
 
         for row in (0..((N + BLOCK - 1) / BLOCK * BLOCK)).step_by(BLOCK) {
             for col in (0..((M + BLOCK - 1) / BLOCK * BLOCK)).step_by(BLOCK) {
-                for x in 0..BLOCK {
-                    for y in 0..BLOCK {
+                for y in 0..BLOCK {
+                    for x in 0..BLOCK {
                         if row + x >= N || col + y >= M {
                             continue;
                         }
@@ -401,27 +403,39 @@ impl<'a,T,BE: Backend,const N: usize,const M: usize> Transpose<T,N,M> for Matrix
     }
 }
 impl<'a,T,BE: Backend,const N: usize,const M: usize> ToColumnMajor<T,N,M> for Matrix<'a,T,N,M,BE>
-    where T: Default + Clone + Copy {
+    where T: Default + Clone + Copy + Send + Sync {
     type Output = OwnedColumnMajorMatrix<T,N,M>;
     #[inline(always)]
     fn to_column_major(self) -> OwnedColumnMajorMatrix<T,N,M> {
-        let mut r = vec![T::default();N * M].into_boxed_slice();
+        let mut r = vec![T::default();M*N].into_boxed_slice();
 
-        const BLOCK:usize = 64;
+        const BLOCK:usize = 32;
 
-        for row in (0..((N + BLOCK - 1) / BLOCK * BLOCK)).step_by(BLOCK) {
-            for col in (0..((M + BLOCK - 1) / BLOCK * BLOCK)).step_by(BLOCK) {
+        r.par_chunks_exact_mut(N * BLOCK).zip(0..(M / BLOCK)).for_each(|(r,by)| {
+            for col in (0..((N + BLOCK - 1) / BLOCK * BLOCK)).step_by(BLOCK) {
                 for x in 0..BLOCK {
                     for y in 0..BLOCK {
-                        if row + x >= N || col + y >= M {
+                        if col + x >= N {
                             continue;
                         }
-                        r[(col + y) * N + (row + x)] = self.data[(row + x) * M + col + y];
+                        r[y * N + (col + x)] = self.data[(col + x) * M + (by * BLOCK + y)];
                     }
                 }
             }
-        }
+        });
 
+        let by = M / BLOCK;
+
+        for col in (0..((N + BLOCK - 1) / BLOCK * BLOCK)).step_by(BLOCK) {
+            for x in 0..BLOCK {
+                for y in 0..BLOCK {
+                    if col + x >= N || by * BLOCK + y >= M {
+                        continue;
+                    }
+                    r[(by * BLOCK + y) * N + (col + x)] = self.data[(col + x) * M + (by * BLOCK + y)];
+                }
+            }
+        }
         OwnedColumnMajorMatrix { data: r }
     }
 }
@@ -471,7 +485,7 @@ impl<'a,T,BE: Backend,const N: usize,const M: usize> From<&'a Matrix<'a,T,N,M,BE
         }
     }
 }
-impl<'a,T,const N: usize,const M: usize> TryFrom<&'a [T]> for MatrixView<'a,T,M,N> {
+impl<'a,T,const N: usize,const M: usize> TryFrom<&'a [T]> for MatrixView<'a,T,N,M> {
     type Error = InstantiationError;
 
     #[inline(always)]
@@ -500,12 +514,12 @@ impl<'a,T,const N: usize,const M: usize> Transpose<T,N,M> for MatrixView<'a,T,N,
     fn transpose(self) -> OwnedMatrix<T,M,N> {
         let mut r = OwnedMatrix::<T,M,N>::default();
 
-        const BLOCK:usize = 64;
+        const BLOCK:usize = 32;
 
         for row in (0..((N + BLOCK - 1) / BLOCK * BLOCK)).step_by(BLOCK) {
             for col in (0..((M + BLOCK - 1) / BLOCK * BLOCK)).step_by(BLOCK) {
-                for x in 0..BLOCK {
-                    for y in 0..BLOCK {
+                for y in 0..BLOCK {
+                    for x in 0..BLOCK {
                         if row + x >= N || col + y >= M {
                             continue;
                         }
@@ -519,23 +533,36 @@ impl<'a,T,const N: usize,const M: usize> Transpose<T,N,M> for MatrixView<'a,T,N,
     }
 }
 impl<'a,T,const N: usize,const M: usize> ToColumnMajor<T,N,M> for MatrixView<'a,T,N,M>
-    where T: Default + Clone + Copy {
+    where T: Default + Clone + Copy + Send + Sync {
     type Output = OwnedColumnMajorMatrix<T,N,M>;
     #[inline(always)]
     fn to_column_major(self) -> OwnedColumnMajorMatrix<T,N,M> {
-        let mut r = vec![T::default();N * M].into_boxed_slice();
+        let mut r = vec![T::default();M*N].into_boxed_slice();
 
         const BLOCK:usize = 64;
 
-        for row in (0..((N + BLOCK - 1) / BLOCK * BLOCK)).step_by(BLOCK) {
-            for col in (0..((M + BLOCK - 1) / BLOCK * BLOCK)).step_by(BLOCK) {
+        r.par_chunks_exact_mut(N * BLOCK).zip(0..(M / BLOCK)).for_each(|(r,by)| {
+            for col in (0..((N + BLOCK - 1) / BLOCK * BLOCK)).step_by(BLOCK) {
                 for x in 0..BLOCK {
                     for y in 0..BLOCK {
-                        if row + x >= N || col + y >= M {
+                        if col + x >= N {
                             continue;
                         }
-                        r[(col + y) * N + (row + x)] = self.data[(row + x) * M + col + y];
+                        r[y * N + (col + x)] = self.data[(col + x) * M + (by * BLOCK + y)];
                     }
+                }
+            }
+        });
+
+        let by = M / BLOCK;
+
+        for col in (0..((N + BLOCK - 1) / BLOCK * BLOCK)).step_by(BLOCK) {
+            for x in 0..BLOCK {
+                for y in 0..BLOCK {
+                    if col + x >= N || by * BLOCK + y >= M {
+                        continue;
+                    }
+                    r[(by * BLOCK + y) * N + (col + x)] = self.data[(col + x) * M + (by * BLOCK + y)];
                 }
             }
         }
@@ -607,7 +634,7 @@ impl<'a,T,const M: usize> From<&'a mut OwnedVector<T,M>> for MatrixMut<'a,T,1,M>
         }
     }
 }
-impl<'a,T,const N: usize,const M: usize> TryFrom<&'a mut [T]> for MatrixMut<'a,T,M,N> {
+impl<'a,T,const N: usize,const M: usize> TryFrom<&'a mut [T]> for MatrixMut<'a,T,N,M> {
     type Error = InstantiationError;
 
     #[inline(always)]
@@ -699,7 +726,7 @@ pub struct ColumnMajorMatrix<'a,T,const N: usize,const M: usize> {
     data: &'a [T]
 }
 impl<'a,T,const N: usize,const M: usize> Dims<N,M> for ColumnMajorMatrix<'a,T,N,M> {}
-impl<'a,T,const N: usize,const M: usize> TryFrom<&'a [T]> for ColumnMajorMatrix<'a,T,M,N> {
+impl<'a,T,const N: usize,const M: usize> TryFrom<&'a [T]> for ColumnMajorMatrix<'a,T,N,M> {
     type Error = InstantiationError;
 
     #[inline(always)]
@@ -744,7 +771,7 @@ impl<T,const N: usize,const M: usize> From<OwnedColumnMajorMatrix<T,N,M>> for Bo
         value.data
     }
 }
-impl<T,const N: usize,const M: usize> From<Box<[T]>> for OwnedColumnMajorMatrix<T,M,N> {
+impl<T,const N: usize,const M: usize> From<Box<[T]>> for OwnedColumnMajorMatrix<T,N,M> {
     #[inline(always)]
     fn from(value: Box<[T]>) -> Self {
         OwnedColumnMajorMatrix { data: value }
@@ -760,7 +787,7 @@ impl<'a,T,const N: usize,const M: usize> From<&'a OwnedColumnMajorMatrix<T,N,M>>
     }
 }
 impl<'a,T,const N: usize,const M: usize> From<&'a ColumnMajorMatrix<'a,T,N,M>>
-    for OwnedColumnMajorMatrix<T,M,N>
+    for OwnedColumnMajorMatrix<T,N,M>
     where T: Clone + Copy {
     #[inline(always)]
     fn from(value: &'a ColumnMajorMatrix<'a,T,N,M>) -> Self {

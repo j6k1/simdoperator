@@ -16,3 +16,4 @@ categories = ["mathematics","science"]
 license = "MIT"
 
 [dependencies]
+rayon = "1.12.0"

@@ -470,7 +470,7 @@ impl<SL,SR,BE> SimdScalarMulAssignVector<SL,SR> for BE
             let s = self.splat(l);
             let ref_r = r.as_mut();
 
-            let mut chunks_r = ref_r.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES);
+            let mut chunks_r = ref_r.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS);
 
             for cr in chunks_r {
                 for cr in cr.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES) {
