@@ -48,6 +48,10 @@ impl<S,BE: SimdReg<S> + SimdAdd<S,S,S>> FoldRegs<S,BE> for Regs<<BE as SimdReg<S
         backend.add(backend.add(self.regs[0],self.regs[1]),backend.add(self.regs[2],self.regs[3]))
     }
 }
+#[inline(always)]
+pub const fn mm_shuffle(z: i32, y: i32, x: i32, w: i32) -> i32 {
+    (z << 6) | (y << 4) | (x << 2) | w
+}
 impl<T,BE> SimdLoadSeq<T,Regs<<Self as SimdReg<T>>::Reg,1>> for BE
     where BE: Backend +
               SimdLanes<T> +
@@ -884,28 +888,30 @@ impl<T,BE> SimdShlVector<T> for BE
     #[target_feature(enable = "avx2")]
     unsafe fn shl_vector<'a,const N: usize>(&self, v: &VectorView<'a,T,N>, w:usize)
                                      -> OwnedVector<T,N> {
-        let mut i = 0;
-
         let mut rs = OwnedVector::from(Box::new([T::default(); N]));
 
         let rw = <BE as SimdShiftWidth<T>>::shift_width(self,w);
 
         unsafe {
-            let pa = v.as_ref().as_ptr();
-            let po = rs.as_mut().as_mut_ptr();
+            let ref_v = v.as_ref();
+            let ref_o = rs.as_mut();
 
-            while i + <Self as SimdLanes<T>>::LANES <= N {
-                let vr = self.load(pa.add(i));
+            let chunks_v = ref_v.chunks_exact(<Self as SimdLanes<T>>::LANES);
+            let chunks_o = ref_o.chunks_exact_mut(<Self as SimdLanes<T>>::LANES);
+
+            for (o,v) in chunks_o.zip(chunks_v) {
+                let vr = self.load(v.as_ptr());
                 let rr = self.shl(vr,rw);
 
-                self.store(po.add(i),rr);
-
-                i += <Self as SimdLanes<T>>::LANES;
+                self.store(o.as_mut_ptr(),rr);
             }
 
             if N % <Self as SimdLanes<T>>::LANES != 0 {
-                for j in i..N {
-                    rs[j] = v[j].bits_shl(w);
+                let chunk_v = ref_v.chunks_exact(<Self as SimdLanes<T>>::LANES).remainder();
+                let chunk_o = ref_o.chunks_exact_mut(<Self as SimdLanes<T>>::LANES).into_remainder();
+
+                for (o,v) in chunk_o.iter_mut().zip(chunk_v.iter()) {
+                    *o = v.bits_shl(w);
                 }
             }
         }
@@ -1045,7 +1051,7 @@ impl<SS,SD,BE> SimdConvertVector<SS,SD> for BE
               SimdReg<SS> +
               SimdLanes<SS> +
               SimdConvert<SS,SD> +
-              SimdLoad<SS> +
+              SimdLoadSeq<SS,<Self as SimdConvert<SS,SD>>::Input> +
               SimdStoreSeq<SD,<Self as SimdConvert<SS,SD>>::Output> +
               SimdStore<SD>,
           SS: Assume<SD> + Copy,
@@ -1063,7 +1069,7 @@ impl<SS,SD,BE> SimdConvertVector<SS,SD> for BE
             let po = rs.as_mut().as_mut_ptr();
 
             while i + <Self as SimdLanes<SS>>::LANES <= N {
-                let sr = self.load(pb.add(i));
+                let sr = self.load_seq(pb.add(i));
 
                 let o = self.convert(sr);
 
@@ -1230,7 +1236,7 @@ impl<SS,SD,BE> SimdConvertMatrix<SS,SD> for BE
               SimdReg<SS> +
               SimdLanes<SS> +
               SimdConvert<SS,SD> +
-              SimdLoad<SS> +
+              SimdLoadSeq<SS,<Self as SimdConvert<SS,SD>>::Input> +
               SimdStoreSeq<SD,<Self as SimdConvert<SS,SD>>::Output> +
               SimdStore<SD>,
           SS: Assume<SD> + Copy,
@@ -1248,7 +1254,7 @@ impl<SS,SD,BE> SimdConvertMatrix<SS,SD> for BE
                 let mut j = 0;
 
                 while j + <Self as SimdLanes<SS>>::LANES <= M {
-                    let sr = self.load(pa.add(j));
+                    let sr = self.load_seq(pa.add(j));
 
                     let o = self.convert(sr);
 

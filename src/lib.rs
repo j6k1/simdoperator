@@ -149,6 +149,7 @@ pub struct VectorView<'a,T,const N: usize> {
     data: &'a [T; N]
 }
 impl<'a,T,const N: usize> From<&'a [T;N]> for VectorView<'a,T,N> {
+    #[inline(always)]
     fn from(value: &'a [T; N]) -> Self {
         VectorView {
             data: value

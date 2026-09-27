@@ -1091,7 +1091,7 @@ fn avx2_register_level_traits() {
         let i32_values = [1_i32, -2, 3, -4, 5, -6, 7, -8];
         let i32_converted = <Avx2 as SimdConvert<i32, f32>>::convert(
             &be,
-            <Avx2 as SimdLoad<i32>>::load(&be, i32_values.as_ptr()),
+            <Avx2 as SimdLoadSeq<i32,_>>::load_seq(&be, i32_values.as_ptr()),
         );
         let &[i32_converted] = i32_converted.as_ref();
         let mut converted = [0.0_f32; 8];

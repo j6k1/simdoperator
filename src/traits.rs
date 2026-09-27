@@ -487,10 +487,11 @@ pub trait SimdDemote<SS,SD>: SimdReg<SS> +
 pub trait SimdConvert<SS,SD>: SimdReg<SS> +
                               SimdReg<SD> +
                               SimdAdd<SD,SD,SD> where Self: Sized {
+    type Input: Copy;
     type Output: FoldRegs<SD,Self>;
     /// # Arguments
     /// * `reg` - SIMD register to convert
-    fn convert(&self,reg:<Self as SimdReg<SS>>::Reg) -> Self::Output;
+    fn convert(&self,reg:Self::Input) -> Self::Output;
 }
 /// Upcast the registers for each element of a vector
 pub trait SimdPromoteVector<SS,SD> {
