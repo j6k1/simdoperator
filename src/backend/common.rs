@@ -1,8 +1,9 @@
 //! Common Backend Implementation
 
-use std::ops::{Add, Mul, Sub};
-use crate::traits::{SimdAddVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportMul, FoldRegs, SimdOuterProduct, SimdMatMul, SimdMulAssignVector, SimdAddAssignVector, SimdSubAssignVector, SimdShiftWidth, SimdScalarMulAssignVector, SimdAddAssignMatrix, SimdScalarMulAssignMatrix, SimdScalarMulMatrix, SimdConvertMatrix, SimdLoadSeq, SimdScalarMulVectorInto};
+use std::ops::{Add, AddAssign, Mul, Sub};
+use crate::traits::{SimdAddVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportMul, FoldRegs, SimdOuterProduct, SimdMatMul, SimdMulAssignVector, SimdAddAssignVector, SimdSubAssignVector, SimdShiftWidth, SimdScalarMulAssignVector, SimdAddAssignMatrix, SimdScalarMulAssignMatrix, SimdScalarMulMatrix, SimdConvertMatrix, SimdLoadSeq, SimdScalarMulVectorInto, SimdDot, SimdHSum, SimdZero, SimdPartialDot, SimdDotKernel};
 use crate::{ColumnMajorMatrix, MatrixMut, MatrixView, OwnedMatrix, OwnedVector, VectorMut, VectorView};
+use crate::backend::avx2::Avx2;
 use crate::error::InstantiationError;
 
 /// A trait that defines the instantiation of a SIMD arithmetic backend
@@ -1270,6 +1271,69 @@ impl<SS,SD,BE> SimdConvertMatrix<SS,SD> for BE
                 }
             }
         }
+    }
+}
+impl<SL,SR,SO,BE> SimdDotKernel<SL,SR,SO> for BE
+    where Self: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> + SimdAdd<SO,SO,SO> + SimdHSum<SO> +
+                SimdLoad<SL> + SimdLoad<SR> + SimdZero<SO> +
+                SimdLanes<SL> + SimdLanes<SR> + SimdLanes<SO> +
+                SimdPartialDot<SL,SR,SO>,
+          SL: Clone + Copy,
+          SR: Clone + Copy,
+          SO: From<SL> + From<SR> + Default + Mul<SO,Output=SO> + AddAssign,
+          <Self as SimdPartialDot<SL,SR,SO>>::Output: Copy {
+    #[inline(always)]
+    unsafe fn dot<'a, const N: usize, const COLS: usize>(&self, l: &VectorView<'a, SL, N>, r: &VectorView<'a, SR, N>) -> SO {
+        let mut acc = [<Self as SimdPartialDot<SL,SR,SO>>::zero_acc(self);COLS];
+
+        let ref_l = l.as_ref();
+        let ref_r = r.as_ref();
+
+        let l_chuncks = ref_l.chunks_exact(<Self as SimdLanes<SL>>::LANES * COLS);
+        let r_chuncks = ref_r.chunks_exact(<Self as SimdLanes<SL>>::LANES * COLS);
+
+        unsafe {
+            for (lc,rc) in l_chuncks.zip(r_chuncks) {
+                let lc = lc.chunks_exact(<Self as SimdLanes<SL>>::LANES);
+                let rc = rc.chunks_exact(<Self as SimdLanes<SL>>::LANES);
+
+                for ((lc,rc),acc) in lc.zip(rc).zip(acc.iter_mut()) {
+                    let lr = self.load(lc.as_ptr());
+                    let rr = self.load(rc.as_ptr());
+
+                    *acc = self.partial_dot(lr,rr,*acc);
+                }
+            }
+
+            if N % (<Self as SimdLanes<SL>>::LANES * COLS) != 0 {
+                let lc = ref_l.chunks_exact(<Self as SimdLanes<SL>>::LANES * COLS).remainder().chunks_exact(<Self as SimdLanes<SL>>::LANES);
+                let rc = ref_r.chunks_exact(<Self as SimdLanes<SL>>::LANES * COLS).remainder().chunks_exact(<Self as SimdLanes<SL>>::LANES);
+
+                for ((lc,rc),acc) in lc.zip(rc).zip(acc.iter_mut()) {
+                    let lr = self.load(lc.as_ptr());
+                    let rr = self.load(rc.as_ptr());
+
+                    *acc = self.partial_dot(lr,rr,*acc);
+                }
+            }
+        }
+
+        let mut sum = SO::default();
+
+        for acc in acc.iter() {
+            sum += <Self as SimdHSum<SO>>::hsum(self, acc.fold(self));
+        }
+
+        if N % <Self as SimdLanes<SL>>::LANES != 0 {
+            let lc = ref_l.chunks_exact(<Self as SimdLanes<SL>>::LANES).remainder();
+            let rc = ref_r.chunks_exact(<Self as SimdLanes<SL>>::LANES).remainder();
+
+            for (&ls,&rs) in lc.iter().zip(rc.iter()) {
+                sum += SO::from(ls) * SO::from(rs);
+            }
+        }
+
+        sum
     }
 }
 impl<SL,SR,SO,BE> SimdOuterProduct<SL,SR,SO> for BE

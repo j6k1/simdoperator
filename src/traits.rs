@@ -257,6 +257,14 @@ pub trait SimdConvertMatrix<SS,SD> {
     /// * `s` - Matrix to convert the data types of each element of
     unsafe fn convert_matrix<'a,const N: usize,const M: usize>(&self, s:&MatrixView<'a,SS,N,M>, acc:&'a mut MatrixMut<'a,SD,N,M>);
 }
+/// Calculating the dot product of two vectors kernel
+pub trait SimdDotKernel<SL,SR,SO> {
+    ///
+    /// # Arguments
+    /// * `l` - Left-hand side
+    /// * `r` - Right-hand side
+    unsafe fn dot<'a,const N: usize,const COLS:usize>(&self,l:&VectorView<'a,SL,N>,r:&VectorView<'a,SR,N>) -> SO;
+}
 /// Calculating the dot product of two vectors
 pub trait SimdDot<SL,SR,SO> {
     ///
@@ -523,8 +531,9 @@ pub trait SimdMulAdd<SL,SR,SO>:
     SimdReg<SR> +
     SimdReg<SO> + SimdMul<SL,SR,SO>
     where <Self as SimdReg<SO>>::Reg: Copy {
+    type Acc: FoldRegs<SO,Self>;
     /// Returns an accumulator initialized to zero
-    fn zero_acc(&self) -> <Self as SimdMul<SL,SR,SO>>::Output;
+    fn zero_acc(&self) -> Self::Acc;
     /// Returns the result of applying multiplication and addition simultaneously to the SIMD registers
     /// # Arguments
     /// * `l` - Left-hand side
@@ -532,7 +541,7 @@ pub trait SimdMulAdd<SL,SR,SO>:
     /// * `acc` - Accumulator
     fn mul_add(&self,l:<Self as SimdReg<SL>>::Reg,
                r:<Self as SimdReg<SR>>::Reg,
-               acc:<Self as SimdMul<SL,SR,SO>>::Output) -> <Self as SimdMul<SL,SR,SO>>::Output;
+               acc:Self::Acc) -> Self::Acc;
 }
 /// Returns a partial dot product using SIMD registers
 pub trait SimdPartialDot<SL,SR,SO>: SimdReg<SL> +

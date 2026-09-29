@@ -984,11 +984,11 @@ fn avx2_backend_metadata() {
     assert_eq!(<Avx2 as SimdRows<i64>>::ROWS, 1);
     assert_eq!(<Avx2 as SimdRows<f32>>::ROWS, 2);
     assert_eq!(<Avx2 as SimdRows<f64>>::ROWS, 1);
-    assert_eq!(<Avx2 as SimdCols<i8>>::COLS, 8);
-    assert_eq!(<Avx2 as SimdCols<i16>>::COLS, 8);
-    assert_eq!(<Avx2 as SimdCols<i32>>::COLS, 8);
-    assert_eq!(<Avx2 as SimdCols<f32>>::COLS, 4);
-    assert_eq!(<Avx2 as SimdCols<f64>>::COLS, 2);
+    assert_eq!(<Avx2 as SimdCols<i8>>::COLS, 4);
+    assert_eq!(<Avx2 as SimdCols<i16>>::COLS, 2);
+    assert_eq!(<Avx2 as SimdCols<i32>>::COLS, 2);
+    assert_eq!(<Avx2 as SimdCols<f32>>::COLS, 2);
+    assert_eq!(<Avx2 as SimdCols<f64>>::COLS, 1);
 }
 
 #[test]

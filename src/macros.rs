@@ -1,3 +1,5 @@
+use crate::traits::SimdPartialDot;
+
 #[macro_export]
 macro_rules! matmul_tile {
     ($func_name:ident,$ROWS:expr,$COLS:expr,$SL:ty,$SR:ty,$SO:ty) => {
@@ -34,7 +36,7 @@ macro_rules! matmul_tile {
                 for r in 0..$ROWS {
                     for c in 0..$COLS {
                         acc[(i+r,j+c)] = <Self as SimdHSum<$SO>>::hsum(self,
-                            <<Self as SimdMul<$SL,$SR,$SO>>::Output as FoldRegs<$SO,Self>>::fold(&acc_tile[r][c],self)
+                            <<Self as SimdPartialDot<$SL,$SR,$SO>>::Output as FoldRegs<$SO,Self>>::fold(&acc_tile[r][c],self)
                         );
                     }
                 }
