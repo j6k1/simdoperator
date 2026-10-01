@@ -10,7 +10,7 @@ fn avx2_available() -> bool {
     std::is_x86_feature_detected!("avx2") && std::is_x86_feature_detected!("fma")
 }
 
-fn acc_vector_array<T, BE, const N: usize>(v: AccVector<T,BE,N>) -> [T; N] where BE: Backend {
+fn acc_vector_array<T, BE, const N: usize>(v: AccVector<T,N,BE>) -> [T; N] where BE: Backend {
     *Box::<[T; N]>::from(v)
 }
 
@@ -51,7 +51,7 @@ fn vector_matrix_view_and_owned_type_methods() {
     assert_eq!(vector_view.as_horizontal()[0], [1, 2, 3, 4]);
     assert!(VectorView::<i32, 5>::try_from(&vector_data[..]).is_err());
 
-    let mut acc_vector = AccVector::<_,AutoSelect,_>::try_from(Box::new([1_i32, 2, 3, 4])).unwrap();
+    let mut acc_vector = AccVector::<_,_,AutoSelect>::try_from(Box::new([1_i32, 2, 3, 4])).unwrap();
     {
         acc_vector[1] = 20;
         acc_vector.as_mut()[2] = 30;
@@ -125,23 +125,23 @@ fn vector_operator_traits_with_unspecified_backend() {
     let l = Vector::<i32, 9>::try_from(&l_data[..]).unwrap();
     let r = Vector::<i32, 9>::try_from(&r_data[..]).unwrap();
 
-    assert_eq!(acc_vector_array(&l + &r), [10; 9]);
-    assert_eq!(acc_vector_array(&l - &r), [-8, -6, -4, -2, 0, 2, 4, 6, 8]);
+    assert_eq!(acc_vector_array(l.clone() + r.clone()), [10; 9]);
+    assert_eq!(acc_vector_array(l.clone() - r.clone()), [-8, -6, -4, -2, 0, 2, 4, 6, 8]);
     assert_eq!(
-        acc_vector_array(&l * &r),
+        acc_vector_array(l.clone() * r.clone()),
         [9, 16, 21, 24, 25, 24, 21, 16, 9]
     );
     assert_eq!(
-        acc_vector_array(&l * 3_i32),
+        acc_vector_array(l.clone() * 3_i32),
         [3, 6, 9, 12, 15, 18, 21, 24, 27]
     );
     assert_eq!(l.dot(&r), 165);
 
     let mut acc = AccVector::try_from(Box::new(l_data)).unwrap();
     {
-        acc += &r;
-        acc -= &r;
-        acc *= &r;
+        acc += r.clone();
+        acc -= r.clone();
+        acc *= r.clone();
         acc *= 2;
     }
     assert_eq!(
@@ -161,23 +161,23 @@ fn vector_operator_traits_with_avx2_backend() {
     let l = Vector::<i32, 9, Avx2>::try_from(&l_data[..]).unwrap();
     let r = Vector::<i32, 9, Avx2>::try_from(&r_data[..]).unwrap();
 
-    assert_eq!(acc_vector_array(&l + &r), [10; 9]);
-    assert_eq!(acc_vector_array(&l - &r), [-8, -6, -4, -2, 0, 2, 4, 6, 8]);
+    assert_eq!(acc_vector_array(l.clone() + r.clone()), [10; 9]);
+    assert_eq!(acc_vector_array(l.clone() - r.clone()), [-8, -6, -4, -2, 0, 2, 4, 6, 8]);
     assert_eq!(
-        acc_vector_array(&l * &r),
+        acc_vector_array(l.clone() * r.clone()),
         [9, 16, 21, 24, 25, 24, 21, 16, 9]
     );
     assert_eq!(
-        acc_vector_array(&l * 3_i32),
+        acc_vector_array(l.clone() * 3_i32),
         [3, 6, 9, 12, 15, 18, 21, 24, 27]
     );
     assert_eq!(l.dot(&r), 165);
 
-    let mut acc = AccVector::try_from(Box::new(l_data)).unwrap();
+    let mut acc = AccVector::<_,_,Avx2>::try_from(Box::new(l_data)).unwrap();
     {
-        acc += &r;
-        acc -= &r;
-        acc *= &r;
+        acc += r.clone();
+        acc -= r.clone();
+        acc *= r.clone();
         acc *= 2;
     }
     assert_eq!(
@@ -197,14 +197,14 @@ fn vector_operator_traits_with_autoselect_backend() {
     let l = Vector::<i32, 9, AutoSelect>::try_from(&l_data[..]).unwrap();
     let r = Vector::<i32, 9, AutoSelect>::try_from(&r_data[..]).unwrap();
 
-    assert_eq!(acc_vector_array(&l + &r), [10; 9]);
-    assert_eq!(acc_vector_array(&l - &r), [-8, -6, -4, -2, 0, 2, 4, 6, 8]);
+    assert_eq!(acc_vector_array(l.clone() + r.clone()), [10; 9]);
+    assert_eq!(acc_vector_array(l.clone() - r.clone()), [-8, -6, -4, -2, 0, 2, 4, 6, 8]);
     assert_eq!(
-        acc_vector_array(&l * &r),
+        acc_vector_array(l.clone() * r.clone()),
         [9, 16, 21, 24, 25, 24, 21, 16, 9]
     );
     assert_eq!(
-        acc_vector_array(&l * 3_i32),
+        acc_vector_array(l.clone() * 3_i32),
         [3, 6, 9, 12, 15, 18, 21, 24, 27]
     );
     assert_eq!(l.dot(&r), 165);
@@ -223,10 +223,10 @@ fn matrix_product_traits_with_unspecified_backend() {
     let vector = Vector::<i32, 3>::try_from(&vector_data[..]).unwrap();
     let col_major = ColumnMajorMatrix::<i32, 3, 2>::try_from(&col_major_data[..]).unwrap();
 
-    let matvec: AccVector<i32,AutoSelect,2> = matrix.product(&vector);
+    let matvec: AccVector<i32,2,AutoSelect> = matrix.product(&vector);
     assert_eq!(acc_vector_array(matvec), [50, 122]);
 
-    let vmat: AccVector<i32,AutoSelect,2> = vector.product(&col_major);
+    let vmat: AccVector<i32,2,AutoSelect> = vector.product(&col_major);
     assert_eq!(acc_vector_array(vmat), [50, 122]);
 
     let matmul: AccMatrix<i32,AutoSelect,2, 2> = matrix.product(&col_major);
