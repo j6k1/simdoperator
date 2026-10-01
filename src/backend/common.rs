@@ -2,7 +2,7 @@
 
 use std::ops::{Add, AddAssign, Mul, Sub};
 use crate::traits::{SimdAddVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportMul, FoldRegs, SimdOuterProduct, SimdMatMul, SimdMulAssignVector, SimdAddAssignVector, SimdSubAssignVector, SimdShiftWidth, SimdScalarMulAssignVector, SimdAddAssignMatrix, SimdScalarMulAssignMatrix, SimdScalarMulMatrix, SimdConvertMatrix, SimdLoadSeq, SimdScalarMulVectorInto, SimdDot, SimdHSum, SimdZero, SimdPartialDot, SimdDotKernel};
-use crate::{ColumnMajorMatrix, MatrixMut, MatrixView, OwnedMatrix, OwnedVector, VectorMut, VectorView};
+use crate::{ColumnMajorMatrix, MatrixMut, MatrixView, OwnedMatrix, OwnedVector, VectorMutView, VectorView};
 use crate::backend::avx2::Avx2;
 use crate::error::InstantiationError;
 
@@ -139,7 +139,7 @@ impl<T,BE> SimdAddAssignVector<T,T> for BE
               SimdStore<T>,
           T: Default + Add<Output=T> + Copy {
     #[target_feature(enable = "avx2")]
-    unsafe fn add_assign_vector<'a,const N: usize>(&self, l: &mut VectorMut<'a,T,N>, r: &VectorView<'a,T,N>) {
+    unsafe fn add_assign_vector<'a,const N: usize>(&self, l: &mut VectorMutView<'a,T,N>, r: &VectorView<'a,T,N>) {
         unsafe {
             let mut ref_l = l.as_mut();
             let ref_r = r.as_ref();
@@ -176,7 +176,7 @@ impl<T,BE> SimdAddVector<T,T,T> for BE
         -> OwnedVector<T,N> {
         let mut acc = OwnedVector::from(Box::<[T;N]>::from(l));
 
-        let mut l = VectorMut::<T,N>::from(&mut acc);
+        let mut l = VectorMutView::<T,N>::from(&mut acc);
 
         unsafe { <Self as SimdAddAssignVector<T,T>>::add_assign_vector(self,&mut l,&r) };
 
@@ -194,7 +194,7 @@ impl<T,BE> SimdSubAssignVector<T,T> for BE
               SimdStore<T>,
           T: Default + Sub<Output=T> + Copy {
     #[target_feature(enable = "avx2")]
-    unsafe fn sub_assign_vector<'a,const N: usize>(&self, l: &mut VectorMut<'a,T,N>, r: &VectorView<'a,T,N>) {
+    unsafe fn sub_assign_vector<'a,const N: usize>(&self, l: &mut VectorMutView<'a,T,N>, r: &VectorView<'a,T,N>) {
         unsafe {
             let mut ref_l = l.as_mut();
             let ref_r = r.as_ref();
@@ -231,7 +231,7 @@ impl<T,BE> SimdSubVector<T,T,T> for BE
         -> OwnedVector<T,N> {
         let mut acc = OwnedVector::from(Box::<[T;N]>::from(l));
 
-        let mut l = VectorMut::<T,N>::from(&mut acc);
+        let mut l = VectorMutView::<T,N>::from(&mut acc);
 
         unsafe { <Self as SimdSubAssignVector<T,T>>::sub_assign_vector(self,&mut l,r) };
 
@@ -306,7 +306,7 @@ impl<SL,SR,BE> SimdMulAssignVector<SL,SR> for BE
           <Self as SimdMul<SL,SR,SL>>::Output: Copy,
           (SL,SL): SupportMul<Homogeneous> {
     #[target_feature(enable = "avx2")]
-    unsafe fn mul_assign_vector<'a,const N: usize>(&self, l: &mut VectorMut<'a,SL,N>, r: &VectorView<'a,SR,N>) {
+    unsafe fn mul_assign_vector<'a,const N: usize>(&self, l: &mut VectorMutView<'a,SL,N>, r: &VectorView<'a,SR,N>) {
         unsafe {
             let mut ref_l = l.as_mut();
             let ref_r = r.as_ref();
@@ -470,7 +470,7 @@ impl<SL,SR,BE> SimdScalarMulAssignVector<SL,SR> for BE
       <Self as SimdMul<SL,SR,SR>>::Output: Copy,
       (SL,SR): SupportMul<Homogeneous> {
     #[target_feature(enable = "avx2")]
-    unsafe fn scalarmul_assign_vector<'a, const N: usize>(&self, l:SL, r: &mut VectorMut<'a, SR, N>) {
+    unsafe fn scalarmul_assign_vector<'a, const N: usize>(&self, l:SL, r: &mut VectorMutView<'a, SR, N>) {
         unsafe {
             let s = self.splat(l);
             let ref_r = r.as_mut();
@@ -594,7 +594,7 @@ impl<SL,SR,SO,BE> SimdScalarMulVectorInto<SL,SR,SO> for BE
           <Self as SimdMul<SL,SR,SO>>::Output: Copy,
           (SL,SO): SupportMul<Heterogeneous> {
     #[target_feature(enable = "avx2")]
-    unsafe fn scalarmul_vector_into<'a, const N: usize>(&self, l:SL, r: &VectorView<'a, SR, N>, o: &mut VectorMut<'a, SO, N>) {
+    unsafe fn scalarmul_vector_into<'a, const N: usize>(&self, l:SL, r: &VectorView<'a, SR, N>, o: &mut VectorMutView<'a, SO, N>) {
         unsafe {
             let s = self.splat(l);
             let ref_r = r.as_ref();
@@ -655,7 +655,7 @@ impl<SL,SR,SO,BE> SimdScalarMulVectorInto<SL,SR,SO> for BE
           <Self as SimdMul<SL,SR,SO>>::Output: Copy,
           (SL,SO): SupportMul<Homogeneous> {
     #[target_feature(enable = "avx2")]
-    unsafe fn scalarmul_vector_into<'a, const N: usize>(&self, l:SL, r: &VectorView<'a, SR, N>, o: &mut VectorMut<'a, SO, N>) {
+    unsafe fn scalarmul_vector_into<'a, const N: usize>(&self, l:SL, r: &VectorView<'a, SR, N>, o: &mut VectorMutView<'a, SO, N>) {
         unsafe {
             let s = self.splat(l);
             let ref_r = r.as_ref();
@@ -888,7 +888,7 @@ impl<T,BE> SimdShlVector<T> for BE
               T: BitsShl + Default + Copy {
     #[target_feature(enable = "avx2")]
     unsafe fn shl_vector<'a,const N: usize>(&self, v: &VectorView<'a,T,N>, w:usize)
-                                     -> OwnedVector<T,N> {
+        -> OwnedVector<T,N> {
         let mut rs = OwnedVector::from(Box::new([T::default(); N]));
 
         let rw = <BE as SimdShiftWidth<T>>::shift_width(self,w);
@@ -931,29 +931,31 @@ impl<T,BE> SimdShrVector<T> for BE
               T: BitsShr + Default + Copy {
     #[target_feature(enable = "avx2")]
     unsafe fn shr_vector<'a,const N: usize>(&self, v: &VectorView<'a,T,N>, w:usize)
-                                     -> OwnedVector<T,N> {
-        let mut i = 0;
-
+        -> OwnedVector<T,N> {
         let mut rs = OwnedVector::from(Box::new([T::default(); N]));
 
         let rw = <BE as SimdShiftWidth<T>>::shift_width(self,w);
 
         unsafe {
-            let pa = v.as_ref().as_ptr();
-            let po = rs.as_mut().as_mut_ptr();
+            let ref_v = v.as_ref();
+            let ref_o = rs.as_mut();
 
-            while i + <Self as SimdLanes<T>>::LANES <= N {
-                let vr = self.load(pa.add(i));
+            let chunks_v = ref_v.chunks_exact(<Self as SimdLanes<T>>::LANES);
+            let chunks_o = ref_o.chunks_exact_mut(<Self as SimdLanes<T>>::LANES);
+
+            for (o,v) in chunks_o.zip(chunks_v) {
+                let vr = self.load(v.as_ptr());
                 let rr = self.shr(vr,rw);
 
-                self.store(po.add(i),rr);
-
-                i += <Self as SimdLanes<T>>::LANES;
+                self.store(o.as_mut_ptr(),rr);
             }
 
             if N % <Self as SimdLanes<T>>::LANES != 0 {
-                for j in i..N {
-                    rs[j] = v[j].bits_shr(w);
+                let chunk_v = ref_v.chunks_exact(<Self as SimdLanes<T>>::LANES).remainder();
+                let chunk_o = ref_o.chunks_exact_mut(<Self as SimdLanes<T>>::LANES).into_remainder();
+
+                for (o,v) in chunk_o.iter_mut().zip(chunk_v.iter()) {
+                    *o = v.bits_shr(w);
                 }
             }
         }

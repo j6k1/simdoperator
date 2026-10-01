@@ -5,10 +5,12 @@ use crate::backend::common::Backend;
 use crate::error::InstantiationError;
 
 /// The selected backend.
+#[derive(Clone)]
 pub enum SelectedBackend {
     Avx2(Avx2)
 }
 /// The auto-selected backend.
+#[derive(Clone)]
 pub struct AutoSelect {
     /// The selected backend.
     pub(crate) selected: SelectedBackend
@@ -24,6 +26,11 @@ impl Backend for AutoSelect {
         } else {
             Err(InstantiationError::NotSupportingError)
         }
+    }
+}
+impl AutoSelect {
+    pub fn backend(&self) -> SelectedBackend {
+        self.selected.clone()
     }
 }
 #[cfg(test)]

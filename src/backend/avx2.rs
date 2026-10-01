@@ -8,6 +8,7 @@ use crate::{derive_matmul, matmul_tile, ColumnMajorMatrix, MatrixMut, MatrixView
 use crate::error::InstantiationError;
 
 /// Avx2 Backend
+#[derive(Clone)]
 pub struct Avx2 {
 
 }

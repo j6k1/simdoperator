@@ -2,7 +2,7 @@
 
 use rayon::iter::ParallelIterator;
 use std::ops::{Add, AddAssign, BitAnd, BitOr, BitXor, Index, IndexMut, Mul, MulAssign, Not, Shl, Shr, Sub, SubAssign};
-use rayon::prelude::{ParallelSliceMut,IndexedParallelIterator};
+use rayon::prelude::{ParallelSliceMut, IndexedParallelIterator};
 use crate::backend::autoselect::{AutoSelect, SelectedBackend};
 use crate::backend::avx2::Avx2;
 use crate::error::{InstantiationError, TryFromSliceError};
@@ -125,6 +125,21 @@ impl<'a,BE: Backend,T,const N: usize> From<&'a Vector<'a,T,N,BE>> for Box<[T;N]>
         Box::new(value.data.clone().into())
     }
 }
+impl<'a,BE: Backend,T,const N: usize> From<&'a AccVector<T, BE, N>> for Vector<'a,T,N,BE>
+    where T: Clone + Copy,
+          BE: Backend {
+    fn from(value: &'a AccVector<T,BE,N>) -> Self {
+        Vector {
+            data: &value.data,
+            backend: BE::new().unwrap()
+        }
+    }
+}
+impl<'a,BE: Backend,T,const N: usize> AsRef<[T;N]> for AccVector<T,BE,N> {
+    fn as_ref(&self) -> &[T; N] {
+        &self.data
+    }
+}
 impl<'a,BE: Backend,T,const N: usize> Vector<'a,T,N,BE> {
     /// Returns a view of the vector as a vertical matrix.
     #[inline(always)]
@@ -144,6 +159,75 @@ impl<'a,BE: Backend,T,const N: usize> Vector<'a,T,N,BE> {
         }
     }
 }
+/// A mutable vector associated with the backend
+pub struct VectorMut<'a,T,const N: usize,BE: Backend = AutoSelect> {
+    data: &'a mut [T; N],
+    backend: BE
+}
+impl<'a,BE: Backend,T,const N: usize> TryFrom<&'a mut [T]> for VectorMut<'a,T,N,BE> {
+    type Error = InstantiationError;
+
+    #[inline(always)]
+    fn try_from(value: &'a mut [T]) -> Result<Self,Self::Error> {
+        if value.len() != N {
+            Err(InstantiationError::from(TryFromSliceError))
+        } else {
+            Ok(VectorMut {
+                data: value.try_into()?,
+                backend: BE::new()?
+            })
+        }
+    }
+}
+impl<T,BE: Backend,const N: usize> Index<usize> for VectorMut<'_,T,N,BE> {
+    type Output = T;
+
+    #[inline(always)]
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.data[index]
+    }
+}
+impl<T,BE: Backend,const N: usize> IndexMut<usize> for VectorMut<'_,T,N,BE> {
+    #[inline(always)]
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.data[index]
+    }
+}
+impl<T,BE: Backend,const N: usize> AsMut<[T;N]> for VectorMut<'_,T,N,BE> {
+    #[inline(always)]
+    fn as_mut(&mut self) -> &mut [T;N] {
+        &mut self.data
+    }
+}
+impl<'a,BE: Backend,T,const N: usize> TryFrom<&'a mut OwnedVector<T,N>> for VectorMut<'a,T,N,BE> {
+    type Error = InstantiationError;
+    #[inline(always)]
+    fn try_from(value: &'a mut OwnedVector<T,N>) -> Result<Self,Self::Error> {
+        Ok(VectorMut {
+            data: &mut value.data,
+            backend: BE::new()?
+        })
+    }
+}
+impl<'a,BE: Backend,T,const N: usize> From<&'a VectorMut<'a,T,N,BE>> for Box<[T;N]>
+    where T: Clone + Copy {
+
+    #[inline(always)]
+    fn from(value: &'a VectorMut<'a,T,N,BE>) -> Self {
+        Box::new(value.data.clone().into())
+    }
+}
+impl<'a,BE: Backend,T,const N: usize> From<&'a mut AccVector<T,BE,N>> for VectorMut<'a,T,N,BE>
+    where BE: Backend + Clone {
+    #[inline(always)]
+    fn from(value: &'a mut AccVector<T,BE,N>) -> Self {
+        VectorMut {
+            data: &mut value.data,
+            backend: value.backend.clone()
+        }
+    }
+}
+
 /// Backend-independent views that reference Vector
 pub struct VectorView<'a,T,const N: usize> {
     data: &'a [T; N]
@@ -184,10 +268,11 @@ impl<T,const N: usize> AsRef<[T;N]> for VectorView<'_,T,N> {
         &self.data
     }
 }
-impl<'a,'data,T,BE,const N: usize> From<&'a Vector<'data,T,N,BE>> for VectorView<'a,T,N>
-    where BE: Backend {
+impl<'a,'b,T,BE,const N: usize> From<&'b Vector<'a,T,N,BE>> for VectorView<'b,T,N>
+    where BE: Backend,
+          'a: 'b {
     #[inline(always)]
-    fn from(value: &'a Vector<'data,T,N,BE>) -> VectorView<'a,T,N> {
+    fn from(value: &'b Vector<'a,T,N,BE>) -> VectorView<'b,T,N> {
         VectorView {
             data: &value.data
         }
@@ -226,50 +311,60 @@ impl<'a,T,const N: usize> VectorView<'a,T,N> {
     }
 }
 /// A view type that represents a vector whose elements mutable
-pub struct VectorMut<'a,T,const N: usize> {
+pub struct VectorMutView<'a,T,const N: usize> {
     data: &'a mut [T;N]
 }
-impl<'a,T,const N: usize> From<&'a mut OwnedVector<T,N>> for VectorMut<'a,T,N> {
+impl<'a,T,const N: usize> From<&'a mut OwnedVector<T,N>> for VectorMutView<'a,T,N> {
     #[inline(always)]
      fn from(value: &'a mut OwnedVector<T,N>) -> Self {
-        VectorMut {
+        VectorMutView {
             data: &mut value.data
         }
      }
 }
-impl<'a,T,const N: usize> Index<usize> for VectorMut<'a,T,N> {
+impl<'a,'b,T,BE,const N: usize> From<&'b mut VectorMut<'a,T,N,BE>> for VectorMutView<'b,T,N>
+    where BE: Backend,
+          'a: 'b {
+    #[inline(always)]
+    fn from(value: &'b mut VectorMut<'a,T,N,BE>) -> Self {
+        VectorMutView {
+            data: &mut value.data
+        }
+    }
+}
+impl<'a,T,const N: usize> Index<usize> for VectorMutView<'a,T,N> {
     type Output = T;
     #[inline(always)]
     fn index(&self, index: usize) -> &Self::Output {
         &self.data[index]
     }
 }
-impl<'a,T,const N: usize> IndexMut<usize> for VectorMut<'a,T,N> {
+impl<'a,T,const N: usize> IndexMut<usize> for VectorMutView<'a,T,N> {
     #[inline(always)]
     fn index_mut(&mut self, index: usize) -> &mut T {
         &mut self.data[index]
     }
 }
-impl<'a,T,const N: usize> AsRef<[T;N]> for VectorMut<'a,T,N> {
+impl<'a,T,const N: usize> AsRef<[T;N]> for VectorMutView<'a,T,N> {
     #[inline(always)]
     fn as_ref(&self) -> &[T; N] {
         &self.data
     }
 }
-impl<'a,T,const N: usize> AsMut<[T;N]> for VectorMut<'a,T,N> {
+impl<'a,T,const N: usize> AsMut<[T;N]> for VectorMutView<'a,T,N> {
     #[inline(always)]
     fn as_mut(&mut self) -> &mut [T; N] {
         &mut self.data
     }
 }
-impl<'a,T,const N: usize> TryFrom<&'a mut [T]> for VectorMut<'a,T,N> {
+impl<'a,T,const N: usize> TryFrom<&'a mut [T]> for VectorMutView<'a,T,N> {
     type Error = InstantiationError;
     #[inline(always)]
     fn try_from(value: &'a mut [T]) -> Result<Self,Self::Error> {
         if value.len() != N {
             Err(InstantiationError::from(TryFromSliceError))
         } else {
-            Ok(VectorMut {
+            Ok(VectorMutView {
                 data: value.try_into()?
             })
         }
@@ -326,12 +421,77 @@ impl<T,const N: usize> IndexMut<usize> for OwnedVector<T,N> {
         &mut self.data[index]
     }
 }
-impl<'a,T,const N: usize> BindBackend<'a> for &'a OwnedVector<T,N> where T: 'static {
-    type Output<BE: Backend> = Vector<'a,T,N,BE>;
+impl<'a,T,const N: usize> BindBackend<'a> for OwnedVector<T,N> where T: 'static {
+    type Output<BE: Backend> = AccVector<T,BE,N>;
 
     #[inline(always)]
     fn bind<BE: Backend>(self) -> Result<Self::Output<BE>, InstantiationError> {
-        Ok(Vector::try_from(self)?)
+        Ok(AccVector::try_from(self)?)
+    }
+}
+/// Accumulator Vector
+pub struct AccVector<T,BE,const N: usize>
+    where BE: Backend {
+    data: Box<[T; N]>,
+    backend: BE
+}
+impl<T,BE,const N: usize> From<AccVector<T,BE,N>> for Box<[T;N]>
+    where BE: Backend {
+    #[inline(always)]
+    fn from(value: AccVector<T,BE,N>) -> Self {
+        value.data
+    }
+}
+impl<T,BE,const N: usize> TryFrom<OwnedVector<T,N>> for AccVector<T,BE,N>
+    where BE: Backend {
+    type Error = InstantiationError;
+    #[inline(always)]
+    fn try_from(value: OwnedVector<T,N>) -> Result<AccVector<T,BE,N>,Self::Error> {
+        Ok(AccVector {
+            data: value.into(),
+            backend: BE::new()?
+        })
+    }
+}
+impl<T,BE,const N: usize> TryFrom<Box<[T;N]>> for AccVector<T,BE,N>
+    where BE: Backend {
+    type Error = InstantiationError;
+
+    #[inline(always)]
+    fn try_from(value: Box<[T;N]>) -> Result<AccVector<T,BE,N>,Self::Error> {
+        Ok(AccVector {
+            data: value,
+            backend:BE::new()?
+        })
+    }
+}
+impl<T,BE,const N: usize> From<AccVector<T,BE,N>> for Box<[T]>
+    where BE: Backend {
+    #[inline(always)]
+    fn from(value: AccVector<T,BE,N>) -> Box<[T]> {
+        value.data
+    }
+}
+impl<T,BE,const N: usize> AsMut<[T;N]> for AccVector<T,BE,N>
+    where BE: Backend {
+    #[inline(always)]
+    fn as_mut(&mut self) -> &mut [T;N] {
+        &mut self.data
+    }
+}
+impl<T,BE,const N: usize> Index<usize> for AccVector<T,BE,N>
+    where BE: Backend {
+    type Output = T;
+    #[inline(always)]
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.data[index]
+    }
+}
+impl<T,BE,const N: usize> IndexMut<usize> for AccVector<T,BE,N>
+    where BE: Backend {
+    #[inline(always)]
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.data[index]
     }
 }
 /// A view type that represents a matrix whose elements are immutable
@@ -700,14 +860,68 @@ impl<T,const N: usize,const M: usize> AsMut<[T]> for OwnedMatrix<T,N,M> {
     }
 }
 impl<T,const N: usize,const M:usize> Dims<N,M> for OwnedMatrix<T,N,M> {}
-impl<'a,T,const N: usize,const M: usize> BindBackend<'a> for &'a OwnedMatrix<T,N,M> {
-    type Output<BE: Backend> = Matrix<'a,T,N,M,BE>;
+impl<'a,T,const N: usize,const M: usize> BindBackend<'a> for OwnedMatrix<T,N,M>
+    where T: Copy + 'static {
+    type Output<BE: Backend> = AccMatrix<T,BE,N,M>;
 
     #[inline(always)]
     fn bind<BE: Backend>(self) -> Result<Self::Output<BE>, InstantiationError> {
-        Ok(Matrix::try_from(self)?)
+        Ok(AccMatrix::try_from(self)?)
     }
 }
+/// A backend-independent representation of an Accumulator matrix
+pub struct AccMatrix<T,BE,const N: usize,const M: usize>
+    where BE: Backend {
+    data: Box<[T]>,
+    backend: BE
+}
+impl<T,BE,const N: usize,const M: usize> Index<(usize,usize)> for AccMatrix<T,BE,N,M>
+    where BE: Backend {
+    type Output = T;
+
+    #[inline(always)]
+    fn index(&self, (row,col): (usize, usize)) -> &Self::Output {
+        &self.data[(row * M) + col]
+    }
+}
+impl<T,BE,const N: usize,const M: usize> IndexMut<(usize,usize)> for AccMatrix<T,BE,N,M>
+    where BE: Backend {
+    #[inline(always)]
+    fn index_mut(&mut self, (row,col): (usize, usize)) -> &mut Self::Output {
+        &mut self.data[(row * M) + col]
+    }
+}
+impl<T,BE,const N: usize,const M: usize> From<AccMatrix<T,BE,N,M>> for Box<[T]>
+    where BE: Backend {
+    #[inline(always)]
+    fn from(value: AccMatrix<T,BE,N,M>) -> Self {
+        value.data
+    }
+}
+impl<T,BE,const N: usize,const M: usize> TryFrom<Box<[T]>> for AccMatrix<T,BE,N,M>
+    where BE: Backend {
+    type Error = InstantiationError;
+    #[inline(always)]
+    fn try_from(value: Box<[T]>) -> Result<AccMatrix<T,BE,N,M>,Self::Error> {
+        Ok(AccMatrix { data: value, backend: BE::new()? })
+    }
+}
+impl<T,BE,const N: usize,const M: usize> TryFrom<OwnedMatrix<T,N,M>> for AccMatrix<T,BE,N,M>
+    where BE: Backend {
+    type Error = InstantiationError;
+    #[inline(always)]
+    fn try_from(value: OwnedMatrix<T,N,M>) -> Result<AccMatrix<T,BE,N,M>,Self::Error> {
+        Ok(AccMatrix { data: value.into(), backend: BE::new()? })
+    }
+}
+impl<T,BE,const N: usize,const M: usize> AsMut<[T]> for AccMatrix<T,BE,N,M>
+    where BE: Backend {
+    #[inline(always)]
+    fn as_mut(&mut self) -> &mut [T] {
+        &mut self.data
+    }
+}
+impl<T,BE,const N: usize,const M:usize> Dims<N,M> for AccMatrix<T,BE,N,M> where BE: Backend {}
 impl<'a,T,const N: usize,const M: usize> ColumnMajorMatrix<'a,T,N,M> {
     /// Retrieve a specified col of a matrix as a vector
     ///
@@ -798,102 +1012,152 @@ impl<'a,T,const N: usize,const M: usize> From<&'a ColumnMajorMatrix<'a,T,N,M>>
     }
 }
 impl<'a,T,const N: usize> Add<&'a Vector<'a,T,N,AutoSelect>> for &'a Vector<'a,T,N,AutoSelect>
-    where AutoSelect: Backend,
+    where T: 'static,
+          AutoSelect: Backend,
           Avx2: SimdAddVector<T,T,T>,
           for<'b> VectorView<'b,T,N>: From<&'b Vector<'b,T,N,AutoSelect>> {
-    type Output = OwnedVector<T,N>;
+    type Output = AccVector<T,AutoSelect,N>;
 
     #[inline(always)]
     fn add(self, rhs: &'a Vector<'a,T,N,AutoSelect>) -> Self::Output {
         match self.backend.selected {
-            SelectedBackend::Avx2(ref backend) => unsafe { backend.add_vector(&self.into(), &rhs.into()) }
+            SelectedBackend::Avx2(ref backend) => unsafe {
+                backend.add_vector(&self.into(), &rhs.into()).bind_auto().unwrap()
+            }
         }
     }
 }
 impl<'a,BE,T,const N: usize> Add<&'a Vector<'a,T,N,BE>> for &'a Vector<'a,T,N,BE>
-    where BE: Backend + NativeBackend + SimdAddVector<T,T,T>,
+    where T: 'static,
+          BE: Backend + NativeBackend + SimdAddVector<T,T,T>,
           for<'b> VectorView<'b,T,N>: From<&'b Vector<'b,T,N,BE>> {
-    type Output = OwnedVector<T,N>;
+    type Output = AccVector<T,BE,N>;
 
     #[inline(always)]
     fn add(self, rhs: &'a Vector<'a,T,N,BE>) -> Self::Output {
-        unsafe { self.backend.add_vector(&self.into(), &rhs.into()) }
+        unsafe { self.backend.add_vector(&self.into(), &rhs.into()).bind::<BE>().unwrap() }
     }
 }
-impl<'a,T,const N: usize> AddAssign<&'a Vector<'a,T,N,AutoSelect>> for VectorMut<'a,T,N>
+impl<'a,T,BE,const N: usize> Add<&'a Vector<'a,T,N,BE>> for AccVector<T,BE,N>
+    where BE: Backend,
+          for<'b> Vector<'b,T,N,BE>: From<&'b AccVector<T,BE,N>>,
+          for<'b> &'b Vector<'b,T,N,BE>: Add<&'b Vector<'b,T,N,BE>, Output = AccVector<T,BE,N>> {
+    type Output = AccVector<T,BE,N>;
+
+    #[inline(always)]
+    fn add(self, rhs: &'a Vector<'a,T,N,BE>) -> Self::Output {
+        &Vector::<T,N,BE>::from(&self) + rhs
+    }
+}
+impl<'a,T,const N: usize> AddAssign<&'a Vector<'a,T,N,AutoSelect>> for VectorMut<'a,T,N,AutoSelect>
     where Avx2: Backend + SimdAddAssignVector<T,T>,
-          for<'b> VectorView<'b,T,N>: From<&'b Vector<'b,T,N,AutoSelect>> {
+          for<'b> VectorView<'b,T,N>: From<&'a Vector<'a,T,N,AutoSelect>>,
+          for<'b> VectorMutView<'b,T,N>: From<&'b mut VectorMut<'a,T,N,AutoSelect>> {
     #[inline(always)]
     fn add_assign(&mut self, rhs: &'a Vector<'a,T,N,AutoSelect>) {
         match rhs.backend.selected {
             SelectedBackend::Avx2(ref backend) => unsafe {
-                backend.add_assign_vector(self.into(), &rhs.into())
+                backend.add_assign_vector(&mut self.into(), &rhs.into())
             },
         }
     }
 }
-impl<'a,BE,T,const N: usize> AddAssign<&'a Vector<'a,T,N,BE>> for VectorMut<'a,T,N>
+impl<'a,BE,T,const N: usize> AddAssign<&'a Vector<'a,T,N,BE>> for VectorMut<'a,T,N,BE>
     where BE: Backend + NativeBackend + SimdAddAssignVector<T,T>,
-          for<'b> VectorView<'b,T,N>: From<&'b Vector<'b,T,N,BE>> {
+          for<'b> VectorView<'b,T,N>: From<&'a Vector<'a,T,N,BE>>,
+          for<'b> VectorMutView<'b,T,N>: From<&'b mut VectorMut<'a,T,N,BE>> {
     #[inline(always)]
     fn add_assign(&mut self, rhs: &'a Vector<'a,T,N,BE>) {
-        unsafe { rhs.backend.add_assign_vector(self, &rhs.into()) }
+        unsafe { rhs.backend.add_assign_vector(&mut self.into(), &rhs.into()) }
+    }
+}
+impl<'a,T,BE,const N: usize> AddAssign<&'a Vector<'a,T,N,BE>> for AccVector<T,BE,N>
+    where BE: Backend,
+          for<'b> VectorMut<'b,T,N,BE>: From<&'b mut AccVector<T,BE,N>>,
+          for<'b> VectorMut<'b,T,N,BE>: AddAssign<&'a Vector<'a,T,N,BE>> {
+    #[inline(always)]
+    fn add_assign(&mut self, rhs: &'a Vector<'a,T,N,BE>) {
+        VectorMut::from(self).add_assign(rhs)
     }
 }
 impl<'a,T,const N: usize> SubAssign<&'a Vector<'a,T,N,AutoSelect>> for VectorMut<'a,T,N>
     where Avx2: Backend + SimdSubAssignVector<T,T>,
-          for<'b> VectorView<'b,T,N>: From<&'b Vector<'b,T,N,AutoSelect>> {
+          for<'b> VectorView<'b,T,N>: From<&'b Vector<'b,T,N,AutoSelect>>,
+          for<'b> VectorMutView<'b,T,N>: From<&'b mut VectorMut<'a,T,N,AutoSelect>> {
     #[inline(always)]
     fn sub_assign(&mut self, rhs: &'a Vector<'a,T,N,AutoSelect>) {
         match rhs.backend.selected {
             SelectedBackend::Avx2(ref backend) => unsafe {
-                backend.sub_assign_vector(self, &rhs.into())
+                backend.sub_assign_vector(&mut self.into(), &rhs.into())
             },
         }
     }
 }
-impl<'a,BE,T,const N: usize> SubAssign<&'a Vector<'a,T,N,BE>> for VectorMut<'a,T,N>
+impl<'a,BE,T,const N: usize> SubAssign<&'a Vector<'a,T,N,BE>> for VectorMut<'a,T,N,BE>
     where BE: Backend + NativeBackend + SimdSubAssignVector<T,T>,
-          for<'b> VectorView<'b,T,N>: From<&'b Vector<'b,T,N,BE>> {
+          for<'b> VectorView<'b,T,N>: From<&'b Vector<'b,T,N,BE>>,
+          for<'b> VectorMutView<'b,T,N>: From<&'b mut VectorMut<'a,T,N,BE>> {
     #[inline(always)]
     fn sub_assign(&mut self, rhs: &'a Vector<'a,T,N,BE>) {
-        unsafe { rhs.backend.sub_assign_vector(self, &rhs.into()) }
+        unsafe { rhs.backend.sub_assign_vector(&mut self.into(), &rhs.into()) }
+    }
+}
+impl<'a,T,BE,const N: usize> SubAssign<&'a Vector<'a,T,N,BE>> for AccVector<T,BE,N>
+    where BE: Backend,
+          for<'b> VectorMut<'b,T,N,BE>: From<&'b mut AccVector<T,BE,N>>,
+          for<'b> VectorMut<'b,T,N,BE>: SubAssign<&'b Vector<'b,T,N,BE>> {
+    #[inline(always)]
+    fn sub_assign(&mut self, rhs: &'a Vector<'a,T,N,BE>) {
+        VectorMut::from(self).sub_assign(&rhs)
     }
 }
 impl<'a,T,const N: usize> Sub<&'a Vector<'a,T,N,AutoSelect>> for &'a Vector<'a,T,N,AutoSelect>
-    where Avx2: Backend + SimdSubVector<T,T,T>,
+    where T: 'static,
+          Avx2: Backend + SimdSubVector<T,T,T>,
           for<'b> VectorView<'b,T,N>: From<&'b Vector<'b,T,N,AutoSelect>> {
-    type Output = OwnedVector<T,N>;
+    type Output = AccVector<T,AutoSelect,N>;
 
     #[inline(always)]
     fn sub(self, rhs: &'a Vector<'a,T,N,AutoSelect>) -> Self::Output {
         match self.backend.selected {
             SelectedBackend::Avx2(ref backend) => unsafe {
-                backend.sub_vector(&self.into(), &rhs.into())
+                backend.sub_vector(&self.into(), &rhs.into()).bind_auto().unwrap()
             },
         }
     }
 }
 impl<'a,BE,T,const N: usize> Sub<&'a Vector<'a,T,N,BE>> for &'a Vector<'a,T,N,BE>
-    where BE: Backend + NativeBackend + SimdSubVector<T,T,T>,
+    where T: 'static,
+          BE: Backend + NativeBackend + SimdSubVector<T,T,T>,
           for<'b> VectorView<'b,T,N>: From<&'b Vector<'b,T,N,BE>> {
-    type Output = OwnedVector<T,N>;
+    type Output = AccVector<T,BE,N>;
 
     #[inline(always)]
     fn sub(self, rhs: &'a Vector<'a,T,N,BE>) -> Self::Output {
-        unsafe { self.backend.sub_vector(&self.into(), &rhs.into()) }
+        unsafe { self.backend.sub_vector(&self.into(), &rhs.into()).bind::<BE>().unwrap() }
+    }
+}
+impl<'a,T,BE,const N: usize> Sub<&'a Vector<'a,T,N,BE>> for AccVector<T,BE,N>
+    where BE: Backend,
+          for<'b> Vector<'b,T,N,BE>: From<&'b AccVector<T,BE,N>>,
+          for<'b> &'b Vector<'b,T,N,BE>: Sub<&'b Vector<'b,T,N,BE>, Output = AccVector<T,BE,N>> {
+    type Output = AccVector<T,BE,N>;
+
+    #[inline(always)]
+    fn sub(self, rhs: &'a Vector<'a,T,N,BE>) -> Self::Output {
+        &Vector::<T,N,BE>::from(&self) - rhs
     }
 }
 impl<'a,const N: usize> Mul<&'a Vector<'a,i8,N,AutoSelect>> for &'a Vector<'a,i8,N,AutoSelect>
     where Avx2: Backend + SimdMulVector<i8,i8,i32>,
                 for<'b> VectorView<'b,i8,N>: From<&'b Vector<'b,i8,N,AutoSelect>> {
-    type Output = OwnedVector<i32,N>;
+    type Output = AccVector<i32,AutoSelect,N>;
 
     #[inline(always)]
     fn mul(self, rhs: &'a Vector<'a,i8,N,AutoSelect>) -> Self::Output {
         match self.backend.selected {
             SelectedBackend::Avx2(ref backend) => unsafe {
-                backend.mul_vector(&self.into(), &rhs.into())
+                backend.mul_vector(&self.into(), &rhs.into()).bind_auto().unwrap()
             },
         }
     }
@@ -901,23 +1165,23 @@ impl<'a,const N: usize> Mul<&'a Vector<'a,i8,N,AutoSelect>> for &'a Vector<'a,i8
 impl<'a,BE,const N: usize> Mul<&'a Vector<'a,i8,N,BE>> for &'a Vector<'a,i8,N,BE>
     where BE: Backend + SimdMulVector<i8,i8,i32>,
           for<'b> VectorView<'b,i8,N>: From<&'b Vector<'b,i8,N,BE>> {
-    type Output = OwnedVector<i32,N>;
+    type Output = AccVector<i32,BE,N>;
 
     #[inline(always)]
     fn mul(self, rhs: &'a Vector<'a,i8,N,BE>) -> Self::Output {
-        unsafe { self.backend.mul_vector(&self.into(), &rhs.into()) }
+        unsafe { self.backend.mul_vector(&self.into(), &rhs.into()).bind::<BE>().unwrap() }
     }
 }
 impl<'a,const N: usize> Mul<&'a Vector<'a,i16,N,AutoSelect>> for &'a Vector<'a,i16,N,AutoSelect>
     where Avx2: Backend + SimdMulVector<i16,i16,i32>,
       for<'b> VectorView<'b,i16,N>: From<&'b Vector<'b,i16,N,AutoSelect>> {
-    type Output = OwnedVector<i32,N>;
+    type Output = AccVector<i32,AutoSelect,N>;
 
     #[inline(always)]
     fn mul(self, rhs: &'a Vector<'a,i16,N,AutoSelect>) -> Self::Output {
         match self.backend.selected {
             SelectedBackend::Avx2(ref backend) => unsafe {
-                backend.mul_vector(&self.into(), &rhs.into())
+                backend.mul_vector(&self.into(), &rhs.into()).bind_auto().unwrap()
             },
         }
     }
@@ -925,23 +1189,23 @@ impl<'a,const N: usize> Mul<&'a Vector<'a,i16,N,AutoSelect>> for &'a Vector<'a,i
 impl<'a,BE,const N: usize> Mul<&'a Vector<'a,i16,N,BE>> for &'a Vector<'a,i16,N,BE>
     where BE: Backend + SimdMulVector<i16,i16,i32>,
           for<'b> VectorView<'b,i16,N>: From<&'b Vector<'b,i16,N,BE>> {
-    type Output = OwnedVector<i32,N>;
+    type Output = AccVector<i32,BE,N>;
 
     #[inline(always)]
     fn mul(self, rhs: &'a Vector<'a,i16,N,BE>) -> Self::Output {
-        unsafe { self.backend.mul_vector(&self.into(), &rhs.into()) }
+        unsafe { self.backend.mul_vector(&self.into(), &rhs.into()).bind::<BE>().unwrap() }
     }
 }
 impl<'a,const N: usize> Mul<&'a Vector<'a,i32,N,AutoSelect>> for &'a Vector<'a,i32,N,AutoSelect>
     where Avx2: Backend + SimdMulVector<i32,i32,i32>,
           for<'b> VectorView<'b,i32,N>: From<&'b Vector<'b,i32,N,AutoSelect>> {
-    type Output = OwnedVector<i32,N>;
+    type Output = AccVector<i32,AutoSelect,N>;
 
     #[inline(always)]
     fn mul(self, rhs: &'a Vector<'a,i32,N,AutoSelect>) -> Self::Output {
         match self.backend.selected {
             SelectedBackend::Avx2(ref backend) => unsafe {
-                backend.mul_vector(&self.into(), &rhs.into())
+                backend.mul_vector(&self.into(), &rhs.into()).bind_auto().unwrap()
             },
         }
     }
@@ -949,235 +1213,434 @@ impl<'a,const N: usize> Mul<&'a Vector<'a,i32,N,AutoSelect>> for &'a Vector<'a,i
 impl<'a,BE,const N: usize> Mul<&'a Vector<'a,i32,N,BE>> for &'a Vector<'a,i32,N,BE>
     where BE: Backend + SimdMulVector<i32,i32,i32>,
           for<'b> VectorView<'b,i32,N>: From<&'b Vector<'b,i32,N,BE>> {
-    type Output = OwnedVector<i32,N>;
+    type Output = AccVector<i32,BE,N>;
 
     #[inline(always)]
     fn mul(self, rhs: &'a Vector<'a,i32,N,BE>) -> Self::Output {
-        unsafe { self.backend.mul_vector(&self.into(), &rhs.into()) }
+        unsafe { self.backend.mul_vector(&self.into(), &rhs.into()).bind::<BE>().unwrap() }
     }
 }
-impl<'a,const N: usize> Mul<&'a Vector<'a,i8,N,AutoSelect>> for i8
+impl<'a,const N: usize> Mul<i8> for &'a Vector<'a,i8,N,AutoSelect>
     where Avx2: Backend + SimdScalarMulVector<i8,i8,i32>,
           for<'b> VectorView<'b,i8,N>: From<&'b Vector<'b,i8,N,AutoSelect>> {
-    type Output = OwnedVector<i32,N>;
+    type Output = AccVector<i32,AutoSelect,N>;
 
     #[inline(always)]
-    fn mul(self, rhs: &'a Vector<'a,i8,N,AutoSelect>) -> Self::Output {
-        match rhs.backend.selected {
+    fn mul(self, rhs: i8) -> Self::Output {
+        match self.backend.selected {
             SelectedBackend::Avx2(ref backend) => unsafe {
-                backend.scalarmul_vector(self, &rhs.into())
+                backend.scalarmul_vector(rhs,&self.into()).bind_auto().unwrap()
             },
         }
     }
 }
-impl<'a,BE,const N: usize> Mul<&'a Vector<'a,i8,N,BE>> for i8
+impl<'a,BE,const N: usize> Mul<i8> for &'a Vector<'a,i8,N,BE>
     where BE: Backend + SimdScalarMulVector<i8,i8,i32>,
           for<'b> VectorView<'b,i8,N>: From<&'b Vector<'b,i8,N,BE>> {
-    type Output = OwnedVector<i32,N>;
+    type Output = AccVector<i32,BE,N>;
+
+    #[inline(always)]
+    fn mul(self, rhs: i8) -> Self::Output {
+        unsafe { self.backend.scalarmul_vector(rhs,&self.into()).bind::<BE>().unwrap() }
+    }
+}
+impl<'a,const N: usize> Mul<i16> for &'a Vector<'a,i16,N,AutoSelect>
+    where Avx2: Backend + SimdScalarMulVector<i16,i16,i32>,
+          for<'b> VectorView<'b,i16,N>: From<&'b Vector<'b,i16,N,AutoSelect>> {
+    type Output = AccVector<i32,AutoSelect,N>;
+
+    #[inline(always)]
+    fn mul(self, rhs: i16) -> Self::Output {
+        match self.backend.selected {
+            SelectedBackend::Avx2(ref backend) => unsafe {
+                backend.scalarmul_vector(rhs, &self.into()).bind_auto().unwrap()
+            },
+        }
+    }
+}
+impl<'a,const N: usize> Mul<i32> for &'a Vector<'a,i32,N,AutoSelect>
+    where Avx2: Backend + SimdScalarMulVector<i32,i32,i32>,
+          for<'b> VectorView<'b,i32,N>: From<&'b Vector<'b,i32,N,AutoSelect>> {
+    type Output = AccVector<i32,AutoSelect,N>;
+
+    #[inline(always)]
+    fn mul(self, rhs: i32) -> Self::Output {
+        match self.backend.selected {
+            SelectedBackend::Avx2(ref backend) => unsafe {
+                backend.scalarmul_vector(rhs, &self.into()).bind_auto().unwrap()
+            },
+        }
+    }
+}
+impl<'a,BE,const N: usize> Mul<i32> for &'a Vector<'a,i32,N,BE>
+    where BE: Backend + SimdScalarMulVector<i32,i32,i32>,
+          for<'b> VectorView<'b,i32,N>: From<&'b Vector<'b,i32,N,BE>> {
+    type Output = AccVector<i32,BE,N>;
+
+    #[inline(always)]
+    fn mul(self, rhs: i32) -> Self::Output {
+        unsafe { self.backend.scalarmul_vector(rhs, &self.into()).bind::<BE>().unwrap() }
+    }
+}
+impl<'a,const N: usize> Mul<f32> for &'a Vector<'a,f32,N,AutoSelect>
+    where Avx2: Backend + SimdScalarMulVector<f32,f32,f32>,
+          for<'b> VectorView<'b,f32,N>: From<&'b Vector<'b,f32,N,AutoSelect>> {
+    type Output = AccVector<f32,AutoSelect,N>;
+
+    #[inline(always)]
+    fn mul(self, rhs: f32) -> Self::Output {
+        match self.backend.selected {
+            SelectedBackend::Avx2(ref backend) => unsafe {
+                backend.scalarmul_vector(rhs, &self.into()).bind_auto().unwrap()
+            },
+        }
+    }
+}
+impl<'a,BE,const N: usize> Mul<f32> for &'a Vector<'a,f32,N,BE>
+    where BE: Backend + SimdScalarMulVector<f32,f32,f32>,
+          for<'b> VectorView<'b,f32,N>: From<&'b Vector<'b,f32,N,BE>> {
+    type Output = AccVector<f32,BE,N>;
+
+    #[inline(always)]
+    fn mul(self, rhs: f32) -> Self::Output {
+        unsafe { self.backend.scalarmul_vector(rhs, &self.into()).bind::<BE>().unwrap() }
+    }
+}
+impl<'a,const N: usize> Mul<f64> for &'a Vector<'a,f64,N,AutoSelect>
+    where Avx2: Backend + SimdScalarMulVector<f64,f64,f64>,
+          for<'b> VectorView<'b,f64,N>: From<&'b Vector<'b,f64,N,AutoSelect>> {
+    type Output = AccVector<f64,AutoSelect,N>;
+
+    #[inline(always)]
+    fn mul(self, rhs: f64) -> Self::Output {
+        match self.backend.selected {
+            SelectedBackend::Avx2(ref backend) => unsafe {
+                backend.scalarmul_vector(rhs, &self.into()).bind_auto().unwrap()
+            },
+        }
+    }
+}
+impl<'a,BE,const N: usize> Mul<f64> for &'a Vector<'a,f64,N,BE>
+    where BE: Backend + SimdScalarMulVector<f64,f64,f64>,
+          for<'b> VectorView<'b,f64,N>: From<&'b Vector<'b,f64,N,BE>> {
+    type Output = AccVector<f64,BE,N>;
+
+    #[inline(always)]
+    fn mul(self, rhs: f64) -> Self::Output {
+        unsafe { self.backend.scalarmul_vector(rhs,&self.into()).bind::<BE>().unwrap() }
+    }
+}
+impl<'a,BE,const N: usize> Mul<&'a Vector<'a,i8,N,BE>> for AccVector<i8,BE,N>
+    where BE: Backend,
+          for<'b> Vector<'b,i8,N,BE>: From<&'b AccVector<i8,BE,N>>,
+          for<'b> &'b Vector<'b,i8,N,BE>: Mul<&'b Vector<'b,i8,N,BE>,Output = AccVector<i32,BE,N>> {
+    type Output = AccVector<i32,BE,N>;
 
     #[inline(always)]
     fn mul(self, rhs: &'a Vector<'a,i8,N,BE>) -> Self::Output {
-        unsafe { rhs.backend.scalarmul_vector(self, &rhs.into()) }
+        &Vector::<i8,N,BE>::from(&self) * rhs
     }
 }
-impl<'a,const N: usize> Mul<&'a Vector<'a,i16,N,AutoSelect>> for i16
-    where Avx2: Backend + SimdScalarMulVector<i16,i16,i32>,
-          for<'b> VectorView<'b,i16,N>: From<&'b Vector<'b,i16,N,AutoSelect>> {
-    type Output = OwnedVector<i32,N>;
+impl<'a,BE,const N: usize> Mul<&'a Vector<'a,i16,N,BE>> for AccVector<i16,BE,N>
+    where BE: Backend,
+          for<'b> Vector<'b,i16,N,BE>: From<&'b AccVector<i16,BE,N>>,
+          for<'b> &'b Vector<'b,i16,N,BE>: Mul<&'b Vector<'b,i16,N,BE>,Output = AccVector<i32,BE,N>> {
+    type Output = AccVector<i32,BE,N>;
 
     #[inline(always)]
-    fn mul(self, rhs: &'a Vector<'a,i16,N,AutoSelect>) -> Self::Output {
-        match rhs.backend.selected {
-            SelectedBackend::Avx2(ref backend) => unsafe {
-                backend.scalarmul_vector(self, &rhs.into())
-            },
-        }
+    fn mul(self, rhs: &'a Vector<'a,i16,N,BE>) -> Self::Output {
+        &Vector::<i16,N,BE>::from(&self) * rhs
     }
 }
-impl<'a,const N: usize> Mul<&'a Vector<'a,i32,N,AutoSelect>> for i32
-    where Avx2: Backend + SimdScalarMulVector<i32,i32,i32>,
-          for<'b> VectorView<'b,i32,N>: From<&'b Vector<'b,i32,N,AutoSelect>> {
-    type Output = OwnedVector<i32,N>;
-
-    #[inline(always)]
-    fn mul(self, rhs: &'a Vector<'a,i32,N,AutoSelect>) -> Self::Output {
-        match rhs.backend.selected {
-            SelectedBackend::Avx2(ref backend) => unsafe {
-                backend.scalarmul_vector(self, &rhs.into())
-            },
-        }
-    }
-}
-impl<'a,BE,const N: usize> Mul<&'a Vector<'a,i32,N,BE>> for i32
-    where BE: Backend + SimdScalarMulVector<i32,i32,i32>,
-          for<'b> VectorView<'b,i32,N>: From<&'b Vector<'b,i32,N,BE>> {
-    type Output = OwnedVector<i32,N>;
+impl<'a,BE,const N: usize> Mul<&'a Vector<'a,i32,N,BE>> for AccVector<i32,BE,N>
+    where BE: Backend,
+          for<'b> Vector<'b,i32,N,BE>: From<&'b AccVector<i32,BE,N>>,
+          for<'b> &'b Vector<'b,i32,N,BE>: Mul<&'b Vector<'b,i32,N,BE>,Output = AccVector<i32,BE,N>> {
+    type Output = AccVector<i32,BE,N>;
 
     #[inline(always)]
     fn mul(self, rhs: &'a Vector<'a,i32,N,BE>) -> Self::Output {
-        unsafe { rhs.backend.scalarmul_vector(self, &rhs.into()) }
+        &Vector::<i32,N,BE>::from(&self) * rhs
     }
 }
-impl<'a,const N: usize> Mul<&'a Vector<'a,f32,N,AutoSelect>> for f32
-    where Avx2: Backend + SimdScalarMulVector<f32,f32,f32>,
-          for<'b> VectorView<'b,f32,N>: From<&'b Vector<'b,f32,N,AutoSelect>> {
-    type Output = OwnedVector<f32,N>;
-
-    #[inline(always)]
-    fn mul(self, rhs: &'a Vector<'a,f32,N,AutoSelect>) -> Self::Output {
-        match rhs.backend.selected {
-            SelectedBackend::Avx2(ref backend) => unsafe {
-                backend.scalarmul_vector(self, &rhs.into())
-            },
-        }
-    }
-}
-impl<'a,BE,const N: usize> Mul<&'a Vector<'a,f32,N,BE>> for f32
-    where BE: Backend + SimdScalarMulVector<f32,f32,f32>,
-          for<'b> VectorView<'b,f32,N>: From<&'b Vector<'b,f32,N,BE>> {
-    type Output = OwnedVector<f32,N>;
+impl<'a,BE,const N: usize> Mul<&'a Vector<'a,f32,N,BE>> for AccVector<f32,BE,N>
+    where BE: Backend,
+          for<'b> Vector<'b,f32,N,BE>: From<&'b AccVector<f32,BE,N>>,
+          for<'b> &'b Vector<'b,f32,N,BE>: Mul<&'b Vector<'b,f32,N,BE>,Output = AccVector<f32,BE,N>> {
+    type Output = AccVector<f32,BE,N>;
 
     #[inline(always)]
     fn mul(self, rhs: &'a Vector<'a,f32,N,BE>) -> Self::Output {
-        unsafe { rhs.backend.scalarmul_vector(self, &rhs.into()) }
+        &Vector::<f32,N,BE>::from(&self) * rhs
     }
 }
-impl<'a,const N: usize> Mul<&'a Vector<'a,f64,N,AutoSelect>> for f64
-    where Avx2: Backend + SimdScalarMulVector<f64,f64,f64>,
-          for<'b> VectorView<'b,f64,N>: From<&'b Vector<'b,f64,N,AutoSelect>> {
-    type Output = OwnedVector<f64,N>;
-
-    #[inline(always)]
-    fn mul(self, rhs: &'a Vector<'a,f64,N,AutoSelect>) -> Self::Output {
-        match rhs.backend.selected {
-            SelectedBackend::Avx2(ref backend) => unsafe {
-                backend.scalarmul_vector(self, &rhs.into())
-            },
-        }
-    }
-}
-impl<'a,BE,const N: usize> Mul<&'a Vector<'a,f64,N,BE>> for f64
-    where BE: Backend + SimdScalarMulVector<f64,f64,f64>,
-          for<'b> VectorView<'b,f64,N>: From<&'b Vector<'b,f64,N,BE>> {
-    type Output = OwnedVector<f64,N>;
+impl<'a,BE,const N: usize> Mul<&'a Vector<'a,f64,N,BE>> for AccVector<f64,BE,N>
+    where BE: Backend,
+          for<'b> Vector<'b,f64,N,BE>: From<&'b AccVector<f64,BE,N>>,
+          for<'b> &'b Vector<'b,f64,N,BE>: Mul<&'b Vector<'b,f64,N,BE>,Output = AccVector<f64,BE,N>> {
+    type Output = AccVector<f64,BE,N>;
 
     #[inline(always)]
     fn mul(self, rhs: &'a Vector<'a,f64,N,BE>) -> Self::Output {
-        unsafe { rhs.backend.scalarmul_vector(self,&rhs.into()) }
+        &Vector::<f64,N,BE>::from(&self) * rhs
     }
 }
-impl<'a,const N: usize> MulAssign<&'a Vector<'a,i32,N,AutoSelect>> for VectorMut<'a,i32,N>
+impl<'a,BE,const N: usize> Mul<i8> for AccVector<i8,BE,N>
+    where BE: Backend,
+          for<'b> Vector<'b,i8,N,BE>: From<&'b AccVector<i8,BE,N>>,
+          for<'b> &'b Vector<'b,i8,N,BE>: Mul<i8,Output = AccVector<i32,BE,N>> {
+    type Output = AccVector<i32,BE,N>;
+
+    #[inline(always)]
+    fn mul(self, rhs: i8) -> Self::Output {
+        &Vector::<i8,N,BE>::from(&self) * rhs
+    }
+}
+impl<'a,BE,const N: usize> Mul<i16> for AccVector<i16,BE,N>
+    where BE: Backend,
+          for<'b> Vector<'b,i16,N,BE>: From<&'b AccVector<i16,BE,N>>,
+          for<'b> &'b Vector<'b,i16,N,BE>: Mul<i16,Output = AccVector<i32,BE,N>> {
+    type Output = AccVector<i32,BE,N>;
+
+    #[inline(always)]
+    fn mul(self, rhs: i16) -> Self::Output {
+        &Vector::<i16,N,BE>::from(&self) * rhs
+    }
+}
+impl<'a,BE,const N: usize> Mul<i32> for AccVector<i32,BE,N>
+    where BE: Backend,
+          for<'b> Vector<'b,i32,N,BE>: From<&'b AccVector<i32,BE,N>>,
+          for<'b> &'b Vector<'b,i32,N,BE>: Mul<i32,Output = AccVector<i32,BE,N>> {
+    type Output = AccVector<i32,BE,N>;
+
+    #[inline(always)]
+    fn mul(self, rhs: i32) -> Self::Output {
+        &Vector::<i32,N,BE>::from(&self) * rhs
+    }
+}
+impl<'a,BE,const N: usize> Mul<f32> for AccVector<f32,BE,N>
+    where BE: Backend,
+          for<'b> Vector<'b,f32,N,BE>: From<&'b AccVector<f32,BE,N>>,
+          for<'b> &'b Vector<'b,f32,N,BE>: Mul<f32,Output = AccVector<f32,BE,N>> {
+    type Output = AccVector<f32,BE,N>;
+
+    #[inline(always)]
+    fn mul(self, rhs: f32) -> Self::Output {
+        &Vector::<f32,N,BE>::from(&self) * rhs
+    }
+}
+impl<'a,BE,const N: usize> Mul<f64> for AccVector<f64,BE,N>
+    where BE: Backend,
+          for<'b> Vector<'b,f64,N,BE>: From<&'b AccVector<f64,BE,N>>,
+          for<'b> &'b Vector<'b,f64,N,BE>: Mul<f64,Output = AccVector<f64,BE,N>> {
+    type Output = AccVector<f64,BE,N>;
+
+    #[inline(always)]
+    fn mul(self, rhs: f64) -> Self::Output {
+        &Vector::<f64,N,BE>::from(&self) * rhs
+    }
+}
+impl<'a,const N: usize> MulAssign<&'a Vector<'a,i32,N,AutoSelect>> for VectorMut<'a,i32,N,AutoSelect>
     where Avx2: Backend + SimdMulAssignVector<i32,i32>,
-          for<'b> VectorView<'b,i32,N>: From<&'b Vector<'b,i32,N,AutoSelect>> {
+          for<'b> VectorView<'b,i32,N>: From<&'b Vector<'a,i32,N,AutoSelect>>,
+          for<'b> VectorMutView<'b,i32,N>: From<&'b mut VectorMut<'a,i32,N,AutoSelect>> {
     #[inline(always)]
     fn mul_assign(&mut self, rhs: &'a Vector<'a,i32,N,AutoSelect>) {
         match rhs.backend.selected {
             SelectedBackend::Avx2(ref backend) => unsafe {
-                backend.mul_assign_vector(self, &rhs.into())
+                backend.mul_assign_vector(&mut self.into(), &rhs.into())
             },
         }
     }
 }
-impl<'a,BE,const N: usize> MulAssign<&'a Vector<'a,i32,N,BE>> for VectorMut<'a,i32,N>
+impl<'a,BE,const N: usize> MulAssign<&'a Vector<'a,i32,N,BE>> for VectorMut<'a,i32,N,BE>
     where BE: Backend + SimdMulAssignVector<i32,i32>,
-          for<'b> VectorView<'b,i32,N>: From<&'b Vector<'b,i32,N,BE>> {
+          for<'b> VectorView<'b,i32,N>: From<&'b Vector<'a,i32,N,BE>>,
+          for<'b> VectorMutView<'b,i32,N>: From<&'b mut VectorMut<'a,i32,N,BE>> {
     #[inline(always)]
     fn mul_assign(&mut self, rhs: &'a Vector<'a,i32,N,BE>) {
-        unsafe { rhs.backend.mul_assign_vector(self, &rhs.into()) }
+        unsafe { rhs.backend.mul_assign_vector(&mut self.into(), &rhs.into()) }
     }
 }
-impl<'a,const N: usize> MulAssign<Scalar<i32,AutoSelect>> for VectorMut<'a,i32,N>
-    where Avx2: Backend + SimdScalarMulAssignVector<i32,i32> {
+impl<'a,const N: usize> MulAssign<i32> for VectorMut<'a,i32,N,AutoSelect>
+    where Avx2: Backend + SimdScalarMulAssignVector<i32,i32>,
+          for<'b> VectorMutView<'b,i32,N>: From<&'b mut VectorMut<'a,i32,N,AutoSelect>> {
     #[inline(always)]
-    fn mul_assign(&mut self, rhs: Scalar<i32,AutoSelect>) {
-        match rhs.backend.selected {
+    fn mul_assign(&mut self, rhs: i32) {
+        let selected = self.backend.backend();
+
+        match selected {
             SelectedBackend::Avx2(ref backend) => unsafe {
-                backend.scalarmul_assign_vector(rhs.value, self)
+                backend.scalarmul_assign_vector(rhs,&mut self.into())
             },
         }
     }
 }
-impl<'a,BE,const N: usize> MulAssign<Scalar<i32,BE>> for VectorMut<'a,i32,N>
-    where BE: Backend + SimdScalarMulAssignVector<i32,i32> {
+impl<'a,BE,const N: usize> MulAssign<i32> for VectorMut<'a,i32,N,BE>
+    where BE: Backend + SimdScalarMulAssignVector<i32,i32> + Clone,
+          for<'b> VectorMutView<'b,i32,N>: From<&'b mut VectorMut<'a,i32,N,BE>> {
     #[inline(always)]
-    fn mul_assign(&mut self, rhs: Scalar<i32,BE>) {
-        unsafe { rhs.backend.scalarmul_assign_vector(rhs.value,self) }
+    fn mul_assign(&mut self, rhs: i32) {
+        let backend = self.backend.clone();
+        unsafe { backend.scalarmul_assign_vector(rhs,&mut self.into()) }
     }
 }
-impl<'a,const N: usize> MulAssign<&'a Vector<'a,f32,N,AutoSelect>> for VectorMut<'a,f32,N>
+impl<'a,const N: usize> MulAssign<&'a Vector<'a,f32,N,AutoSelect>> for VectorMut<'a,f32,N,AutoSelect>
     where Avx2: Backend + SimdMulAssignVector<f32,f32>,
-          for<'b> VectorView<'b,f32,N>: From<&'b Vector<'b,f32,N,AutoSelect>> {
+          for<'b> VectorView<'b,f32,N>: From<&'b Vector<'a,f32,N,AutoSelect>>,
+          for<'b> VectorMutView<'b,f32,N>: From<&'b mut VectorMut<'a,f32,N,AutoSelect>> {
     #[inline(always)]
     fn mul_assign(&mut self, rhs: &'a Vector<'a,f32,N,AutoSelect>) {
-        match rhs.backend.selected {
+        let selected = self.backend.backend();
+
+        match selected {
             SelectedBackend::Avx2(ref backend) => unsafe {
-                backend.mul_assign_vector(self, &rhs.into())
+                backend.mul_assign_vector(&mut self.into(), &rhs.into())
             },
         }
     }
 }
-impl<'a,BE,const N: usize> MulAssign<&'a Vector<'a,f32,N,BE>> for VectorMut<'a,f32,N>
-    where BE: Backend + SimdMulAssignVector<f32,f32>,
-          for<'b> VectorView<'b,f32,N>: From<&'b Vector<'b,f32,N,BE>> {
+impl<'a,BE,const N: usize> MulAssign<&'a Vector<'a,f32,N,BE>> for VectorMut<'a,f32,N,BE>
+    where BE: Backend + SimdMulAssignVector<f32,f32> + Clone,
+          for<'b> VectorView<'b,f32,N>: From<&'b Vector<'a,f32,N,BE>>,
+          for<'b> VectorMutView<'b,f32,N>: From<&'b mut VectorMut<'a,f32,N,BE>> {
     #[inline(always)]
     fn mul_assign(&mut self, rhs: &'a Vector<'a,f32,N,BE>) {
-        unsafe { rhs.backend.mul_assign_vector(self, &rhs.into()) }
+        let backend = self.backend.clone();
+
+        unsafe { backend.mul_assign_vector(&mut self.into(), &rhs.into()) }
     }
 }
-impl<'a,const N: usize> MulAssign<Scalar<f32,AutoSelect>> for VectorMut<'a,f32,N>
-    where Avx2: Backend + SimdScalarMulAssignVector<f32,f32> {
+impl<'a,const N: usize> MulAssign<f32> for VectorMut<'a,f32,N,AutoSelect>
+    where Avx2: Backend + SimdScalarMulAssignVector<f32,f32>,
+          for<'b> VectorMutView<'b,f32,N>: From<&'b mut VectorMut<'a,f32,N,AutoSelect>> {
     #[inline(always)]
-    fn mul_assign(&mut self, rhs: Scalar<f32,AutoSelect>) {
-        match rhs.backend.selected {
+    fn mul_assign(&mut self, rhs: f32) {
+        let selected = self.backend.backend();
+
+        match selected {
             SelectedBackend::Avx2(ref backend) => unsafe {
-                backend.scalarmul_assign_vector(rhs.value, self)
+                backend.scalarmul_assign_vector(rhs, &mut self.into())
             },
         }
     }
 }
-impl<'a,BE,const N: usize> MulAssign<Scalar<f32,BE>> for VectorMut<'a,f32,N>
-    where BE: Backend + SimdScalarMulAssignVector<f32,f32> {
+impl<'a,BE,const N: usize> MulAssign<f32> for VectorMut<'a,f32,N,BE>
+    where BE: Backend + SimdScalarMulAssignVector<f32,f32> + Clone,
+          for<'b> VectorMutView<'b,f32,N>: From<&'b mut VectorMut<'a,f32,N,BE>> {
     #[inline(always)]
-    fn mul_assign(&mut self, rhs: Scalar<f32,BE>) {
-        unsafe { rhs.backend.scalarmul_assign_vector(rhs.value,self) }
+    fn mul_assign(&mut self, rhs: f32) {
+        let backend = self.backend.clone();
+
+        unsafe { backend.scalarmul_assign_vector(rhs,&mut self.into()) }
     }
 }
-impl<'a,const N: usize> MulAssign<&'a Vector<'a,f64,N,AutoSelect>> for VectorMut<'a,f64,N>
+impl<'a,const N: usize> MulAssign<&'a Vector<'a,f64,N,AutoSelect>> for VectorMut<'a,f64,N,AutoSelect>
     where Avx2: Backend + SimdMulAssignVector<f64,f64>,
-          for<'b> VectorView<'b,f64,N>: From<&'b Vector<'b,f64,N,AutoSelect>> {
+          for<'b> VectorView<'b,f64,N>: From<&'b Vector<'b,f64,N,AutoSelect>>,
+          for<'b> VectorMutView<'b,f64,N>: From<&'b mut VectorMut<'a,f64,N,AutoSelect>> {
     #[inline(always)]
     fn mul_assign(&mut self, rhs: &'a Vector<'a,f64,N,AutoSelect>) {
-        match rhs.backend.selected {
+        let selected = self.backend.backend();
+
+        match selected {
             SelectedBackend::Avx2(ref backend) => unsafe {
-                backend.mul_assign_vector(self, &rhs.into())
+                backend.mul_assign_vector(&mut self.into(), &rhs.into())
             },
         }
     }
 }
-impl<'a,BE,const N: usize> MulAssign<&'a Vector<'a,f64,N,BE>> for VectorMut<'a,f64,N>
-    where BE: Backend + SimdMulAssignVector<f64,f64>,
-          for<'b> VectorView<'b,f64,N>: From<&'b Vector<'b,f64,N,BE>> {
+impl<'a,BE,const N: usize> MulAssign<&'a Vector<'a,f64,N,BE>> for VectorMut<'a,f64,N,BE>
+    where BE: Backend + SimdMulAssignVector<f64,f64> + Clone,
+          for<'b> VectorView<'b,f64,N>: From<&'b Vector<'b,f64,N,BE>>,
+          for<'b> VectorMutView<'b,f64,N>: From<&'b mut VectorMut<'a,f64,N,BE>> {
     #[inline(always)]
     fn mul_assign(&mut self, rhs: &'a Vector<'a,f64,N,BE>) {
-        unsafe { rhs.backend.mul_assign_vector(self, &rhs.into()) }
+        let backend = self.backend.clone();
+
+        unsafe { backend.mul_assign_vector(&mut self.into(), &rhs.into()) }
     }
 }
-impl<'a,const N: usize> MulAssign<Scalar<f64,AutoSelect>> for VectorMut<'a,f64,N>
-    where Avx2: Backend + SimdScalarMulAssignVector<f64,f64> {
+impl<'a,const N: usize> MulAssign<f64> for VectorMut<'a,f64,N,AutoSelect>
+    where Avx2: Backend + SimdScalarMulAssignVector<f64,f64>,
+          for<'b> VectorMutView<'b,f64,N>: From<&'b mut VectorMut<'a,f64,N,AutoSelect>> {
     #[inline(always)]
-    fn mul_assign(&mut self, rhs: Scalar<f64,AutoSelect>) {
-        match rhs.backend.selected {
+    fn mul_assign(&mut self, rhs: f64) {
+        let selected = self.backend.backend();
+
+        match selected {
             SelectedBackend::Avx2(ref backend) => unsafe {
-                backend.scalarmul_assign_vector(rhs.value, self)
+                backend.scalarmul_assign_vector(rhs,&mut self.into())
             },
         }
     }
 }
-impl<'a,BE,const N: usize> MulAssign<Scalar<f64,BE>> for VectorMut<'a,f64,N>
-    where BE: Backend + SimdScalarMulAssignVector<f64,f64> {
+impl<'a,BE,const N: usize> MulAssign<f64> for VectorMut<'a,f64,N,BE>
+    where BE: Backend + SimdScalarMulAssignVector<f64,f64> + Clone,
+          for<'b> VectorMutView<'b,f64,N>: From<&'b mut VectorMut<'a,f64,N,BE>> {
     #[inline(always)]
-    fn mul_assign(&mut self, rhs: Scalar<f64,BE>) {
-        unsafe { rhs.backend.scalarmul_assign_vector(rhs.value,self) }
+    fn mul_assign(&mut self, rhs: f64) {
+        let backend = self.backend.clone();
+
+        unsafe { backend.scalarmul_assign_vector(rhs,&mut self.into()) }
+    }
+}
+impl<'a,BE,const N: usize> MulAssign<&'a Vector<'a,i32,N,BE>> for AccVector<i32,BE,N>
+    where BE: Backend,
+          for<'b> VectorMut<'b,i32,N,BE>: From<&'b mut AccVector<i32,BE,N>>,
+          for<'b> VectorMut<'b,i32,N,BE>: MulAssign<&'a Vector<'a,i32,N,BE>> {
+    #[inline(always)]
+    fn mul_assign(&mut self, rhs: &'a Vector<'a,i32,N,BE>) {
+        VectorMut::<i32,N,BE>::from(self).mul_assign(rhs);
+    }
+}
+impl<'a,BE,const N: usize> MulAssign<&'a Vector<'a,f32,N,BE>> for AccVector<f32,BE,N>
+    where BE: Backend,
+          for<'b> VectorMut<'b,f32,N,BE>: From<&'b mut AccVector<f32,BE,N>>,
+          for<'b> VectorMut<'b,f32,N,BE>: MulAssign<&'b Vector<'a,f32,N,BE>> {
+
+    #[inline(always)]
+    fn mul_assign(&mut self, rhs: &'a Vector<'a,f32,N,BE>) {
+        VectorMut::<f32,N,BE>::from(self).mul_assign(rhs);
+    }
+}
+impl<'a,BE,const N: usize> MulAssign<&'a Vector<'a,f64,N,BE>> for AccVector<f64,BE,N>
+    where BE: Backend,
+          for<'b> VectorMut<'b,f64,N,BE>: From<&'b mut AccVector<f64,BE,N>>,
+          for<'b> VectorMut<'b,f64,N,BE>: MulAssign<&'b Vector<'a,f64,N,BE>> {
+
+    #[inline(always)]
+    fn mul_assign(&mut self, rhs: &'a Vector<'a,f64,N,BE>) {
+        VectorMut::<f64,N,BE>::from(self).mul_assign(rhs);
+    }
+}
+impl<'a,BE,const N: usize> MulAssign<i32> for AccVector<i32,BE,N>
+    where BE: Backend,
+          for<'b> VectorMut<'b,i32,N,BE>: From<&'b mut AccVector<i32,BE,N>>,
+          for<'b> VectorMut<'b,i32,N,BE>: MulAssign<i32> {
+
+    #[inline(always)]
+    fn mul_assign(&mut self, rhs: i32) {
+        VectorMut::<i32,N,BE>::from(self).mul_assign(rhs);
+    }
+}
+impl<'a,BE,const N: usize> MulAssign<f32> for AccVector<f32,BE,N>
+    where BE: Backend,
+          for<'b> VectorMut<'b,f32,N,BE>: From<&'b mut AccVector<f32,BE,N>>,
+          for<'b> VectorMut<'b,f32,N,BE>: MulAssign<f32> {
+
+    #[inline(always)]
+    fn mul_assign(&mut self, rhs: f32) {
+        VectorMut::<f32,N,BE>::from(self).mul_assign(rhs);
+    }
+}
+impl<'a,BE,const N: usize> MulAssign<f64> for AccVector<f64,BE,N>
+    where BE: Backend,
+          for<'b> VectorMut<'b,f64,N,BE>: From<&'b mut AccVector<f64,BE,N>>,
+          for<'b> VectorMut<'b,f64,N,BE>: MulAssign<f64> {
+    #[inline(always)]
+    fn mul_assign(&mut self, rhs: f64) {
+        VectorMut::<f64,N,BE>::from(self).mul_assign(rhs);
     }
 }
 impl<'a,T,const N: usize> BitXor<&'a Vector<'a,<T as BitsBitXor>::Bits,N,AutoSelect>> for &'a Vector<'a,T,N,AutoSelect>

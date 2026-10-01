@@ -1,6 +1,6 @@
 //! Trait and data type features for abstracting SIMD operations
 
-use crate::{ColumnMajorMatrix, MatrixMut, MatrixView, OwnedMatrix, OwnedVector, VectorMut, VectorView};
+use crate::{ColumnMajorMatrix, MatrixMut, MatrixView, OwnedMatrix, OwnedVector, VectorMutView, VectorView};
 use crate::backend::autoselect::AutoSelect;
 use crate::backend::common::{Backend};
 use crate::error::InstantiationError;
@@ -109,7 +109,7 @@ pub trait SimdAddAssignVector<SL,SR> {
     /// # Arguments
     /// * `l` - Left hand side of the AddAssign
     /// * `r` - Right hand side of the AddAssign`
-    unsafe fn add_assign_vector<'a,const N: usize>(&self, l:&mut VectorMut<'a,SL,N>, r:&VectorView<'a,SR,N>);
+    unsafe fn add_assign_vector<'a,const N: usize>(&self, l:&mut VectorMutView<'a,SL,N>, r:&VectorView<'a,SR,N>);
 }
 /// Apply Add to each element of a Vector
 pub trait SimdAddVector<SL,SR,SO> {
@@ -125,7 +125,7 @@ pub trait SimdSubAssignVector<SL,SR> {
     /// # Arguments
     /// * `l` - Left hand side of the SubAssign
     /// * `r` - Right hand side of the SubAssign
-    unsafe fn sub_assign_vector<'a,const N: usize>(&self, l:&mut VectorMut<'a,SL,N>, r:&VectorView<'a,SR,N>);
+    unsafe fn sub_assign_vector<'a,const N: usize>(&self, l:&mut VectorMutView<'a,SL,N>, r:&VectorView<'a,SR,N>);
 }
 /// Apply Sub to each element of a Vector
 pub trait SimdSubVector<SL,SR,SO> {
@@ -141,7 +141,7 @@ pub trait SimdMulAssignVector<SL,SR> {
     /// # Arguments
     /// * `l` - Left hand side of the MulAssign
     /// * `r` - Right hand side of the MulAssign
-    unsafe fn mul_assign_vector<'a,const N: usize>(&self, l:&mut VectorMut<'a,SL,N>, r:&VectorView<'a,SR,N>);
+    unsafe fn mul_assign_vector<'a,const N: usize>(&self, l:&mut VectorMutView<'a,SL,N>, r:&VectorView<'a,SR,N>);
 }
 /// Apply Mul to each element of a Vector
 pub trait SimdMulVector<SL,SR,SO> {
@@ -157,7 +157,7 @@ pub trait SimdScalarMulAssignVector<SL,SR> {
     /// # Arguments
     /// * `l` - Left hand side of the Mul
     /// * `r` - Right hand side of the Mul
-    unsafe fn scalarmul_assign_vector<'a,const N: usize>(&self, l:SL, r:&mut VectorMut<'a,SR,N>);
+    unsafe fn scalarmul_assign_vector<'a,const N: usize>(&self, l:SL, r:&mut VectorMutView<'a,SR,N>);
 }
 /// Multiply each element of the vector by a scalar value
 pub trait SimdScalarMulVector<SL,SR,SO> {
@@ -172,7 +172,7 @@ pub trait SimdScalarMulVectorInto<SL,SR,SO> {
     /// # Arguments
     /// * `l` - Left hand side of the Mul
     /// * `r` - Right hand side of the Mul
-    unsafe fn scalarmul_vector_into<'a, const N: usize>(&self, l: SL, r: &VectorView<'a, SR, N>, o: &mut VectorMut<'a, SO, N>);
+    unsafe fn scalarmul_vector_into<'a, const N: usize>(&self, l: SL, r: &VectorView<'a, SR, N>, o: &mut VectorMutView<'a, SO, N>);
 }
 /// Apply a bitwise XOR to each element of a Vector
 pub trait SimdBitXorVector<S>
