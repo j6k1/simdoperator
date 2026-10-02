@@ -1,8 +1,8 @@
 //! Common Backend Implementation
 
 use std::ops::{Add, AddAssign, Mul, Sub};
-use crate::traits::{SimdAddVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportMul, FoldRegs, SimdOuterProduct, SimdMatMul, SimdMulAssignVector, SimdAddAssignVector, SimdSubAssignVector, SimdShiftWidth, SimdScalarMulAssignVector, SimdAddAssignMatrix, SimdScalarMulAssignMatrix, SimdScalarMulMatrix, SimdConvertMatrix, SimdLoadSeq, SimdScalarMulVectorInto, SimdDot, SimdHSum, SimdZero, SimdPartialDot, SimdDotKernel};
-use crate::{ColumnMajorMatrix, MatrixMut, MatrixView, OwnedMatrix, OwnedVector, VectorMutView, VectorView};
+use crate::traits::{SimdAddVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportMul, FoldRegs, SimdOuterProduct, SimdMatMul, SimdMulAssignVector, SimdAddAssignVector, SimdSubAssignVector, SimdShiftWidth, SimdScalarMulAssignVector, SimdAddAssignMatrix, SimdScalarMulAssignMatrix, SimdScalarMulMatrix, SimdConvertMatrix, SimdLoadSeq, SimdScalarMulVectorInto, SimdDot, SimdHSum, SimdZero, SimdPartialDot, SimdDotKernel, IsScaler};
+use crate::{ColumnMajorMatrix, MatrixMut, MatrixMutView, MatrixView, OwnedMatrix, OwnedVector, VectorMutView, VectorView};
 use crate::backend::avx2::Avx2;
 use crate::error::InstantiationError;
 
@@ -49,6 +49,18 @@ impl<S,BE: SimdReg<S> + SimdAdd<S,S,S>> FoldRegs<S,BE> for Regs<<BE as SimdReg<S
         backend.add(backend.add(self.regs[0],self.regs[1]),backend.add(self.regs[2],self.regs[3]))
     }
 }
+impl IsScaler for i8 {}
+impl IsScaler for u8 {}
+impl IsScaler for i16 {}
+impl IsScaler for u16 {}
+impl IsScaler for i32 {}
+impl IsScaler for u32 {}
+impl IsScaler for i64 {}
+impl IsScaler for u64 {}
+impl IsScaler for i128 {}
+impl IsScaler for u128 {}
+impl IsScaler for f32 {}
+impl IsScaler for f64 {}
 #[inline(always)]
 pub const fn mm_shuffle(z: i32, y: i32, x: i32, w: i32) -> i32 {
     (z << 6) | (y << 4) | (x << 2) | w
@@ -598,10 +610,12 @@ impl<SL,SR,SO,BE> SimdScalarMulVectorInto<SL,SR,SO> for BE
           <Self as SimdMul<SL,SR,SO>>::Output: Copy,
           (SL,SO): SupportMul<Heterogeneous> {
     #[target_feature(enable = "avx2")]
-    unsafe fn scalarmul_vector_into<'a, const N: usize>(&self, l:SL, r: &VectorView<'a, SR, N>, o: &mut VectorMutView<'a, SO, N>) {
+    unsafe fn scalarmul_vector_into<'a, const N: usize>(&self, l:SL, r: &VectorView<'a, SR, N>, o: VectorMutView<'a, SO, N>) {
         unsafe {
             let s = self.splat(l);
             let ref_r = r.as_ref();
+
+            let mut o = o;
             let ref_o = o.as_mut();
 
             let chunks_r = ref_r.chunks_exact(<Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS);
@@ -659,10 +673,12 @@ impl<SL,SR,SO,BE> SimdScalarMulVectorInto<SL,SR,SO> for BE
           <Self as SimdMul<SL,SR,SO>>::Output: Copy,
           (SL,SO): SupportMul<Homogeneous> {
     #[target_feature(enable = "avx2")]
-    unsafe fn scalarmul_vector_into<'a, const N: usize>(&self, l:SL, r: &VectorView<'a, SR, N>, o: &mut VectorMutView<'a, SO, N>) {
+    unsafe fn scalarmul_vector_into<'a, const N: usize>(&self, l:SL, r: &VectorView<'a, SR, N>, o: VectorMutView<'a, SO, N>) {
         unsafe {
             let s = self.splat(l);
             let ref_r = r.as_ref();
+
+            let mut o = o;
             let ref_o = o.as_mut();
 
             let chunks_r = ref_r.chunks_exact(<Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS);
@@ -716,7 +732,7 @@ impl<T,BE> SimdBitAndVector<T> for BE
               T: BitsBitAnd + Default + Copy,
               <T as BitsBitAnd>::Bits: Copy {
     #[target_feature(enable = "avx2")]
-    unsafe fn bitand_vector<'a,const N: usize>(&self, l: &VectorView<'a,T,N>, r: &VectorView<'a,<T as BitsBitAnd>::Bits,N>)
+    unsafe fn bitand_vector<'a,const N: usize>(&self, l: VectorView<'a,T,N>, r: VectorView<'a,<T as BitsBitAnd>::Bits,N>)
         -> OwnedVector<T,N> {
         let mut i = 0;
 
@@ -762,7 +778,7 @@ impl<T,BE> SimdBitOrVector<T> for BE
               T: BitsBitOr + Default + Copy,
               <T as BitsBitOr>::Bits: Copy {
     #[target_feature(enable = "avx2")]
-    unsafe fn bitor_vector<'a,const N: usize>(&self, l: &VectorView<'a,T,N>, r: &VectorView<'a,<T as BitsBitOr>::Bits,N>)
+    unsafe fn bitor_vector<'a,const N: usize>(&self, l: VectorView<'a,T,N>, r: VectorView<'a,<T as BitsBitOr>::Bits,N>)
                                         -> OwnedVector<T,N> {
         let mut i = 0;
 
@@ -808,7 +824,7 @@ impl<T,BE> SimdBitXorVector<T> for BE
               T: BitsBitXor + Default + Copy,
               <T as BitsBitXor>::Bits: Copy {
     #[target_feature(enable = "avx2")]
-    unsafe fn bitxor_vector<'a,const N: usize>(&self, l: &VectorView<'a,T,N>, r: &VectorView<'a,<T as BitsBitXor>::Bits,N>)
+    unsafe fn bitxor_vector<'a,const N: usize>(&self, l: VectorView<'a,T,N>, r: VectorView<'a,<T as BitsBitXor>::Bits,N>)
         -> OwnedVector<T,N> {
         let mut i = 0;
 
@@ -851,7 +867,7 @@ impl<T,BE> SimdBitNotVector<T> for BE
               SimdBitNot<T>,
               T: BitsBitNot + Default + Copy {
     #[target_feature(enable = "avx2")]
-    unsafe fn bitnot_vector<'a,const N: usize>(&self, l: &VectorView<'a,T,N>)
+    unsafe fn bitnot_vector<'a,const N: usize>(&self, l: VectorView<'a,T,N>)
         -> OwnedVector<T,N> {
         let mut i = 0;
 
@@ -891,7 +907,7 @@ impl<T,BE> SimdShlVector<T> for BE
               SimdShiftWidth<T>,
               T: BitsShl + Default + Copy {
     #[target_feature(enable = "avx2")]
-    unsafe fn shl_vector<'a,const N: usize>(&self, v: &VectorView<'a,T,N>, w:usize)
+    unsafe fn shl_vector<'a,const N: usize>(&self, v: VectorView<'a,T,N>, w:usize)
         -> OwnedVector<T,N> {
         let mut rs = OwnedVector::from(Box::new([T::default(); N]));
 
@@ -934,7 +950,7 @@ impl<T,BE> SimdShrVector<T> for BE
               SimdShiftWidth<T>,
               T: BitsShr + Default + Copy {
     #[target_feature(enable = "avx2")]
-    unsafe fn shr_vector<'a,const N: usize>(&self, v: &VectorView<'a,T,N>, w:usize)
+    unsafe fn shr_vector<'a,const N: usize>(&self, v: VectorView<'a,T,N>, w:usize)
         -> OwnedVector<T,N> {
         let mut rs = OwnedVector::from(Box::new([T::default(); N]));
 
@@ -981,7 +997,7 @@ impl<SS,SD,BE> SimdPromoteVector<SS,SD> for BE
           <Self as SimdPromote<SS,SD>>::Output: Copy,
           <Self as SimdReg<SS>>::Reg: Copy {
     #[target_feature(enable = "avx2")]
-    unsafe fn promotion_vector<'a, const N: usize>(&self, s: &VectorView<'a, SS, N>) -> OwnedVector<SD, N> {
+    unsafe fn promotion_vector<'a, const N: usize>(&self, s: VectorView<'a, SS, N>) -> OwnedVector<SD, N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from(Box::new([SD::default(); N]));
@@ -1023,7 +1039,7 @@ impl<SS,SD,BE> SimdDemoteVector<SS,SD> for BE
           <Self as SimdDemote<SS,SD>>::Input: Copy,
           <Self as SimdReg<SD>>::Reg: Copy {
     #[target_feature(enable = "avx2")]
-    unsafe fn demotion_vector<'a, const N: usize>(&self, s: &VectorView<'a, SS, N>) -> OwnedVector<SD, N> {
+    unsafe fn demotion_vector<'a, const N: usize>(&self, s: VectorView<'a, SS, N>) -> OwnedVector<SD, N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from(Box::new([SD::default(); N]));
@@ -1066,7 +1082,7 @@ impl<SS,SD,BE> SimdConvertVector<SS,SD> for BE
           <Self as SimdConvert<SS,SD>>::Output: Copy,
           <Self as SimdReg<SS>>::Reg: Copy {
     #[target_feature(enable = "avx2")]
-    unsafe fn convert_vector<'a, const N: usize>(&self, s: &VectorView<'a, SS, N>) -> OwnedVector<SD, N> {
+    unsafe fn convert_vector<'a, const N: usize>(&self, s: VectorView<'a, SS, N>) -> OwnedVector<SD, N> {
         let mut i = 0;
 
         let mut rs = OwnedVector::from(Box::new([SD::default(); N]));
@@ -1106,8 +1122,9 @@ impl<T,BE> SimdAddAssignMatrix<T,T> for BE
               SimdStore<T>,
           T: Default + Add<Output=T> + Copy {
     #[target_feature(enable = "avx2")]
-    unsafe fn add_assign_matrix<'a,const N: usize,const M: usize>(&self, l: &mut MatrixMut<'a,T,N,M>, r: &MatrixView<'a,T,N,M>) {
+    unsafe fn add_assign_matrix<'a,const N: usize,const M: usize>(&self, l: MatrixMutView<'a,T,N,M>, r: MatrixView<'a,T,N,M>) {
         unsafe {
+            let mut l = l;
             let mut ref_l = l.as_mut();
             let ref_r = r.as_ref();
 
@@ -1153,10 +1170,11 @@ impl<T,BE> SimdScalarMulAssignMatrix<T,T> for BE
           <Self as SimdMul<T,T,T>>::Output: Copy,
           (T,T): SupportMul<Homogeneous> {
     #[target_feature(enable = "avx2")]
-    unsafe fn scalar_mul_assign_matrix<'a,const N: usize,const M: usize>(&self, l: T, r: &mut MatrixMut<'a,T,N,M>) {
+    unsafe fn scalar_mul_assign_matrix<'a,const N: usize,const M: usize>(&self, l: T, r: MatrixMutView<'a,T,N,M>) {
         unsafe {
             let rl = <Self as SimdSplat<T>>::splat(self,l);
 
+            let mut r = r;
             let r_ref = r.as_mut();
 
             let mut chunks_r = r_ref.chunks_exact_mut(M);
@@ -1203,11 +1221,13 @@ impl<SL,SR,SO,BE> SimdScalarMulMatrix<SL,SR> for BE
           (SL,SO): SupportMul<Homogeneous> {
     type OutputScalar = SO;
     #[target_feature(enable = "avx2")]
-    unsafe fn scalar_mul_matrix<'a,const N: usize,const M: usize>(&self, l: SL, r: &MatrixView<'a,SR,N,M>, acc:&'a mut MatrixMut<'a,SO,N,M>) {
+    unsafe fn scalar_mul_matrix<'a,const N: usize,const M: usize>(&self, l: SL, r: MatrixView<'a,SR,N,M>, acc:MatrixMutView<'a,SO,N,M>) {
         unsafe {
             let rl = <Self as SimdSplat<SL>>::splat(self,l);
 
             let r_ref = r.as_ref();
+
+            let mut acc = acc;
             let mut ref_acc = acc.as_mut();
 
             let chunks_r = r_ref.chunks_exact(M);
@@ -1251,11 +1271,14 @@ impl<SS,SD,BE> SimdConvertMatrix<SS,SD> for BE
           <Self as SimdConvert<SS,SD>>::Output: Copy,
           <Self as SimdReg<SS>>::Reg: Copy {
     #[target_feature(enable = "avx2")]
-    unsafe fn convert_matrix<'a, const N: usize,const M: usize>(&self, s: &MatrixView<'a, SS, N, M>, acc:&'a mut MatrixMut<'a,SD,N,M>) {
+    unsafe fn convert_matrix<'a, const N: usize,const M: usize>(&self, s: MatrixView<'a, SS, N, M>, acc:MatrixMutView<'a,SD,N,M>) {
         unsafe {
+            let mut acc = acc;
+
             for i in 0..N {
                 let lr = s.row(i);
                 let pa = lr.as_ref().as_ptr();
+
                 let po = acc.as_mut().as_mut_ptr().add(i * M);
 
                 let mut j = 0;
@@ -1289,7 +1312,7 @@ impl<SL,SR,SO,BE> SimdDotKernel<SL,SR,SO> for BE
           SO: From<SL> + From<SR> + Default + Mul<SO,Output=SO> + AddAssign,
           <Self as SimdPartialDot<SL,SR,SO>>::Output: Copy {
     #[inline(always)]
-    unsafe fn dot<'a, const N: usize, const COLS: usize>(&self, l: &VectorView<'a, SL, N>, r: &VectorView<'a, SR, N>) -> SO {
+    unsafe fn dot<'a, const N: usize, const COLS: usize>(&self, l: &VectorView<'a, SL, N>, r: VectorView<'a, SR, N>) -> SO {
         let mut acc = [<Self as SimdPartialDot<SL,SR,SO>>::zero_acc(self);COLS];
 
         let ref_l = l.as_ref();
@@ -1344,24 +1367,17 @@ impl<SL,SR,SO,BE> SimdDotKernel<SL,SR,SO> for BE
 }
 impl<SL,SR,SO,BE> SimdOuterProduct<SL,SR,SO> for BE
     where BE: Backend +
-              SimdScalarMulVectorInto<SL,SR,SO>
-              /* SimdMatMul<SL,SR,SO> */,
+              SimdScalarMulVectorInto<SL,SR,SO>,
           SL: Copy {
     #[target_feature(enable = "avx2")]
-    unsafe fn outer_product<'a, const N: usize, const M: usize>(&self, l: &VectorView<'a, SL, N>,
-                                                         r: &VectorView<'a, SR, M>,
-                                                         o: &mut OwnedMatrix<SO, N, M>) {
-        /*
-        let mut o = o.into();
-        let l = MatrixView::from(l);
-        let r = ColumnMajorMatrix::from(r);
+    unsafe fn outer_product<'a, const N: usize, const M: usize>(&self, l: VectorView<'a, SL, N>,
+                                                         r: VectorView<'a, SR, M>,
+                                                         o: MatrixMutView<'a, SO, N, M>) {
+        let mut o = o;
 
-        unsafe { <Self as SimdMatMul<SL,SR,SO>>::matmul::<N,M,1>(self,&l,&r,&mut o) }
-
-         */
         unsafe {
             for (row,&l) in o.as_mut().chunks_exact_mut(M).zip(l.as_ref().iter()) {
-                <Self as SimdScalarMulVectorInto<SL,SR,SO>>::scalarmul_vector_into(self,l,r,&mut row.try_into().unwrap());
+                <Self as SimdScalarMulVectorInto<SL,SR,SO>>::scalarmul_vector_into(self,l,&r,row.try_into().unwrap());
             }
         }
     }

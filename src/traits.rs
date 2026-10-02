@@ -1,6 +1,6 @@
 //! Trait and data type features for abstracting SIMD operations
 
-use crate::{ColumnMajorMatrix, MatrixMut, MatrixView, OwnedMatrix, OwnedVector, VectorMutView, VectorView};
+use crate::{ColumnMajorMatrix, MatrixMut, MatrixMutView, MatrixView, OwnedMatrix, OwnedVector, VectorMutView, VectorView};
 use crate::backend::autoselect::AutoSelect;
 use crate::backend::common::{Backend};
 use crate::error::InstantiationError;
@@ -172,7 +172,7 @@ pub trait SimdScalarMulVectorInto<SL,SR,SO> {
     /// # Arguments
     /// * `l` - Left hand side of the Mul
     /// * `r` - Right hand side of the Mul
-    unsafe fn scalarmul_vector_into<'a, const N: usize>(&self, l: SL, r: &VectorView<'a, SR, N>, o: &mut VectorMutView<'a, SO, N>);
+    unsafe fn scalarmul_vector_into<'a, const N: usize>(&self, l: SL, r: &VectorView<'a, SR, N>, o: VectorMutView<'a, SO, N>);
 }
 /// Apply a bitwise XOR to each element of a Vector
 pub trait SimdBitXorVector<S>
@@ -181,7 +181,7 @@ pub trait SimdBitXorVector<S>
     /// # Arguments
     /// * `l` - Left hand side of the Bitwise XOR
     /// * `r` - Right hand side of the Bitwise XOR
-    unsafe fn bitxor_vector<'a,const N: usize>(&self, l:&VectorView<'a,S,N>, r:&VectorView<'a,<S as BitsBitXor>::Bits,N>) -> OwnedVector<S,N>;
+    unsafe fn bitxor_vector<'a,const N: usize>(&self, l:VectorView<'a,S,N>, r:VectorView<'a,<S as BitsBitXor>::Bits,N>) -> OwnedVector<S,N>;
 }
 /// Apply a bitwise AND to each element of a Vector
 pub trait SimdBitAndVector<S>
@@ -190,7 +190,7 @@ pub trait SimdBitAndVector<S>
     /// # Arguments
     /// * `l` - Left hand side of the Bitwise AND
     /// * `r` - Right hand side of the Bitwise AND
-    unsafe fn bitand_vector<'a,const N: usize>(&self, l:&VectorView<'a,S,N>, r:&VectorView<'a,<S as BitsBitAnd>::Bits,N>) -> OwnedVector<S,N>;
+    unsafe fn bitand_vector<'a,const N: usize>(&self, l:VectorView<'a,S,N>, r:VectorView<'a,<S as BitsBitAnd>::Bits,N>) -> OwnedVector<S,N>;
 }
 /// Apply a bitwise OR to each element of a Vector
 pub trait SimdBitOrVector<S>
@@ -199,14 +199,14 @@ pub trait SimdBitOrVector<S>
     /// # Arguments
     /// * `l` - Left hand side of the Bitwise OR
     /// * `r` - Right hand side of the Bitwise OR
-    unsafe fn bitor_vector<'a,const N: usize>(&self, l:&VectorView<'a,S,N>, r:&VectorView<'a,<S as BitsBitOr>::Bits,N>) -> OwnedVector<S,N>;
+    unsafe fn bitor_vector<'a,const N: usize>(&self, l:VectorView<'a,S,N>, r:VectorView<'a,<S as BitsBitOr>::Bits,N>) -> OwnedVector<S,N>;
 }
 /// Apply a bitwise Bit Not to each element of a Vector
 pub trait SimdBitNotVector<S> {
     ///
     /// # Arguments
     /// * `v` - Vector to apply Bit Not to
-    unsafe fn bitnot_vector<'a,const N: usize>(&self, v:&VectorView<'a,S,N>) -> OwnedVector<S,N>;
+    unsafe fn bitnot_vector<'a,const N: usize>(&self, v:VectorView<'a,S,N>) -> OwnedVector<S,N>;
 }
 /// Apply a bitwise Left Shift to each element of a Vector
 pub trait SimdShlVector<S> {
@@ -214,7 +214,7 @@ pub trait SimdShlVector<S> {
     /// # Arguments
     /// * `v` - Vector to apply Left Shift to
     /// * `w` - Number of bits to shift by
-    unsafe fn shl_vector<'a,const N: usize>(&self, v:&VectorView<'a,S,N>, w:usize) -> OwnedVector<S,N>;
+    unsafe fn shl_vector<'a,const N: usize>(&self, v:VectorView<'a,S,N>, w:usize) -> OwnedVector<S,N>;
 }
 /// Apply a bitwise Right Shift to each element of a Vector
 pub trait SimdShrVector<S> {
@@ -222,7 +222,7 @@ pub trait SimdShrVector<S> {
     /// # Arguments
     /// * `v` - Vector to apply Right Shift to
     /// * `w` - Number of bits to shift by
-    unsafe fn shr_vector<'a,const N: usize>(&self, v:&VectorView<'a,S,N>, w:usize) -> OwnedVector<S,N>;
+    unsafe fn shr_vector<'a,const N: usize>(&self, v:VectorView<'a,S,N>, w:usize) -> OwnedVector<S,N>;
 }
 /// Apply a bitwise Add Assign to each element of a Matrix
 pub trait SimdAddAssignMatrix<SL,SR> {
@@ -230,7 +230,7 @@ pub trait SimdAddAssignMatrix<SL,SR> {
     /// # Arguments
     /// * `l` - Left hand side of the Add Assign
     /// * `r` - Right hand side of the Add Assign
-    unsafe fn add_assign_matrix<'a,const N: usize,const M: usize>(&self, l:&mut MatrixMut<'a,SL,N,M>, r:& MatrixView<'a,SR,N,M>);
+    unsafe fn add_assign_matrix<'a,const N: usize,const M: usize>(&self, l:MatrixMutView<'a,SL,N,M>, r:MatrixView<'a,SR,N,M>);
 }
 /// Update each element of the Matrix with the result of multiplying it by a scalar value
 pub trait SimdScalarMulAssignMatrix<SL,SR> {
@@ -238,7 +238,7 @@ pub trait SimdScalarMulAssignMatrix<SL,SR> {
     /// # Arguments
     /// * `l` - Scalar value to multiply each element of the Matrix by
     /// * `r` - Matrix to multiply each element of by the scalar value
-    unsafe fn scalar_mul_assign_matrix<'a,const N: usize,const M: usize>(&self, l: SL, r:&mut MatrixMut<'a,SR,N,M>);
+    unsafe fn scalar_mul_assign_matrix<'a,const N: usize,const M: usize>(&self, l: SL, r:MatrixMutView<'a,SR,N,M>);
 }
 /// Writes the result of multiplying each element of the array by a scalar value to the argument `acc`
 pub trait SimdScalarMulMatrix<SL,SR> {
@@ -248,14 +248,14 @@ pub trait SimdScalarMulMatrix<SL,SR> {
     /// * `l` - Scalar value to multiply each element of the Matrix by
     /// * `r` - Matrix to multiply each element of by the scalar value
     /// * `acc` - Matrix to write the result of the multiplication to
-    unsafe fn scalar_mul_matrix<'a,const N: usize,const M: usize>(&self, l: SL, r:&MatrixView<'a,SR,N,M>, acc:&'a mut MatrixMut<'a,Self::OutputScalar,N,M>);
+    unsafe fn scalar_mul_matrix<'a,const N: usize,const M: usize>(&self, l: SL, r:MatrixView<'a,SR,N,M>, acc:MatrixMutView<'a,Self::OutputScalar,N,M>);
 }
 /// Converting the data types of each element in a matrix
 pub trait SimdConvertMatrix<SS,SD> {
     ///
     /// # Arguments
     /// * `s` - Matrix to convert the data types of each element of
-    unsafe fn convert_matrix<'a,const N: usize,const M: usize>(&self, s:&MatrixView<'a,SS,N,M>, acc:&'a mut MatrixMut<'a,SD,N,M>);
+    unsafe fn convert_matrix<'a,const N: usize,const M: usize>(&self, s:MatrixView<'a,SS,N,M>, acc:MatrixMutView<'a,SD,N,M>);
 }
 /// Calculating the dot product of two vectors kernel
 pub trait SimdDotKernel<SL,SR,SO> {
@@ -263,7 +263,7 @@ pub trait SimdDotKernel<SL,SR,SO> {
     /// # Arguments
     /// * `l` - Left-hand side
     /// * `r` - Right-hand side
-    unsafe fn dot<'a,const N: usize,const COLS:usize>(&self,l:&VectorView<'a,SL,N>,r:&VectorView<'a,SR,N>) -> SO;
+    unsafe fn dot<'a,const N: usize,const COLS:usize>(&self,l:&VectorView<'a,SL,N>,r:VectorView<'a,SR,N>) -> SO;
 }
 /// Calculating the dot product of two vectors
 pub trait SimdDot<SL,SR,SO> {
@@ -271,7 +271,7 @@ pub trait SimdDot<SL,SR,SO> {
     /// # Arguments
     /// * `l` - Left-hand side
     /// * `r` - Right-hand side
-    unsafe fn dot<'a,const N: usize>(&self,l:&VectorView<'a,SL,N>,r:&VectorView<'a,SR,N>) -> SO;
+    unsafe fn dot<'a,const N: usize>(&self,l:&VectorView<'a,SL,N>,r:VectorView<'a,SR,N>) -> SO;
 }
 /// Calculate the cross product of two vectors
 pub trait SimdOuterProduct<SL,SR,SO> {
@@ -280,9 +280,9 @@ pub trait SimdOuterProduct<SL,SR,SO> {
     /// * `l` - Left-hand side
     /// * `r` - Right-hand side
     /// * `o` - Output matrix
-    unsafe fn outer_product<'a,const N: usize,const M: usize>(&self,l:&VectorView<'a,SL,N>,
-                                                       r:&VectorView<'a,SR,M>,
-                                                       o:&mut OwnedMatrix<SO,N,M>);
+    unsafe fn outer_product<'a,const N: usize,const M: usize>(&self,l:VectorView<'a,SL,N>,
+                                                       r:VectorView<'a,SR,M>,
+                                                       o:MatrixMutView<'a,SO,N,M>);
 }
 /// Vector * Matrix Product
 pub trait SimdVMat<SL,SR,SO> {
@@ -292,8 +292,8 @@ pub trait SimdVMat<SL,SR,SO> {
     /// * `r` - Right-hand side
     /// * `o` - Output vector
     unsafe fn vmat<'a,const M: usize,const K: usize>(&self,
-                                              l:&VectorView<'a,SL,K>,
-                                              r:&ColumnMajorMatrix<'a,SR,K,M>,
+                                              l:VectorView<'a,SL,K>,
+                                              r:ColumnMajorMatrix<'a,SR,K,M>,
                                               o:&mut OwnedVector<SO,M>);
 }
 /// Matrix * Vector Product
@@ -304,8 +304,8 @@ pub trait SimdMatVec<SL,SR,SO> {
     /// * `r` - Right-hand side
     /// * `o` - Output vector
     unsafe fn matvec<'a,const N: usize,const K: usize>(&self,
-                                                l:&MatrixView<'a,SL,N,K>,
-                                                r:&VectorView<'a,SR,K>,
+                                                l:MatrixView<'a,SL,N,K>,
+                                                r:VectorView<'a,SR,K>,
                                                 o:&mut OwnedVector<SO,N>);
 }
 /// Matrix * Matrix Product
@@ -316,9 +316,9 @@ pub trait SimdMatMul<SL,SR,SO> {
     /// * `r` - Right-hand side
     /// * `o` - Output matrix
     unsafe fn matmul<'a,const N: usize,const M: usize,const K: usize>(&self,
-                                                               l:&MatrixView<'a,SL,N,K>,
-                                                               r:&ColumnMajorMatrix<'a,SR,K,M>,
-                                                               o:&mut MatrixMut<'a,SO,N,M>);
+                                                               l:MatrixView<'a,SL,N,K>,
+                                                               r:ColumnMajorMatrix<'a,SR,K,M>,
+                                                               o:MatrixMutView<'a,SO,N,M>);
     /// Product of Submatrices by Tiles
     /// # Arguments
     /// * `l` - Left-hand side
@@ -505,19 +505,19 @@ pub trait SimdConvert<SS,SD>: SimdReg<SS> +
 pub trait SimdPromoteVector<SS,SD> {
     /// # Arguments
     /// * `s` - SIMD vector to upcast
-    unsafe fn promotion_vector<'a,const N: usize>(&self, s:&VectorView<'a,SS,N>) -> OwnedVector<SD,N>;
+    unsafe fn promotion_vector<'a,const N: usize>(&self, s:VectorView<'a,SS,N>) -> OwnedVector<SD,N>;
 }
 /// Downcast the registers for each element of a vector
 pub trait SimdDemoteVector<SS,SD> {
     /// # Arguments
     /// * `s` - SIMD vector to downcast
-    unsafe fn demotion_vector<'a,const N: usize>(&self, s:&VectorView<'a,SS,N>) -> OwnedVector<SD,N>;
+    unsafe fn demotion_vector<'a,const N: usize>(&self, s:VectorView<'a,SS,N>) -> OwnedVector<SD,N>;
 }
 /// Converting type the registers for each element of a vector
 pub trait SimdConvertVector<SS,SD> {
     /// # Arguments
     /// * `s` - SIMD vector to convert
-    unsafe fn convert_vector<'a,const N: usize>(&self, s:&VectorView<'a,SS,N>) -> OwnedVector<SD,N>;
+    unsafe fn convert_vector<'a,const N: usize>(&self, s:VectorView<'a,SS,N>) -> OwnedVector<SD,N>;
 }
 /// Returns the SIMD registers with their signs inverted
 pub trait SimdNeg<S>: SimdReg<S> {
@@ -614,6 +614,7 @@ pub trait ToColumnMajor<T,const N: usize, const M: usize> where Self: Dims<N,M> 
 /// A trait that defines the dimension of a matrix
 pub trait Dims<const N: usize,const M: usize> {
 }
+pub trait IsScaler {}
 /// A trait that treats a type as a bit string and performs a bitwise AND operation
 pub trait BitsBitAnd {
     /// Types for Representing Bits

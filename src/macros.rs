@@ -1,5 +1,3 @@
-use crate::traits::SimdPartialDot;
-
 #[macro_export]
 macro_rules! matmul_tile {
     ($func_name:ident,$ROWS:expr,$COLS:expr,$SL:ty,$SR:ty,$SO:ty) => {
@@ -9,7 +7,7 @@ macro_rules! matmul_tile {
             r:&ColumnMajorMatrix<'a,$SR,K,M>,
             i:usize,
             j:usize,
-            acc:&mut MatrixMut<'a,$SO,N,M>
+            acc:&mut MatrixMutView<'a,$SO,N,M>
         ) {
             let mut acc_tile = [[<Self as SimdPartialDot<$SL,$SR,$SO>>::zero_acc(self);COLS];ROWS];
 
@@ -72,34 +70,34 @@ macro_rules! derive_matmul {
                         <Self as SimdReg<$SO>>::Reg: Clone + Copy,
                         $SL: Copy,
                         $SO: Default + AddAssign + From<$SL> + From<$SR> + Copy {
-            unsafe fn matmul<'a, const N: usize, const M: usize, const K: usize>(&self, l: &MatrixView<'a, $SL, N, K>, r: &ColumnMajorMatrix<'a, $SR, K, M>, acc: &mut MatrixMut<'a,$SO, N, M>) {
+            unsafe fn matmul<'a, const N: usize, const M: usize, const K: usize>(&self, l: MatrixView<'a, $SL, N, K>, r: ColumnMajorMatrix<'a, $SR, K, M>, acc: MatrixMutView<'a,$SO, N, M>) {
                 for i in (0..(N - N % <Self as SimdRows<$SL>>::ROWS)).step_by(<Self as SimdRows<$SL>>::ROWS) {
                     for j in (0..(M - M % <Self as SimdCols<$SR>>::COLS)).step_by(<Self as SimdCols<$SR>>::COLS) {
                         unsafe { self.matmul_tile::<N,M,K,{ <Self as SimdRows<$SL>>::ROWS }, { <Self as SimdCols<$SR>>::COLS }>(
-                            l, r, i, j, acc
+                            &l, &r, i, j, &mut acc
                         ) };
                     }
                 }
 
                 for j in (0..(M - M % <Self as SimdCols<$SR>>::COLS)).step_by(<Self as SimdCols<$SR>>::COLS) {
                     unsafe { self.matmul_tile_tail_rows::<N,M,K,{ <Self as SimdRows<$SL>>::ROWS }, { <Self as SimdCols<$SR>>::COLS }>(
-                        l, r, N - N % <Self as SimdRows<$SL>>::ROWS, j,
-                        acc
+                        &l, &r, N - N % <Self as SimdRows<$SL>>::ROWS, j,
+                        &mut acc
                     ) };
                 }
 
                 for i in (0..(N - N % <Self as SimdRows<$SL>>::ROWS)).step_by(<Self as SimdRows<$SL>>::ROWS) {
                     unsafe { self.matmul_tile_tail_cols::<N,M,K,{ <Self as SimdRows<$SL>>::ROWS },{ <Self as SimdCols<$SR>>::COLS }>(
-                        l, r, i, M - M % <Self as SimdCols<$SR>>::COLS,
-                        acc
+                        &l, &r, i, M - M % <Self as SimdCols<$SR>>::COLS,
+                        &mut acc
                     ) };
                 }
 
                 unsafe { self.matmul_tile_tail_rows_cols::<N,M,K,{ <Self as SimdRows<$SL>>::ROWS }, { <Self as SimdCols<$SR>>::COLS }>(
-                    l,r,
+                    &l,&r,
                     N - N % <Self as SimdRows<$SL>>::ROWS,
                     M - M % <Self as SimdCols<$SR>>::COLS,
-                    acc
+                    &mut acc
                 ) };
             }
 
