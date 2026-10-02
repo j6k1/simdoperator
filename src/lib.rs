@@ -636,6 +636,16 @@ impl<'a,BE: Backend,T,const N: usize> From<&'a Vector<'a,T,N,BE>> for Matrix<'a,
         }
     }
 }
+impl<'a,BE: Backend,T,const N:usize,const M: usize> Clone for Matrix<'a,T,N,M,BE>
+    where T: Clone,
+          BE: Backend + Clone {
+    fn clone(&self) -> Self {
+        Matrix {
+            data: self.data,
+            backend: self.backend.clone()
+        }
+    }
+}
 /// A backend-independent view representing an invariant matrix
 pub struct MatrixView<'a,T,const N: usize,const M: usize> {
     data: &'a [T]
@@ -1080,6 +1090,13 @@ impl<'a,T,const M: usize> From<&'a VectorView<'a,T,M>> for ColumnMajorMatrix<'a,
 impl<'a,T,const N: usize,const M: usize> AsRef<[T]> for ColumnMajorMatrix<'a,T,N,M> {
     fn as_ref(&self) -> &'a [T] {
         self.data
+    }
+}
+impl<'a,T,const N: usize,const M: usize> Clone for ColumnMajorMatrix<'a,T,N,M> {
+    fn clone(&self) -> Self {
+        ColumnMajorMatrix {
+            data: self.data
+        }
     }
 }
 /// A type that retains ownership of data arranged in column-first order
