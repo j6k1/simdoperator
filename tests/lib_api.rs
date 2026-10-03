@@ -2,7 +2,7 @@
 
 use simdoperator::backend::autoselect::AutoSelect;
 use simdoperator::backend::avx2::Avx2;
-use simdoperator::traits::{BindBackend, Dot, Product, SimdDot, ToColumnMajor, Transpose};
+use simdoperator::traits::{BindBackend, Dot, Product, SimdDot, SimdDotKernel, ToColumnMajor, Transpose};
 use simdoperator::{AccMatrix, AccVector, ColumnMajorMatrix, Matrix, MatrixMut, MatrixView, OwnedColumnMajorMatrix, OwnedMatrix, OwnedVector, Scalar, Vector, VectorMut, VectorMutView, VectorView};
 use simdoperator::backend::common::Backend;
 
@@ -88,16 +88,16 @@ fn vector_matrix_view_and_owned_type_methods() {
     );
     assert!(MatrixView::<i32, 2, 4>::try_from(&matrix_data[..]).is_err());
 
-    let mut owned_matrix = OwnedMatrix::<i32, 2, 3>::default();
-    owned_matrix[(0, 1)] = 7;
-    owned_matrix[(1, 2)] = 9;
-    owned_matrix.as_mut()[0] = 5;
+    let mut acc_matrix = OwnedMatrix::<i32, 2, 3>::default().bind_auto().unwrap();
+    acc_matrix[(0, 1)] = 7;
+    acc_matrix[(1, 2)] = 9;
+    acc_matrix.as_mut()[0] = 5;
     {
-        let mut matrix_mut = MatrixMut::from(&mut owned_matrix);
+        let mut matrix_mut = MatrixMut::from(&mut acc_matrix);
         matrix_mut[(1, 0)] = 11;
         matrix_mut.as_mut()[4] = 13;
     }
-    assert_eq!(owend_matrix_vec(owned_matrix), vec![5, 7, 0, 11, 13, 9]);
+    assert_eq!(acc_matrix_vec(acc_matrix), vec![5, 7, 0, 11, 13, 9]);
 
     let col_major = ColumnMajorMatrix::<i32, 2, 3>::try_from(&[1, 2, 3, 4, 5, 6][..]).unwrap();
     assert_eq!(col_major.col(0).as_ref(), &[1, 2]);
@@ -312,25 +312,25 @@ fn bind_and_bind_auto_chain_vector_and_matrix_results() {
     let b_owned = OwnedVector::from(Box::new([9_i32, 8, 7, 6, 5, 4, 3, 2, 1]));
     let c_owned = OwnedVector::from(Box::new([1_i32; 9]));
 
-    let a = (&a_owned).bind::<Avx2>().unwrap();
-    let b = (&b_owned).bind::<Avx2>().unwrap();
-    let c = (&c_owned).bind::<Avx2>().unwrap();
-    let added = &a + &b;
-    let chained = &added - &c;
+    let a = a_owned.bind::<Avx2>().unwrap();
+    let b = b_owned.bind::<Avx2>().unwrap();
+    let c = c_owned.bind::<Avx2>().unwrap();
+
+    let added = a + b;
+    let chained = &added - (&c).into();
     assert_eq!(acc_vector_array(chained), [9; 9]);
 
-    let multiplied = added * &c;
-    let multiplied = (&multiplied).unwrap();
-    let c_auto = (&c_owned).bind_auto().unwrap();
-    assert_eq!(multiplied.dot(&c_auto), 90);
+    let multiplied = added * c;
+    let c_auto = c_owned.bind_auto().unwrap();
+    unsafe { assert_eq!(multiplied.dot(&c_auto), 90) };
 
     let matrix_owned = OwnedMatrix::<i32, 2, 3>::from(vec![1, 2, 3, 4, 5, 6].into_boxed_slice());
     let vector_owned = OwnedVector::from(Box::new([7_i32, 8, 9]));
-    let matrix = (&matrix_owned).bind::<Avx2>().unwrap();
-    let vector = (&vector_owned).bind::<Avx2>().unwrap();
+    let matrix = matrix_owned.bind::<Avx2>().unwrap();
+    let vector = vector_owned.bind::<Avx2>().unwrap();
     let matvec: AccVector<i32, 2, Avx2> = matrix.product(Vector::from(&vector));
-    let matvec = (&matvec).bind_auto().unwrap();
     let weights_owned = OwnedVector::from(Box::new([2_i32, 3]));
-    let weights = (&weights_owned).bind_auto().unwrap();
+    let weights = weights_owned.bind_auto().unwrap();
+    let weights = (&weights).into();
     assert_eq!(unsafe { matvec.dot(&weights) }, 466);
 }

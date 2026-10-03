@@ -308,17 +308,18 @@ pub trait SimdMatVec<SL,SR,SO> {
                                                 r:VectorView<'a,SR,K>,
                                                 o:&mut OwnedVector<SO,N>);
 }
-/// Matrix * Matrix Product
-pub trait SimdMatMul<SL,SR,SO> {
-    /// Matrix * Matrix Product
+/// Matrix * Matrix Product kernel
+pub trait SimdMatMulKernel<SL,SR,SO> {
+    /// Matrix * Matrix Product kernel
     /// # Arguments
     /// * `l` - Left-hand side
     /// * `r` - Right-hand side
     /// * `o` - Output matrix
-    unsafe fn matmul<'a,const N: usize,const M: usize,const K: usize>(&self,
-                                                               l:MatrixView<'a,SL,N,K>,
-                                                               r:ColumnMajorMatrix<'a,SR,K,M>,
-                                                               o:MatrixMutView<'a,SO,N,M>);
+    unsafe fn matmul<'a,const N: usize,const M: usize,const K: usize,const ROWS: usize,const COLS: usize>(
+        &self,
+        l:MatrixView<'a,SL,N,K>,
+        r:ColumnMajorMatrix<'a,SR,K,M>,
+        o:MatrixMutView<'a,SO,N,M>);
     /// Product of Submatrices by Tiles
     /// # Arguments
     /// * `l` - Left-hand side
@@ -332,54 +333,20 @@ pub trait SimdMatMul<SL,SR,SO> {
         r:&ColumnMajorMatrix<'a,SR,K,M>,
         i:usize,
         j:usize,
-        acc:&mut MatrixMut<'a,SO,N,M>
+        acc:&mut MatrixMutView<'a,SO,N,M>
     );
-    /// Partial results of the matrix product at the tail of the rows
+}
+/// Matrix * Matrix Product
+pub trait SimdMatMul<SL,SR,SO> {
+    /// Matrix * Matrix Product
     /// # Arguments
     /// * `l` - Left-hand side
     /// * `r` - Right-hand side
-    /// * `i` - Tile index
-    /// * `j` - Tile index
-    /// * `acc` - Output matrix
-    unsafe fn matmul_tile_tail_rows<'a,const N: usize,const M: usize,const K: usize,const ROWS: usize,const COLS: usize>(
-        &self,
-        l:&MatrixView<'a,SL,N,K>,
-        r:&ColumnMajorMatrix<'a,SR,K,M>,
-        i:usize,
-        j:usize,
-        acc:&mut MatrixMut<'a,SO,N,M>
-    );
-
-    /// Partial results of the matrix product at the tail of the cols
-    /// # Arguments
-    /// * `l` - Left-hand side
-    /// * `r` - Right-hand side
-    /// * `i` - Tile index
-    /// * `j` - Tile index
-    /// * `acc` - Output matrix
-    unsafe fn matmul_tile_tail_cols<'a,const N: usize,const M: usize,const K: usize,const ROWS: usize,const COLS: usize>(
-        &self,
-        l:&MatrixView<'a,SL,N,K>,
-        r:&ColumnMajorMatrix<'a,SR,K,M>,
-        i:usize,
-        j:usize,
-        acc:&mut MatrixMut<'a,SO,N,M>
-    );
-    /// Partial results of the matrix product at the tail of the rows and cols
-    /// # Arguments
-    /// * `l` - Left-hand side
-    /// * `r` - Right-hand side
-    /// * `i` - Tile index
-    /// * `j` - Tile index
-    /// * `acc` - Output matrix
-    unsafe fn matmul_tile_tail_rows_cols<'a,const N: usize,const M: usize,const K: usize,const ROWS: usize,const COLS: usize>(
-        &self,
-        l:&MatrixView<'a,SL,N,K>,
-        r:&ColumnMajorMatrix<'a,SR,K,M>,
-        i:usize,
-        j:usize,
-        acc:&mut MatrixMut<'a,SO,N,M>
-    );
+    /// * `o` - Output matrix
+    unsafe fn matmul<'a,const N: usize,const M: usize,const K: usize>(&self,
+                                                               l:MatrixView<'a,SL,N,K>,
+                                                               r:ColumnMajorMatrix<'a,SR,K,M>,
+                                                               o:MatrixMutView<'a,SO,N,M>);
 }
 /// Sums each element in the SIMD register as a single scalar value and returns the result
 pub trait SimdHSum<S>: SimdReg<S> {

@@ -446,7 +446,7 @@ impl<T,const N: usize> IndexMut<usize> for OwnedVector<T,N> {
         &mut self.data[index]
     }
 }
-impl<'a,T,const N: usize> BindBackend<'a> for OwnedVector<T,N> where T: 'static {
+impl<T,const N: usize> BindBackend<'static> for OwnedVector<T,N> where T: 'static {
     type Output<BE: Backend> = AccVector<T,N,BE>;
 
     #[inline(always)]
@@ -764,6 +764,14 @@ impl<'a,T,const N: usize,const M: usize> ToColumnMajor<T,N,M> for MatrixView<'a,
         }
 
         OwnedColumnMajorMatrix { data: r }
+    }
+}
+impl<'a,BE,T,const N: usize,const M: usize> From<&'a AccMatrix<T,N,M,BE>> for MatrixView<'a,T,N,M>
+    where BE: Backend {
+    fn from(value: &'a AccMatrix<T,N,M,BE>) -> MatrixView<'a,T,N,M> {
+        MatrixView {
+            data: &value.data
+        }
     }
 }
 impl<'a,T,const N: usize,const M: usize> TryFrom<&'a OwnedMatrix<T,N,M>> for MatrixView<'a,T,N,M> {
@@ -2211,7 +2219,7 @@ impl<'a,BE,SL,SR,SO,const N: usize,const K: usize> Product<Vector<'a,SR,K,BE>,Ac
     where BE: Backend + NativeBackend + SimdMatVec<SL,SR,SO>,
           SO: Default + Copy + Clone + 'static,
           for<'b> MatrixView<'b,SL,N,K>: From<&'b AccMatrix<SL,N,K,BE>>,
-          for<'b> VectorView<'b,SR,K>: From<&'b Vector<'b,SR,K,BE>> {
+          for<'b> VectorView<'b,SR,K>: From<&'b Vector<'a,SR,K,BE>> {
     #[inline(always)]
     fn product(&self, r: Vector<'a,SR,K,BE>) -> AccVector<SO,N,BE> {
         let mut o = OwnedVector::<SO,N>::default();

@@ -6,9 +6,7 @@ use std::ops::{Add, AddAssign, Mul, Sub};
 use simdoperator::backend::avx2::Avx2;
 use simdoperator::backend::common::{Backend, Regs};
 use simdoperator::traits::*;
-use simdoperator::{
-    ColumnMajorMatrix, MatrixMut, MatrixView, OwnedMatrix, OwnedVector, VectorMutView, VectorView,
-};
+use simdoperator::{AccMatrix, ColumnMajorMatrix, MatrixMut, MatrixMutView, MatrixView, OwnedMatrix, OwnedVector, VectorMutView, VectorView};
 
 fn avx2_available() -> bool {
     std::is_x86_feature_detected!("avx2") && std::is_x86_feature_detected!("fma")
@@ -33,6 +31,10 @@ fn owned_vector_array<T, const N: usize>(v: OwnedVector<T, N>) -> [T; N] {
 }
 
 fn owned_matrix_vec<T, const N: usize, const M: usize>(m: OwnedMatrix<T, N, M>) -> Vec<T> {
+    Box::<[T]>::from(m).into_vec()
+}
+
+fn acc_matrix_vec<T, const N: usize, const M: usize, BE:Backend>(m: AccMatrix<T, N, M, BE>) -> Vec<T> {
     Box::<[T]>::from(m).into_vec()
 }
 
@@ -345,16 +347,17 @@ where
     let l_data: Vec<T> = (0..N * M).map(|i| T::from((i % 9) as i8)).collect();
     let r_data: Vec<T> = (0..N * M).map(|i| T::from(5 - (i as i8 % 11))).collect();
     let expected: Vec<T> = (0..N * M).map(|i| l_data[i] + r_data[i]).collect();
-    let mut l = OwnedMatrix::<T, N, M>::from(l_data.into_boxed_slice());
+    let mut l = AccMatrix::<T, N, M, BE>::try_from(l_data.into_boxed_slice()).unwrap();
     let r = matrix::<T, N, M>(&r_data);
     let be = BE::new().unwrap();
 
     {
         let mut l_mut = MatrixMut::from(&mut l);
-        unsafe { be.add_assign_matrix((&l_mut).into(), r) };
+        let mut l_mut = MatrixMutView::from(&mut l);
+        unsafe { be.add_assign_matrix(l_mut, r) };
     }
 
-    assert_eq!(owned_matrix_vec(l), expected);
+    assert_eq!(acc_matrix_vec(l), expected);
 }
 
 fn check_scalar_mul_assign_matrix<BE, T, const N: usize, const M: usize>(scalar: T)
@@ -364,15 +367,16 @@ where
 {
     let data: Vec<T> = (0..N * M).map(|i| T::from(((i % 5) + 1) as i8)).collect();
     let expected: Vec<T> = (0..N * M).map(|i| scalar * data[i]).collect();
-    let mut m = OwnedMatrix::<T, N, M>::from(data.into_boxed_slice());
+    let mut m = AccMatrix::<T, N, M, BE>::try_from(data.into_boxed_slice()).unwrap();
     let be = BE::new().unwrap();
 
     {
         let mut m_mut = MatrixMut::from(&mut m);
-        unsafe { be.scalar_mul_assign_matrix(scalar, (&m_mut).into()) };
+        let mut m_mut = MatrixMutView::from(&mut m);
+        unsafe { be.scalar_mul_assign_matrix(scalar, m_mut) };
     }
 
-    assert_eq!(owned_matrix_vec(m), expected);
+    assert_eq!(acc_matrix_vec(m), expected);
 }
 
 fn check_scalar_mul_matrix<BE, T, const N: usize, const M: usize>(scalar: T)
@@ -383,14 +387,16 @@ where
     let data: Vec<T> = (0..N * M).map(|i| T::from(((i % 5) + 1) as i8)).collect();
     let expected: Vec<T> = (0..N * M).map(|i| scalar * data[i]).collect();
     let be = BE::new().unwrap();
-    let mut acc = OwnedMatrix::<T, N, M>::default();
+    let mut acc = OwnedMatrix::<T, N, M>::default().bind::<BE>().unwrap();
 
     {
         let mut acc_mut = MatrixMut::from(&mut acc);
-        unsafe { be.scalar_mul_matrix(scalar, matrix::<T, N, M>(&data), (&mut acc_mut).into()) };
+        let mut acc_mut = MatrixMutView::from(&mut acc_mut);
+
+        unsafe { be.scalar_mul_matrix(scalar, matrix::<T, N, M>(&data), acc_mut) };
     }
 
-    assert_eq!(owned_matrix_vec(acc), expected);
+    assert_eq!(acc_matrix_vec(acc), expected);
 }
 
 fn check_convert_matrix<BE, SS, SD, const N: usize, const M: usize>()
@@ -402,14 +408,15 @@ where
     let data: Vec<SS> = (0..N * M).map(|i| SS::from((i as i8) - 4)).collect();
     let expected: Vec<SD> = (0..N * M).map(|i| data[i].assume()).collect();
     let be = BE::new().unwrap();
-    let mut acc = OwnedMatrix::<SD, N, M>::default();
+    let mut acc = OwnedMatrix::<SD, N, M>::default().bind::<BE>().unwrap();
 
     {
         let mut acc_mut = MatrixMut::from(&mut acc);
-        unsafe { be.convert_matrix(matrix::<SS, N, M>(&data), (&mut acc_mut).into()) };
+        let mut acc_mut = MatrixMutView::from(&mut acc_mut);
+        unsafe { be.convert_matrix(matrix::<SS, N, M>(&data), acc_mut) };
     }
 
-    assert_eq!(owned_matrix_vec(acc), expected);
+    assert_eq!(acc_matrix_vec(acc), expected);
 }
 
 fn check_dot<BE, SL, SR, SO, const N: usize>()
@@ -461,7 +468,7 @@ where
     }
 
     let be = BE::new().unwrap();
-    let mut acc = OwnedMatrix::<SO, N, M>::default();
+    let mut acc = OwnedMatrix::<SO, N, M>::default().bind::<BE>().unwrap();
 
     {
         let mut acc_mut = MatrixMut::from(&mut acc);
@@ -472,7 +479,7 @@ where
         ) };
     }
 
-    assert_eq!(owned_matrix_vec(acc), expected);
+    assert_eq!(acc_matrix_vec(acc), expected);
 }
 
 fn check_outer_product<BE, SL, SR, SO, const N: usize, const M: usize>()
