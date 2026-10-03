@@ -406,7 +406,7 @@ where
 
     {
         let mut acc_mut = MatrixMut::from(&mut acc);
-        unsafe { be.convert_matrix(&matrix::<SS, N, M>(&data), &mut acc_mut) };
+        unsafe { be.convert_matrix(matrix::<SS, N, M>(&data), (&mut acc_mut).into()) };
     }
 
     assert_eq!(owned_matrix_vec(acc), expected);

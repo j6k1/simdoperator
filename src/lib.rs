@@ -302,6 +302,14 @@ impl<'a,T,const N: usize> From<&'a VectorView<'a,T,N>> for Box<[T;N]>
         value.data.clone().into()
     }
 }
+impl<'a,T,const N: usize> Clone for VectorView<'a,T,N> {
+    #[inline(always)]
+    fn clone(&self) -> Self {
+        VectorView {
+            data: self.data
+        }
+    }
+}
 impl<'a,T,const N: usize> VectorView<'a,T,N> {
     /// Returns a view of the vector as a vertical matrix.
     #[inline(always)]
