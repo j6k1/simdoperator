@@ -126,22 +126,22 @@ impl<'a,BE: Backend,T,const N: usize> TryFrom<&'a OwnedVector<T,N>> for Vector<'
         })
     }
 }
+impl<'a,BE: Backend,T,const N: usize> From<&'a AccVector<T,N,BE>> for Vector<'a,T,N,BE>
+    where BE: Backend + Clone {
+    #[inline(always)]
+    fn from(value: &'a AccVector<T,N,BE>) -> Vector<'a,T,N,BE> {
+        Vector {
+            data: &value.data,
+            backend: value.backend.clone()
+        }
+    }
+}
 impl<'a,BE: Backend,T,const N: usize> From<&'a Vector<'a,T,N,BE>> for Box<[T;N]>
     where T: Clone + Copy {
 
     #[inline(always)]
     fn from(value: &'a Vector<'a,T,N,BE>) -> Self {
         Box::new(value.data.clone().into())
-    }
-}
-impl<'a,BE: Backend,T,const N: usize> From<&'a AccVector<T, N, BE>> for Vector<'a,T,N,BE>
-    where T: Clone + Copy,
-          BE: Backend {
-    fn from(value: &'a AccVector<T,N,BE>) -> Self {
-        Vector {
-            data: &value.data,
-            backend: BE::new().unwrap()
-        }
     }
 }
 impl<'a,BE: Backend,T,const N: usize> AsRef<[T;N]> for AccVector<T,N,BE> {
@@ -2004,10 +2004,45 @@ impl<'a,BE,T,const N: usize,const M: usize> AddAssign<Matrix<'a,T,N,M,BE>> for M
         unsafe { rhs.backend.add_assign_matrix(self.into(), (&rhs).into()) }
     }
 }
+impl<'a,T,const N: usize,const M: usize> AddAssign<Matrix<'a,T,N,M,AutoSelect>> for AccMatrix<T,N,M,AutoSelect>
+    where AutoSelect: Backend,
+          Avx2: SimdAddAssignMatrix<T,T>,
+          for<'b> MatrixMutView<'b,T,N,M>: From<&'b mut AccMatrix<T,N,M,AutoSelect>>,
+          for<'b> MatrixView<'b,T,N,M>: From<&'b Matrix<'b,T,N,M,AutoSelect>> {
+    #[inline(always)]
+    fn add_assign(&mut self, rhs: Matrix<'a,T,N,M,AutoSelect>) {
+        match rhs.backend.selected {
+            SelectedBackend::Avx2(ref backend) => unsafe {
+                backend.add_assign_matrix(self.into(), (&rhs).into())
+            }
+        }
+    }
+}
+impl<'a,BE,T,const N: usize,const M: usize> AddAssign<Matrix<'a,T,N,M,BE>> for AccMatrix<T,N,M,BE>
+    where BE: Backend + NativeBackend + SimdAddAssignMatrix<T,T>,
+          for<'b> MatrixMutView<'b,T,N,M>: From<&'b mut AccMatrix<T,N,M,BE>>,
+          for<'b> MatrixView<'b,T,N,M>: From<&'b Matrix<'b,T,N,M,BE>> {
+    #[inline(always)]
+    fn add_assign(&mut self, rhs: Matrix<'a,T,N,M,BE>) {
+        unsafe { rhs.backend.add_assign_matrix(self.into(), (&rhs).into()) }
+    }
+}
 impl<'a,BE,T,const N: usize,const M: usize> MulAssign<T> for MatrixMut<'a,T,N,M,BE>
     where BE: Backend + NativeBackend + SimdScalarMulAssignMatrix<T,T> + Clone,
           T: Copy + IsScaler,
           for<'b> MatrixMutView<'b,T,N,M>: From<&'b MatrixMut<'a,T,N,M,BE>>,
+          for<'b> MatrixView<'b,T,N,M>: From<&'b Matrix<'b,T,N,M,BE>> {
+    #[inline(always)]
+    fn mul_assign(&mut self, rhs: T) {
+        let backend = self.backend.clone();
+
+        unsafe { backend.scalar_mul_assign_matrix(rhs,self.into()) }
+    }
+}
+impl<'a,BE,T,const N: usize,const M: usize> MulAssign<T> for AccMatrix<T,N,M,BE>
+    where BE: Backend + NativeBackend + SimdScalarMulAssignMatrix<T,T> + Clone,
+          T: Copy + IsScaler,
+          for<'b> MatrixMutView<'b,T,N,M>: From<&'b mut AccMatrix<T,N,M,BE>>,
           for<'b> MatrixView<'b,T,N,M>: From<&'b Matrix<'b,T,N,M,BE>> {
     #[inline(always)]
     fn mul_assign(&mut self, rhs: T) {
@@ -2021,8 +2056,7 @@ impl<'a,BE,SL,SR,const N: usize,const M: usize> Mul<SR> for Matrix<'a,SL,N,M,BE>
           SL: Copy + IsScaler,
           SR: Copy + IsScaler,
           <BE as SimdScalarMulMatrix<SR,SL>>::OutputScalar: 'static,
-          for<'b> MatrixView<'b,SL,N,M>: From<&'b Matrix<'b,SL,N,M,BE>>,
-          for<'b> MatrixMut<'b,<BE as SimdScalarMulMatrix<SR,SL>>::OutputScalar,N,M>: From<&'b mut AccMatrix<<BE as SimdScalarMulMatrix<SR,SL>>::OutputScalar,N,M,BE>> {
+          for<'b> MatrixView<'b,SL,N,M>: From<&'b Matrix<'b,SL,N,M,BE>> {
     type Output = AccMatrix<<BE as SimdScalarMulMatrix<SR,SL>>::OutputScalar,N,M,BE>;
     #[inline(always)]
     fn mul(self, rhs: SR) -> AccMatrix<<BE as SimdScalarMulMatrix<SR,SL>>::OutputScalar,N,M,BE> {
@@ -2163,6 +2197,21 @@ impl<'a,BE,SL,SR,SO,const N: usize,const K: usize> Product<Vector<'a,SR,K,BE>,Ac
         SO: Default + Copy + Clone + 'static,
         for<'b> MatrixView<'b,SL,N,K>: From<&'b Matrix<'b,SL,N,K,BE>>,
         for<'b> VectorView<'b,SR,K>: From<&'b Vector<'b,SR,K,BE>> {
+    #[inline(always)]
+    fn product(&self, r: Vector<'a,SR,K,BE>) -> AccVector<SO,N,BE> {
+        let mut o = OwnedVector::<SO,N>::default();
+
+        unsafe { self.backend.matvec(self.into(), (&r).into(), &mut o) };
+
+        o.bind::<BE>().unwrap()
+    }
+}
+impl<'a,BE,SL,SR,SO,const N: usize,const K: usize> Product<Vector<'a,SR,K,BE>,AccVector<SO,N,BE>>
+    for AccMatrix<SL,N,K,BE>
+    where BE: Backend + NativeBackend + SimdMatVec<SL,SR,SO>,
+          SO: Default + Copy + Clone + 'static,
+          for<'b> MatrixView<'b,SL,N,K>: From<&'b AccMatrix<SL,N,K,BE>>,
+          for<'b> VectorView<'b,SR,K>: From<&'b Vector<'b,SR,K,BE>> {
     #[inline(always)]
     fn product(&self, r: Vector<'a,SR,K,BE>) -> AccVector<SO,N,BE> {
         let mut o = OwnedVector::<SO,N>::default();

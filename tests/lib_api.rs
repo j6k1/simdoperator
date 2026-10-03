@@ -247,7 +247,7 @@ fn matrix_product_and_assign_traits_with_avx2_backend() {
     let vector = Vector::<i32, 3, Avx2>::try_from(&vector_data[..]).unwrap();
     let col_major = ColumnMajorMatrix::<i32, 3, 2>::try_from(&col_major_data[..]).unwrap();
 
-    let matvec: AccVector<i32,2,Avx2> = matrix.product(vector);
+    let matvec: AccVector<i32,2,Avx2> = matrix.product(vector.clone());
     assert_eq!(acc_vector_array(matvec), [50, 122]);
 
     let vmat: AccVector<i32,2,Avx2> = vector.product(col_major.clone());
@@ -320,7 +320,7 @@ fn bind_and_bind_auto_chain_vector_and_matrix_results() {
     assert_eq!(acc_vector_array(chained), [9; 9]);
 
     let multiplied = added * &c;
-    let multiplied = (&multiplied).bind_auto().unwrap();
+    let multiplied = (&multiplied).unwrap();
     let c_auto = (&c_owned).bind_auto().unwrap();
     assert_eq!(multiplied.dot(&c_auto), 90);
 
@@ -328,7 +328,7 @@ fn bind_and_bind_auto_chain_vector_and_matrix_results() {
     let vector_owned = OwnedVector::from(Box::new([7_i32, 8, 9]));
     let matrix = (&matrix_owned).bind::<Avx2>().unwrap();
     let vector = (&vector_owned).bind::<Avx2>().unwrap();
-    let matvec: AccVector<i32, 2, Avx2> = matrix.product((&vector).into());
+    let matvec: AccVector<i32, 2, Avx2> = matrix.product(Vector::from(&vector));
     let matvec = (&matvec).bind_auto().unwrap();
     let weights_owned = OwnedVector::from(Box::new([2_i32, 3]));
     let weights = (&weights_owned).bind_auto().unwrap();
