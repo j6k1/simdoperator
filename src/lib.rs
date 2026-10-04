@@ -27,6 +27,17 @@ impl<'a,BE: Backend,T,const N: usize> Clone for Vector<'a,T,N,BE>
         }
     }
 }
+impl<'a,BE: Backend,T,const N: usize> TryFrom<&'a [T;N]> for Vector<'a,T,N,BE> {
+    type Error = InstantiationError;
+
+    #[inline(always)]
+    fn try_from(value: &'a [T;N]) -> Result<Self,Self::Error> {
+        Ok(Vector {
+            data: value,
+            backend: BE::new()?
+        })
+    }
+}
 impl<'a,BE: Backend,T,const N: usize> TryFrom<&'a [T]> for Vector<'a,T,N,BE> {
     type Error = InstantiationError;
 
