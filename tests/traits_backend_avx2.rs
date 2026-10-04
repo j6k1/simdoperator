@@ -52,4 +52,4 @@ fn test_matrix_mul_avx2() {
     let res = m1 * m2;
     assert_eq!(res, &data_m2);
 }
-*/
+q/*/
