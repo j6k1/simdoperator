@@ -3,7 +3,7 @@
 use simdoperator::backend::autoselect::AutoSelect;
 use simdoperator::backend::avx2::Avx2;
 use simdoperator::traits::{BindBackend, Dot, Product, SimdDot, SimdDotKernel, ToColumnMajor, Transpose};
-use simdoperator::{AccMatrix, AccVector, ColumnMajorMatrix, Matrix, MatrixMut, MatrixView, OwnedColumnMajorMatrix, OwnedMatrix, OwnedVector, Scalar, Vector, VectorMut, VectorMutView, VectorView};
+use simdoperator::{AccMatrix, AccVector, ColumnMajorMatrix, Matrix, MatrixMut, MatrixView, OwnedColumnMajorMatrix, OwnedMatrix, OwnedVector, Vector, VectorMut, VectorMutView, VectorView};
 use simdoperator::backend::common::Backend;
 
 fn avx2_available() -> bool {

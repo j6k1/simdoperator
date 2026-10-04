@@ -4,6 +4,7 @@ use crate::{ColumnMajorMatrix, MatrixMut, MatrixMutView, MatrixView, OwnedMatrix
 use crate::backend::autoselect::AutoSelect;
 use crate::backend::common::{Backend};
 use crate::error::InstantiationError;
+use crate::traits::private::BindBackendBase;
 
 /// Addition at the SIMD register level
 pub trait SimdAdd<SL,SR,SO>: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> {
@@ -531,17 +532,28 @@ pub trait SimdZero<S>: SimdReg<S> {
 }
 /// A marker trait that indicates you are implementing backend functionality yourself
 pub trait NativeBackend: Backend {}
-/// A feature that converts and returns a backend-independent type into a type bound to a specific backend
-pub trait BindBackend<'a>: Sized {
-    /// Backend-bound types
-    type Output<BE: Backend>: 'a;
-    /// Binds a backend-independent type to a specific backend
-    fn bind<BE: Backend>(self) -> Result<Self::Output<BE>,InstantiationError>;
 
-    /// Binds a backend-independent type to the auto-selected backend
-    fn bind_auto(self) -> Result<Self::Output<AutoSelect>,InstantiationError> {
-        self.bind()
+pub(crate) mod private {
+    use crate::backend::autoselect::AutoSelect;
+    use crate::backend::common::Backend;
+    use crate::error::InstantiationError;
+
+    /// The implementation responsible for converting backend-independent types
+    /// into types bound to a specific backend and returning them
+    pub trait BindBackendBase: Sized {
+        /// Backend-bound types
+        type Output<BE: Backend>: 'static;
+        /// Binds a backend-independent type to a specific backend
+        fn bind<BE: Backend>(self) -> Result<Self::Output<BE>,InstantiationError>;
+
+        /// Binds a backend-independent type to the auto-selected backend
+        fn bind_auto(self) -> Result<Self::Output<AutoSelect>,InstantiationError> {
+            self.bind()
+        }
     }
+}
+/// A feature that converts and returns a backend-independent type into a type bound to a specific backend
+pub trait BindBackend: BindBackendBase {
 }
 /// Trait Implemented when multiplication is supported
 pub trait SupportMul<K> {}

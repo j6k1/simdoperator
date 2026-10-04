@@ -8,71 +8,11 @@ use crate::backend::avx2::Avx2;
 use crate::error::{InstantiationError, TryFromSliceError};
 use crate::backend::common::{Backend};
 use crate::traits::{BindBackend, BitsBitAnd, BitsBitOr, BitsBitXor, Demote, Dims, Dot, IsScaler, NativeBackend, Product, Promote, SimdAddAssignMatrix, SimdAddAssignVector, SimdAddVector, SimdBitAndVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdConvertMatrix, SimdConvertVector, SimdDemoteVector, SimdDot, SimdMatMul, SimdMatVec, SimdMulAssignVector, SimdMulVector, SimdOuterProduct, SimdPromoteVector, SimdReg, SimdScalarMulAssignMatrix, SimdScalarMulAssignVector, SimdScalarMulMatrix, SimdScalarMulVector, SimdShlVector, SimdShrVector, SimdSubAssignVector, SimdSubVector, SimdVMat, ToColumnMajor, Transpose};
+use crate::traits::private::BindBackendBase;
 
 pub mod backend;
 pub mod traits;
 pub mod error;
-#[macro_use]
-pub mod macros;
-
-/// Scalar types associated with the backend
-pub struct Scalar<T,BE = AutoSelect>
-    where T: Copy,
-          BE: Backend {
-    pub value:T,
-    pub(crate) backend:BE
-}
-impl<T,BE> Scalar<T,BE>
-    where T: Copy,
-          BE: Backend {
-    #[inline(always)]
-    pub fn new(value:T) -> Result<Self,InstantiationError> {
-        Ok(Scalar {
-            value:value,
-            backend:BE::new()?
-        })
-    }
-}
-impl BindBackend<'static> for i8 {
-    type Output<BE: Backend> = Scalar<i8, BE>;
-
-    #[inline(always)]
-    fn bind<BE: Backend>(self) -> Result<Self::Output<BE>,InstantiationError> {
-        Ok(Scalar::new(self)?)
-    }
-}
-impl BindBackend<'static> for i16 {
-    type Output<BE: Backend> = Scalar<i16, BE>;
-
-    #[inline(always)]
-    fn bind<BE: Backend>(self) -> Result<Self::Output<BE>,InstantiationError> {
-        Ok(Scalar::new(self)?)
-    }
-}
-impl BindBackend<'static> for i32 {
-    type Output<BE: Backend> = Scalar<i32, BE>;
-
-    #[inline(always)]
-    fn bind<BE: Backend>(self) -> Result<Self::Output<BE>,InstantiationError> {
-        Ok(Scalar::new(self)?)
-    }
-}
-impl BindBackend<'static> for f32 {
-    type Output<BE: Backend> = Scalar<f32, BE>;
-
-    #[inline(always)]
-    fn bind<BE: Backend>(self) -> Result<Self::Output<BE>,InstantiationError> {
-        Ok(Scalar::new(self)?)
-    }
-}
-impl BindBackend<'static> for f64 {
-    type Output<BE: Backend> = Scalar<f64, BE>;
-
-    #[inline(always)]
-    fn bind<BE: Backend>(self) -> Result<Self::Output<BE>,InstantiationError> {
-        Ok(Scalar::new(self)?)
-    }
-}
 /// Vectors associated with the backend
 pub struct Vector<'a,T,const N: usize,BE: Backend = AutoSelect> {
     data: &'a [T; N],
@@ -446,13 +386,16 @@ impl<T,const N: usize> IndexMut<usize> for OwnedVector<T,N> {
         &mut self.data[index]
     }
 }
-impl<T,const N: usize> BindBackend<'static> for OwnedVector<T,N> where T: 'static {
+impl<T,const N: usize> BindBackendBase for OwnedVector<T,N> where T: 'static {
     type Output<BE: Backend> = AccVector<T,N,BE>;
 
     #[inline(always)]
     fn bind<BE: Backend>(self) -> Result<Self::Output<BE>, InstantiationError> {
         Ok(AccVector::try_from(self)?)
     }
+}
+impl<T,const N: usize> BindBackend for OwnedVector<T,N> where T: 'static {
+
 }
 /// Accumulator Vector
 pub struct AccVector<T,const N: usize,BE = AutoSelect>
@@ -992,7 +935,7 @@ impl<T,const N: usize,const M: usize> AsMut<[T]> for OwnedMatrix<T,N,M> {
     }
 }
 impl<T,const N: usize,const M:usize> Dims<N,M> for OwnedMatrix<T,N,M> {}
-impl<'a,T,const N: usize,const M: usize> BindBackend<'a> for OwnedMatrix<T,N,M>
+impl<'a,T,const N: usize,const M: usize> BindBackendBase for OwnedMatrix<T,N,M>
     where T: Copy + 'static {
     type Output<BE: Backend> = AccMatrix<T,N,M,BE>;
 
@@ -1001,6 +944,7 @@ impl<'a,T,const N: usize,const M: usize> BindBackend<'a> for OwnedMatrix<T,N,M>
         Ok(AccMatrix::try_from(self)?)
     }
 }
+impl<'a,T,const N: usize,const M: usize> BindBackend for OwnedMatrix<T,N,M> where T: Copy + 'static {}
 /// A backend-independent representation of an Accumulator matrix
 pub struct AccMatrix<T,const N: usize,const M: usize,BE = AutoSelect>
     where BE: Backend {
