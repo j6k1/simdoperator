@@ -330,6 +330,8 @@ pub trait SimdMatMulKernel<SL,SR,SO> {
         &self,
         l:&MatrixView<'a,SL,N,K>,
         r:&ColumnMajorMatrix<'a,SR,K,M>,
+        rows:usize,
+        cols:usize,
         i:usize,
         j:usize,
         acc:&mut MatrixMutView<'a,SO,N,M>

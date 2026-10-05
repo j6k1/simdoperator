@@ -1402,27 +1402,29 @@ impl<SL,SR,SO,BE> SimdMatMulKernel<SL,SR,SO> for BE
         for i in (0..(N - N % ROWS)).step_by(ROWS) {
             for j in (0..(M - M % COLS)).step_by(COLS) {
                 unsafe { self.matmul_tile::<N,M,K,{ ROWS }, { COLS }>(
-                    &l, &r, i, j, &mut acc
+                    &l, &r, ROWS, COLS, i, j, &mut acc
                 ) };
             }
         }
 
         for j in (0..(M - M % COLS)).step_by(COLS) {
             unsafe { self.matmul_tile::<N,M,K,{ ROWS }, { COLS }>(
-                &l, &r, N - N % ROWS, j,
+                &l, &r, N % ROWS, COLS, N - N % ROWS, j,
                 &mut acc
             ) };
         }
 
         for i in (0..(N - N % ROWS)).step_by(ROWS) {
             unsafe { self.matmul_tile::<N,M,K,{ ROWS },{ COLS }>(
-                &l, &r, i, M - M % COLS,
+                &l, &r, ROWS, M % COLS, i, M - M % COLS,
                 &mut acc
             ) };
         }
 
         unsafe { self.matmul_tile::<N,M,K,{ ROWS }, { COLS }>(
             &l,&r,
+            N % ROWS,
+            M % COLS,
             N - N % ROWS,
             M - M % COLS,
             &mut acc
@@ -1433,50 +1435,47 @@ impl<SL,SR,SO,BE> SimdMatMulKernel<SL,SR,SO> for BE
         &self,
         l:&MatrixView<'a,SL,N,K>,
         r:&ColumnMajorMatrix<'a,SR,K,M>,
+        rows:usize,
+        cols:usize,
         i:usize,
         j:usize,
         acc:&mut MatrixMutView<'a,SO,N,M>
     ) {
         let mut acc_tile = [[<Self as SimdPartialDot<SL,SR,SO>>::zero_acc(self);COLS];ROWS];
 
+        let ref_l = l.as_ref();
+        let ref_r = r.as_ref();
+
         unsafe {
+            let mut rr: [<Self as SimdReg<SL>>::Reg; ROWS] = std::mem::MaybeUninit::uninit().assume_init();
+            let mut cr: [<Self as SimdReg<SR>>::Reg; COLS] = std::mem::MaybeUninit::uninit().assume_init();
+
             for k in (0..(K - K % <Self as SimdLanes<SL>>::LANES)).step_by(<Self as SimdLanes<SL>>::LANES) {
-                let mut rr: [<Self as SimdReg<SL>>::Reg; ROWS] = std::mem::MaybeUninit::uninit().assume_init();
-                for r in 0..ROWS {
-                    rr[r] = <Self as SimdLoad<SL>>::load(self,l.row(i + r).as_ref().as_ptr().add(k));
+                for r in 0..rows {
+                    rr[r] = <Self as SimdLoad<SL>>::load(self, ref_l[((i + r) * K + k)..].as_ptr());
                 }
 
-                let mut cr:[<Self as SimdReg<SR>>::Reg; COLS] = std::mem::MaybeUninit::uninit().assume_init();
-
-                for c in 0..COLS {
-                    cr[c] = <Self as SimdLoad<SR>>::load(self,r.col(j + c).as_ref().as_ptr().add(k));
+                for c in 0..cols {
+                    cr[c] = <Self as SimdLoad<SR>>::load(self, ref_r[((j + c) * K + k)..].as_ptr());
                 }
 
-                for r in 0..ROWS {
-                    for c in 0..COLS {
-                        acc_tile[r][c] = <Self as SimdPartialDot<SL,SR,SO>>::partial_dot(self,rr[r],cr[c],acc_tile[r][c]);
+                for r in 0..rows {
+                    for c in 0..cols {
+                        acc_tile[r][c] = <Self as SimdPartialDot<SL, SR, SO>>::partial_dot(self, rr[r], cr[c], acc_tile[r][c]);
                     }
                 }
             }
 
-            for r in 0..ROWS {
-                for c in 0..COLS {
-                    acc[(i+r,j+c)] = <Self as SimdHSum<SO>>::hsum(self,
-                                                                  <<Self as SimdPartialDot<SL,SR,SO>>::Output as FoldRegs<SO,Self>>::fold(&acc_tile[r][c],self)
-                    );
+            for r in 0..rows {
+                for c in 0..cols {
+                    acc[(i + r,j + c)] = <Self as SimdHSum<SO>>::hsum(self,acc_tile[r][c].fold(self));
                 }
             }
 
-            if K % <Self as SimdLanes<SL>>::LANES != 0 {
-                for tr in 0..ROWS {
-                    for tc in 0..COLS {
-                        let mut tail_sum = <SO>::default();
-
-                        for k in (K - K % <Self as SimdLanes<SL>>::LANES)..K {
-                            tail_sum += <SO>::from(l.row(i + tr).as_ref()[k]) * <SO>::from(r.col(j + tc).as_ref()[k]);
-                        }
-
-                        acc[(i+tr,j+tc)] += tail_sum;
+            for k in (K - K % <Self as SimdLanes<SL>>::LANES)..K {
+                for row in 0..rows {
+                    for c in 0..cols {
+                        acc[(i + row,j + c)] += SO::from(l[i + row][k]) * SO::from(r.col(j + c)[k]);
                     }
                 }
             }
