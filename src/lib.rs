@@ -159,16 +159,6 @@ impl<T,BE: Backend,const N: usize> AsMut<[T;N]> for VectorMut<'_,T,N,BE> {
         &mut self.data
     }
 }
-impl<'a,BE: Backend,T,const N: usize> TryFrom<&'a mut OwnedVector<T,N>> for VectorMut<'a,T,N,BE> {
-    type Error = InstantiationError;
-    #[inline(always)]
-    fn try_from(value: &'a mut OwnedVector<T,N>) -> Result<Self,Self::Error> {
-        Ok(VectorMut {
-            data: &mut value.data,
-            backend: BE::new()?
-        })
-    }
-}
 impl<'a,BE: Backend,T,const N: usize> From<&'a VectorMut<'a,T,N,BE>> for Box<[T;N]>
     where T: Clone + Copy {
 
@@ -225,7 +215,7 @@ impl<T,const N: usize> Index<usize> for VectorView<'_,T,N> {
 impl<T,const N: usize> AsRef<[T;N]> for VectorView<'_,T,N> {
     #[inline(always)]
     fn as_ref(&self) -> &[T;N] {
-        &self.data
+        self.data
     }
 }
 impl<'a,'b,T,BE,const N: usize> From<&'b Vector<'a,T,N,BE>> for VectorView<'b,T,N>
@@ -494,7 +484,8 @@ impl<'a,BE: Backend,T,const N: usize,const M: usize> Matrix<'a,T,N,M,BE> {
         }
     }
 }
-impl<'a,BE: Backend,T,const N: usize,const M: usize> TryFrom<&'a [T]> for Matrix<'a,T,N,M,BE> {
+impl<'a,'b,BE: Backend,T,const N: usize,const M: usize> TryFrom<&'a [T]> for Matrix<'b,T,N,M,BE>
+    where 'a: 'b {
     type Error = InstantiationError;
 
     #[inline(always)]
@@ -627,15 +618,18 @@ impl<'a,T,const N: usize,const M: usize> MatrixView<'a,T,N,M> {
         }
     }
 }
-impl<'a,T,BE: Backend,const N: usize,const M: usize> From<&'a Matrix<'a,T,N,M,BE>> for MatrixView<'a,T,N,M> {
+// Modified From implementation to allow reference lifetime 'b to be shorter than data lifetime 'a
+impl<'a, 'b, T, BE: Backend, const N: usize, const M: usize> From<&'b Matrix<'a,T,N,M,BE>> for MatrixView<'b,T,N,M>
+    where 'a: 'b {
     #[inline(always)]
-    fn from(value: &'a Matrix<'a, T, N, M, BE>) -> Self {
+    fn from(value: &'b Matrix<'a, T, N, M, BE>) -> Self {
         MatrixView {
             data: &value.data
         }
     }
 }
-impl<'a,T,const N: usize,const M: usize> TryFrom<&'a [T]> for MatrixView<'a,T,N,M> {
+impl<'a,'b,T,const N: usize,const M: usize> TryFrom<&'a [T]> for MatrixView<'b,T,N,M>
+    where 'a: 'b {
     type Error = InstantiationError;
 
     #[inline(always)]
@@ -728,7 +722,8 @@ impl<'a,BE,T,const N: usize,const M: usize> From<&'a AccMatrix<T,N,M,BE>> for Ma
         }
     }
 }
-impl<'a,T,const N: usize,const M: usize> TryFrom<&'a OwnedMatrix<T,N,M>> for MatrixView<'a,T,N,M> {
+impl<'a,'b,T,const N: usize,const M: usize> TryFrom<&'a OwnedMatrix<T,N,M>> for MatrixView<'b,T,N,M>
+    where 'a: 'b {
     type Error = InstantiationError;
     #[inline(always)]
     fn try_from(value: &'a OwnedMatrix<T,N,M>) -> Result<Self,Self::Error> {
@@ -797,8 +792,9 @@ impl<'a,T,BE,const M: usize> From<&'a mut AccVector<T,M,BE>> for MatrixMut<'a,T,
         }
     }
 }
-impl<'a,T,BE,const N: usize,const M: usize> TryFrom<&'a mut [T]> for MatrixMut<'a,T,N,M,BE>
-    where BE: Backend {
+impl<'a,'b,T,BE,const N: usize,const M: usize> TryFrom<&'a mut [T]> for MatrixMut<'b,T,N,M,BE>
+    where BE: Backend,
+          'a: 'b {
     type Error = InstantiationError;
 
     #[inline(always)]
@@ -837,7 +833,8 @@ impl<'a,T,const N: usize,const M: usize> IndexMut<(usize,usize)> for MatrixMutVi
         &mut self.data[(row * M) + col]
     }
 }
-impl<'a,T,const N: usize,const M: usize> From<&'a mut OwnedMatrix<T,N,M>> for MatrixMutView<'a,T,N,M> {
+impl<'a,'b,T,const N: usize,const M: usize> From<&'a mut OwnedMatrix<T,N,M>> for MatrixMutView<'b,T,N,M>
+    where 'a: 'b {
     #[inline(always)]
     fn from(value: &'a mut OwnedMatrix<T, N, M>) -> Self {
         MatrixMutView {
@@ -854,8 +851,7 @@ impl<'a,T,const M: usize> From<&'a mut OwnedVector<T,M>> for MatrixMutView<'a,T,
     }
 }
 impl<'a,'b,T,BE,const N: usize,const M: usize> From<&'b mut MatrixMut<'a,T,N,M,BE>> for MatrixMutView<'b,T,N,M>
-    where BE: Backend,
-          'a: 'b {
+    where BE: Backend {
     #[inline(always)]
     fn from(value: &'b mut MatrixMut<'a, T, N, M, BE>) -> Self {
         MatrixMutView {
@@ -913,7 +909,8 @@ impl<T,const N: usize,const M: usize> Default for OwnedMatrix<T,N,M> where T: De
         }
     }
 }
-impl<T,const N: usize,const M: usize> Index<(usize,usize)> for OwnedMatrix<T,N,M> {
+impl<T,const N: usize,const M: usize> Index<(usize,usize)> for OwnedMatrix<T,N,M>
+    where T: Copy {
     type Output = T;
 
     #[inline(always)]
@@ -921,7 +918,8 @@ impl<T,const N: usize,const M: usize> Index<(usize,usize)> for OwnedMatrix<T,N,M
         &self.data[(row * M) + col]
     }
 }
-impl<T,const N: usize,const M: usize> IndexMut<(usize,usize)> for OwnedMatrix<T,N,M> {
+impl<T,const N: usize,const M: usize> IndexMut<(usize,usize)> for OwnedMatrix<T,N,M>
+    where T: Copy {
     #[inline(always)]
     fn index_mut(&mut self, (row,col): (usize, usize)) -> &mut Self::Output {
         &mut self.data[(row * M) + col]
@@ -937,6 +935,12 @@ impl<T,const N: usize,const M: usize> From<Box<[T]>> for OwnedMatrix<T,N,M> {
     #[inline(always)]
     fn from(value: Box<[T]>) -> Self {
         OwnedMatrix { data: value }
+    }
+}
+impl<'a,T,const N: usize, const M: usize> AsRef<[T]> for OwnedMatrix<T,N,M> {
+    #[inline(always)]
+    fn as_ref(&self) -> &[T] {
+        &self.data
     }
 }
 impl<T,const N: usize,const M: usize> AsMut<[T]> for OwnedMatrix<T,N,M> {
@@ -1146,7 +1150,7 @@ impl<'a,T,BE,const N: usize> Add<Vector<'a,T,N,BE>> for AccVector<T,N,BE>
 impl<'a,T,const N: usize> AddAssign<Vector<'a,T,N,AutoSelect>> for VectorMut<'a,T,N,AutoSelect>
     where Avx2: Backend + SimdAddAssignVector<T,T>,
           for<'b> VectorView<'b,T,N>: From<&'b Vector<'b,T,N,AutoSelect>>,
-          for<'b> VectorMutView<'b,T,N>: From<&'b VectorMut<'b,T,N,AutoSelect>> {
+          for<'b> VectorMutView<'b,T,N>: From<&'b mut VectorMut<'a,T,N,AutoSelect>> {
     #[inline(always)]
     fn add_assign(&mut self, rhs: Vector<'a,T,N,AutoSelect>) {
         match rhs.backend.selected {
@@ -1617,7 +1621,7 @@ impl<'a,const N: usize> MulAssign<Vector<'a,f64,N,AutoSelect>> for VectorMut<'a,
 }
 impl<'a,BE,const N: usize> MulAssign<Vector<'a,f64,N,BE>> for VectorMut<'a,f64,N,BE>
     where BE: Backend + SimdMulAssignVector<f64,f64> + Clone,
-          for<'b> VectorView<'b,f64,N>: From<&'b Vector<'b,f64,N,BE>>,
+          for<'b> VectorView<'b,f64,N>: From<&'b Vector<'a,f64,N,BE>>,
           for<'b> VectorMutView<'b,f64,N>: From<&'b mut VectorMut<'a,f64,N,BE>> {
     #[inline(always)]
     fn mul_assign(&mut self, rhs: Vector<'a,f64,N,BE>) {
@@ -1944,13 +1948,14 @@ impl<'a,BE,SL,SR,const N: usize> From<Vector<'a,SL,N,BE>> for AccVector<SR,N,BE>
         unsafe { s.backend.convert_vector((&s).into()).bind::<BE>().unwrap() }
     }
 }
-impl<'a,T,const N: usize,const M: usize> AddAssign<Matrix<'a,T,N,M,AutoSelect>> for MatrixMut<'a,T,N,M,AutoSelect>
+impl<'a, 'b, T, const N: usize, const M: usize> AddAssign<Matrix<'b,T,N,M,AutoSelect>> for MatrixMut<'a,T,N,M,AutoSelect>
     where AutoSelect: Backend,
-          Avx2: SimdAddAssignMatrix<T,T>,
-          for<'b> MatrixMutView<'b,T,N,M>: From<&'b MatrixMut<'a,T,N,M,AutoSelect>>,
-          for<'b> MatrixView<'b,T,N,M>: From<&'b Matrix<'b,T,N,M,AutoSelect>> {
+          Avx2: NativeBackend + SimdAddAssignMatrix<T,T>,
+          for<'c> MatrixMutView<'c,T,N,M>: From<&'c mut MatrixMut<'a,T,N,M,AutoSelect>>,
+          for<'c> MatrixView<'c,T,N,M>: From<&'c Matrix<'b,T,N,M,AutoSelect>>,
+          'a: 'b {
     #[inline(always)]
-    fn add_assign(&mut self, rhs: Matrix<'a,T,N,M,AutoSelect>) {
+    fn add_assign(&mut self, rhs: Matrix<'b,T,N,M,AutoSelect>) {
         match rhs.backend.selected {
             SelectedBackend::Avx2(ref backend) => unsafe {
                 backend.add_assign_matrix(self.into(), (&rhs).into())
@@ -1958,20 +1963,21 @@ impl<'a,T,const N: usize,const M: usize> AddAssign<Matrix<'a,T,N,M,AutoSelect>> 
         }
     }
 }
-impl<'a,BE,T,const N: usize,const M: usize> AddAssign<Matrix<'a,T,N,M,BE>> for MatrixMut<'a,T,N,M,BE>
+impl<'a, 'b, BE, T, const N: usize, const M: usize> AddAssign<Matrix<'b,T,N,M,BE>> for MatrixMut<'a,T,N,M,BE>
     where BE: Backend + NativeBackend + SimdAddAssignMatrix<T,T>,
-          for<'b> MatrixMutView<'b,T,N,M>: From<&'b MatrixMut<'a,T,N,M,BE>>,
-          for<'b> MatrixView<'b,T,N,M>: From<&'b Matrix<'b,T,N,M,BE>> {
+          for<'c> MatrixMutView<'c,T,N,M>: From<&'c mut MatrixMut<'a,T,N,M,BE>>,
+          for<'c> MatrixView<'c,T,N,M>: From<&'c Matrix<'b,T,N,M,BE>>,
+          'a: 'b {
     #[inline(always)]
-    fn add_assign(&mut self, rhs: Matrix<'a,T,N,M,BE>) {
+    fn add_assign(&mut self, rhs: Matrix<'b,T,N,M,BE>) {
         unsafe { rhs.backend.add_assign_matrix(self.into(), (&rhs).into()) }
     }
 }
-impl<'a,T,const N: usize,const M: usize> AddAssign<Matrix<'a,T,N,M,AutoSelect>> for AccMatrix<T,N,M,AutoSelect>
+impl<'a, T, const N: usize, const M: usize> AddAssign<Matrix<'a,T,N,M,AutoSelect>> for AccMatrix<T,N,M,AutoSelect>
     where AutoSelect: Backend,
           Avx2: SimdAddAssignMatrix<T,T>,
           for<'b> MatrixMutView<'b,T,N,M>: From<&'b mut AccMatrix<T,N,M,AutoSelect>>,
-          for<'b> MatrixView<'b,T,N,M>: From<&'b Matrix<'b,T,N,M,AutoSelect>> {
+          for<'b> MatrixView<'b,T,N,M>: From<&'b Matrix<'a,T,N,M,AutoSelect>> {
     #[inline(always)]
     fn add_assign(&mut self, rhs: Matrix<'a,T,N,M,AutoSelect>) {
         match rhs.backend.selected {
@@ -1981,7 +1987,7 @@ impl<'a,T,const N: usize,const M: usize> AddAssign<Matrix<'a,T,N,M,AutoSelect>> 
         }
     }
 }
-impl<'a,BE,T,const N: usize,const M: usize> AddAssign<Matrix<'a,T,N,M,BE>> for AccMatrix<T,N,M,BE>
+impl<'a, BE, T, const N: usize, const M: usize> AddAssign<Matrix<'a,T,N,M,BE>> for AccMatrix<T,N,M,BE>
     where BE: Backend + NativeBackend + SimdAddAssignMatrix<T,T>,
           for<'b> MatrixMutView<'b,T,N,M>: From<&'b mut AccMatrix<T,N,M,BE>>,
           for<'b> MatrixView<'b,T,N,M>: From<&'b Matrix<'b,T,N,M,BE>> {
@@ -1993,8 +1999,7 @@ impl<'a,BE,T,const N: usize,const M: usize> AddAssign<Matrix<'a,T,N,M,BE>> for A
 impl<'a,BE,T,const N: usize,const M: usize> MulAssign<T> for MatrixMut<'a,T,N,M,BE>
     where BE: Backend + NativeBackend + SimdScalarMulAssignMatrix<T,T> + Clone,
           T: Copy + IsScaler,
-          for<'b> MatrixMutView<'b,T,N,M>: From<&'b MatrixMut<'a,T,N,M,BE>>,
-          for<'b> MatrixView<'b,T,N,M>: From<&'b Matrix<'b,T,N,M,BE>> {
+          for<'b> MatrixMutView<'b,T,N,M>: From<&'b mut MatrixMut<'a,T,N,M,BE>> {
     #[inline(always)]
     fn mul_assign(&mut self, rhs: T) {
         let backend = self.backend.clone();
@@ -2036,7 +2041,7 @@ impl<'a,BE,SL,SR,const N: usize,const M: usize> From<Matrix<'a,SL,N,M,BE>> for A
     where BE: Backend + SimdConvertMatrix<SL,SR>,
           SR: Default + Copy + 'static,
           for<'b> MatrixMutView<'b,SL,N,M>: From<&'b mut OwnedMatrix<SL,N,M>>,
-          for<'b> MatrixView<'b,SL,N,M>: From<&'b Matrix<'b,SL,N,M,BE>> {
+          for<'b> MatrixView<'b,SL,N,M>: From<&'b Matrix<'a,SL,N,M,BE>> {
     #[inline(always)]
     fn from(s:Matrix<'a,SL,N,M,BE>) -> AccMatrix<SR,N,M,BE> {
         let mut acc = OwnedMatrix::default();

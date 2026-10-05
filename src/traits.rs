@@ -1,9 +1,7 @@
 //! Trait and data type features for abstracting SIMD operations
 
-use crate::{ColumnMajorMatrix, MatrixMut, MatrixMutView, MatrixView, OwnedMatrix, OwnedVector, VectorMutView, VectorView};
-use crate::backend::autoselect::AutoSelect;
+use crate::{ColumnMajorMatrix, MatrixMutView, MatrixView, OwnedVector, VectorMutView, VectorView};
 use crate::backend::common::{Backend};
-use crate::error::InstantiationError;
 use crate::traits::private::BindBackendBase;
 
 /// Addition at the SIMD register level

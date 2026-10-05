@@ -1,4 +1,4 @@
-﻿use simdoperator::{Vector, Matrix};
+use simdoperator::Vector;
 
 #[test]
 fn test_vector_add_auto() {

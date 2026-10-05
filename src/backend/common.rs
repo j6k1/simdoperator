@@ -1,9 +1,8 @@
 //! Common Backend Implementation
 
 use std::ops::{Add, AddAssign, Mul, Sub};
-use crate::traits::{SimdAddVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportMul, FoldRegs, SimdOuterProduct, SimdMatMul, SimdMulAssignVector, SimdAddAssignVector, SimdSubAssignVector, SimdShiftWidth, SimdScalarMulAssignVector, SimdAddAssignMatrix, SimdScalarMulAssignMatrix, SimdScalarMulMatrix, SimdConvertMatrix, SimdLoadSeq, SimdScalarMulVectorInto, SimdDot, SimdHSum, SimdZero, SimdPartialDot, SimdDotKernel, IsScaler, SimdMatMulKernel};
-use crate::{ColumnMajorMatrix, MatrixMut, MatrixMutView, MatrixView, OwnedMatrix, OwnedVector, VectorMutView, VectorView};
-use crate::backend::avx2::Avx2;
+use crate::traits::{SimdAddVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportMul, FoldRegs, SimdOuterProduct, SimdMulAssignVector, SimdAddAssignVector, SimdSubAssignVector, SimdShiftWidth, SimdScalarMulAssignVector, SimdAddAssignMatrix, SimdScalarMulAssignMatrix, SimdScalarMulMatrix, SimdConvertMatrix, SimdLoadSeq, SimdScalarMulVectorInto, SimdHSum, SimdZero, SimdPartialDot, SimdDotKernel, IsScaler, SimdMatMulKernel};
+use crate::{ColumnMajorMatrix, MatrixMutView, MatrixView, OwnedVector, VectorMutView, VectorView};
 use crate::error::InstantiationError;
 
 /// A trait that defines the instantiation of a SIMD arithmetic backend
@@ -154,14 +153,14 @@ impl<T,BE> SimdAddAssignVector<T,T> for BE
     unsafe fn add_assign_vector<'a,const N: usize>(&self, l: VectorMutView<'a,T,N>, r: VectorView<'a,T,N>) {
         unsafe {
             let mut l = l;
-            let mut ref_l = l.as_mut();
+            let ref_l = l.as_mut();
             let ref_r = r.as_ref();
 
-            let mut chunks_l = ref_l.chunks_exact_mut(<Self as SimdLanes<T>>::LANES);
+            let chunks_l = ref_l.chunks_exact_mut(<Self as SimdLanes<T>>::LANES);
             let chunks_r = ref_r.chunks_exact(<Self as SimdLanes<T>>::LANES);
 
-            for (mut cl,cr) in chunks_l.zip(chunks_r) {
-                let ra = self.load(cl.as_mut_ptr());
+            for (cl,cr) in chunks_l.zip(chunks_r) {
+                let ra = self.load(cl.as_ptr());
                 let rb = self.load(cr.as_ptr());
 
                 let rr = self.add(ra,rb);
@@ -169,7 +168,7 @@ impl<T,BE> SimdAddAssignVector<T,T> for BE
                 self.store(cl.as_mut_ptr(),rr);
             }
 
-            let mut chuks_l_remainder = ref_l.chunks_exact_mut(<Self as SimdLanes<T>>::LANES).into_remainder();
+            let chuks_l_remainder = ref_l.chunks_exact_mut(<Self as SimdLanes<T>>::LANES).into_remainder();
             let chuks_r_remainder = ref_r.chunks_exact(<Self as SimdLanes<T>>::LANES).remainder();
 
             if N % <Self as SimdLanes<T>>::LANES != 0 {
@@ -189,7 +188,7 @@ impl<T,BE> SimdAddVector<T,T,T> for BE
         -> OwnedVector<T,N> {
         let mut acc = OwnedVector::from(Box::<[T;N]>::from(&l));
 
-        let mut l = VectorMutView::<T,N>::from(&mut acc);
+        let l = VectorMutView::<T,N>::from(&mut acc);
 
         unsafe { <Self as SimdAddAssignVector<T,T>>::add_assign_vector(self,l,r) };
 
@@ -210,14 +209,14 @@ impl<T,BE> SimdSubAssignVector<T,T> for BE
     unsafe fn sub_assign_vector<'a,const N: usize>(&self, l: VectorMutView<'a,T,N>, r: VectorView<'a,T,N>) {
         unsafe {
             let mut l = l;
-            let mut ref_l = l.as_mut();
+            let ref_l = l.as_mut();
             let ref_r = r.as_ref();
 
-            let mut chunks_l = ref_l.chunks_exact_mut(<Self as SimdLanes<T>>::LANES);
+            let chunks_l = ref_l.chunks_exact_mut(<Self as SimdLanes<T>>::LANES);
             let chunks_r = ref_r.chunks_exact(<Self as SimdLanes<T>>::LANES);
 
-            for (mut cl,cr) in chunks_l.zip(chunks_r) {
-                let ra = self.load(cl.as_mut_ptr());
+            for (cl,cr) in chunks_l.zip(chunks_r) {
+                let ra = self.load(cl.as_ptr());
                 let rb = self.load(cr.as_ptr());
 
                 let rr = self.sub(ra,rb);
@@ -225,7 +224,7 @@ impl<T,BE> SimdSubAssignVector<T,T> for BE
                 self.store(cl.as_mut_ptr(),rr);
             }
 
-            let mut chuks_l_remainder = ref_l.chunks_exact_mut(<Self as SimdLanes<T>>::LANES).into_remainder();
+            let chuks_l_remainder = ref_l.chunks_exact_mut(<Self as SimdLanes<T>>::LANES).into_remainder();
             let chuks_r_remainder = ref_r.chunks_exact(<Self as SimdLanes<T>>::LANES).remainder();
 
             if N % <Self as SimdLanes<T>>::LANES != 0 {
@@ -245,7 +244,7 @@ impl<T,BE> SimdSubVector<T,T,T> for BE
         -> OwnedVector<T,N> {
         let mut acc = OwnedVector::from(Box::<[T;N]>::from(&l));
 
-        let mut l = VectorMutView::<T,N>::from(&mut acc);
+        let l = VectorMutView::<T,N>::from(&mut acc);
 
         unsafe { <Self as SimdSubAssignVector<T,T>>::sub_assign_vector(self,l,r) };
 
@@ -294,7 +293,7 @@ impl<SL,SR,SO,BE> SimdMulVector<SL,SR,SO> for BE
             if N % <Self as SimdLanes<SL>>::LANES != 0 {
                 let chunck_l_remainder = ref_l.chunks_exact(<Self as SimdLanes<SL>>::LANES).remainder();
                 let chunck_r_remainder = ref_r.chunks_exact(<Self as SimdLanes<SL>>::LANES).remainder();
-                let mut chunck_o_remainder = ref_o.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES).into_remainder();
+                let chunck_o_remainder = ref_o.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES).into_remainder();
 
                 for (o,(&l,&r)) in chunck_o_remainder.iter_mut().zip(chunck_l_remainder.iter().zip(chunck_r_remainder.iter())) {
                     *o = SO::from(l) * SO::from(r);
@@ -323,13 +322,13 @@ impl<SL,SR,BE> SimdMulAssignVector<SL,SR> for BE
     unsafe fn mul_assign_vector<'a,const N: usize>(&self, l: VectorMutView<'a,SL,N>, r: VectorView<'a,SR,N>) {
         unsafe {
             let mut l = l;
-            let mut ref_l = l.as_mut();
+            let ref_l = l.as_mut();
             let ref_r = r.as_ref();
 
-            let mut chunks_l = ref_l.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES);
+            let chunks_l = ref_l.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES);
             let chunks_r = ref_r.chunks_exact(<Self as SimdLanes<SL>>::LANES);
 
-            for (mut cl,cr) in chunks_l.zip(chunks_r) {
+            for (cl,cr) in chunks_l.zip(chunks_r) {
                 let ra = self.load(cl.as_ptr());
                 let rb = self.load(cr.as_ptr());
 
@@ -339,7 +338,7 @@ impl<SL,SR,BE> SimdMulAssignVector<SL,SR> for BE
             }
 
             if N % <Self as SimdLanes<SL>>::LANES != 0 {
-                let mut chunck_l_remainder = ref_l.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES).into_remainder();
+                let chunck_l_remainder = ref_l.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES).into_remainder();
                 let chunck_r_remainder = ref_r.chunks_exact(<Self as SimdLanes<SL>>::LANES).remainder();
 
                 for (l,r) in chunck_l_remainder.iter_mut().zip(chunck_r_remainder.iter()) {
@@ -373,7 +372,7 @@ impl<SL,SR,SO,BE> SimdMulVector<SL,SR,SO> for BE
         unsafe {
             let ref_l = l.as_ref();
             let ref_r = r.as_ref();
-            let mut ref_o = rs.as_mut();
+            let ref_o = rs.as_mut();
 
             let chunks_l = ref_l.chunks_exact(<Self as SimdLanes<SL>>::LANES);
             let chunks_r = ref_r.chunks_exact(<Self as SimdLanes<SL>>::LANES);
@@ -391,7 +390,7 @@ impl<SL,SR,SO,BE> SimdMulVector<SL,SR,SO> for BE
             if N % <Self as SimdLanes<SL>>::LANES != 0 {
                 let chunck_l_remainder = ref_l.chunks_exact(<Self as SimdLanes<SL>>::LANES).remainder();
                 let chunck_r_remainder = ref_r.chunks_exact(<Self as SimdLanes<SL>>::LANES).remainder();
-                let mut chunck_o_remainder = ref_o.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES).into_remainder();
+                let chunck_o_remainder = ref_o.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES).into_remainder();
 
                 for (o,(&l,&r)) in chunck_o_remainder.iter_mut().zip(chunck_l_remainder.iter().zip(chunck_r_remainder.iter())) {
                     *o = l * r;
@@ -427,7 +426,7 @@ impl<SL,SR,SO,BE> SimdScalarMulVector<SL,SR,SO> for BE
         unsafe {
             let s = self.splat(l);
             let ref_r = r.as_ref();
-            let mut ref_o = rs.as_mut();
+            let ref_o = rs.as_mut();
 
             let chunks_r = ref_r.chunks_exact(<Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS);
             let chunks_o = ref_o.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS);
@@ -491,7 +490,7 @@ impl<SL,SR,BE> SimdScalarMulAssignVector<SL,SR> for BE
             let s = self.splat(l);
             let ref_r = r.as_mut();
 
-            let mut chunks_r = ref_r.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS);
+            let chunks_r = ref_r.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS);
 
             for cr in chunks_r {
                 for cr in cr.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES) {
@@ -504,7 +503,7 @@ impl<SL,SR,BE> SimdScalarMulAssignVector<SL,SR> for BE
             }
 
             if N % (<Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS) != 0 {
-                let mut chunks_r = ref_r.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS).into_remainder();
+                let chunks_r = ref_r.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS).into_remainder();
 
                 for cr in chunks_r.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES) {
                     let rr = self.load(cr.as_ptr());
@@ -516,7 +515,7 @@ impl<SL,SR,BE> SimdScalarMulAssignVector<SL,SR> for BE
             }
 
             if N % <Self as SimdLanes<SL>>::LANES != 0 {
-                let mut chunks_r = ref_r.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES).into_remainder();
+                let chunks_r = ref_r.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES).into_remainder();
 
                 for r in chunks_r.iter_mut() {
                     *r = SR::from(l) * *r;
@@ -682,7 +681,7 @@ impl<SL,SR,SO,BE> SimdScalarMulVectorInto<SL,SR,SO> for BE
             let ref_o = o.as_mut();
 
             let chunks_r = ref_r.chunks_exact(<Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS);
-            let mut chunks_o = ref_o.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS);
+            let chunks_o = ref_o.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS);
 
             for (co,cr) in chunks_o.zip(chunks_r) {
                  for (co,cr) in co.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES).zip(cr.chunks_exact(<Self as SimdLanes<SL>>::LANES)) {
@@ -696,7 +695,7 @@ impl<SL,SR,SO,BE> SimdScalarMulVectorInto<SL,SR,SO> for BE
 
             if N % (<Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS) != 0 {
                 let chunks_r = ref_r.chunks_exact(<Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS).remainder();
-                let mut chunks_o = ref_o.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS).into_remainder();
+                let chunks_o = ref_o.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES * <Self as SimdCols<SL>>::COLS).into_remainder();
 
                 for (co,cr) in chunks_o.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES).zip(chunks_r.chunks_exact(<Self as SimdLanes<SL>>::LANES)) {
                     let rr = self.load(cr.as_ptr());
@@ -709,7 +708,7 @@ impl<SL,SR,SO,BE> SimdScalarMulVectorInto<SL,SR,SO> for BE
 
             if N % <Self as SimdLanes<SL>>::LANES != 0 {
                 let chunks_r = ref_r.chunks_exact(<Self as SimdLanes<SL>>::LANES).remainder();
-                let mut chunks_o = ref_o.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES).into_remainder();
+                let chunks_o = ref_o.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES).into_remainder();
 
                 for (o,r) in chunks_o.iter_mut().zip(chunks_r.iter()) {
                     *o = l * *r;
@@ -728,7 +727,7 @@ impl<T,BE> SimdBitAndVector<T> for BE
               SimdLanes<T> +
               SimdRows<T> +
               SimdMask<T> +
-              SimdBitAnd<T> +,
+              SimdBitAnd<T>,
               T: BitsBitAnd + Default + Copy,
               <T as BitsBitAnd>::Bits: Copy {
     #[target_feature(enable = "avx2")]
@@ -1125,14 +1124,14 @@ impl<T,BE> SimdAddAssignMatrix<T,T> for BE
     unsafe fn add_assign_matrix<'a,const N: usize,const M: usize>(&self, l: MatrixMutView<'a,T,N,M>, r: MatrixView<'a,T,N,M>) {
         unsafe {
             let mut l = l;
-            let mut ref_l = l.as_mut();
+            let ref_l = l.as_mut();
             let ref_r = r.as_ref();
 
-            let mut chunks_l = ref_l.chunks_exact_mut(M);
+            let chunks_l = ref_l.chunks_exact_mut(M);
             let chunks_r = ref_r.chunks_exact(M);
 
             for (cl,cr) in chunks_l.zip(chunks_r) {
-                let mut chunks_l = cl.chunks_exact_mut(<Self as SimdLanes<T>>::LANES);
+                let chunks_l = cl.chunks_exact_mut(<Self as SimdLanes<T>>::LANES);
                 let chunks_r = cr.chunks_exact(<Self as SimdLanes<T>>::LANES);
 
                 for (cl,cr) in chunks_l.zip(chunks_r) {
@@ -1177,10 +1176,10 @@ impl<T,BE> SimdScalarMulAssignMatrix<T,T> for BE
             let mut r = r;
             let r_ref = r.as_mut();
 
-            let mut chunks_r = r_ref.chunks_exact_mut(M);
+            let chunks_r = r_ref.chunks_exact_mut(M);
 
             for cr in chunks_r {
-                let mut chunks_r = cr.chunks_exact_mut(<Self as SimdLanes<T>>::LANES);
+                let chunks_r = cr.chunks_exact_mut(<Self as SimdLanes<T>>::LANES);
 
                 for cr in chunks_r {
                     let rb = self.load(cr.as_ptr());
@@ -1191,7 +1190,7 @@ impl<T,BE> SimdScalarMulAssignMatrix<T,T> for BE
                 }
 
                 if M % <Self as SimdLanes<T>>::LANES != 0 {
-                    let mut chunks_r = cr.chunks_exact_mut(<Self as SimdLanes<T>>::LANES).into_remainder();
+                    let chunks_r = cr.chunks_exact_mut(<Self as SimdLanes<T>>::LANES).into_remainder();
 
                     for r in chunks_r {
                         *r = l * *r;
@@ -1228,7 +1227,7 @@ impl<SL,SR,SO,BE> SimdScalarMulMatrix<SL,SR> for BE
             let r_ref = r.as_ref();
 
             let mut acc = acc;
-            let mut ref_acc = acc.as_mut();
+            let ref_acc = acc.as_mut();
 
             let chunks_r = r_ref.chunks_exact(M);
             let acc_chunks_r = ref_acc.chunks_exact_mut(M);
