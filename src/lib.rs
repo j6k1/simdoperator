@@ -1876,6 +1876,18 @@ impl<'a,BE,T,const N: usize> Shr<usize> for Vector<'a,T,N,BE>
         unsafe { self.backend.shr_vector((&self).into(), rhs).bind::<BE>().unwrap() }
     }
 }
+impl<'a,BE,T,const N: usize> Shr<usize> for AccVector<T,N,BE>
+    where T: 'static,
+          BE: Backend,
+          for<'b> Vector<'b,T,N,BE>: From<&'b AccVector<T,N,BE>>,
+          for<'b> Vector<'b,T,N,BE>: Shr<usize,Output = AccVector<T,N,BE>> {
+    type Output = AccVector<T,N,BE>;
+
+    #[inline(always)]
+    fn shr(self, rhs: usize) -> Self::Output {
+        Vector::<T,N,BE>::from(&self).shr(rhs)
+    }
+}
 impl<'a,SL,SR,const N: usize> Promote<AccVector<SR,N>> for Vector<'a,SL,N,AutoSelect>
     where SL: 'static,
           SR: 'static,
