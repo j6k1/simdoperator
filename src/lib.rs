@@ -1139,7 +1139,7 @@ impl<'a,BE,T,const N: usize> Add<Vector<'a,T,N,BE>> for Vector<'a,T,N,BE>
 impl<'a,T,BE,const N: usize> Add<Vector<'a,T,N,BE>> for AccVector<T,N,BE>
     where BE: Backend,
           for<'b> Vector<'b,T,N,BE>: From<&'b AccVector<T,N,BE>>,
-          for<'b> Vector<'b,T,N,BE>: Add<Vector<'a,T,N,BE>, Output = AccVector<T,N,BE>> {
+          for<'b> Vector<'b,T,N,BE>: Add<Vector<'b,T,N,BE>, Output = AccVector<T,N,BE>> {
     type Output = AccVector<T,N,BE>;
 
     #[inline(always)]
@@ -1264,7 +1264,7 @@ impl<'a,BE,T,const N: usize> Sub<Vector<'a,T,N,BE>> for Vector<'a,T,N,BE>
 impl<'a,T,BE,const N: usize> Sub<Vector<'a,T,N,BE>> for AccVector<T,N,BE>
     where BE: Backend,
           for<'b> Vector<'b,T,N,BE>: From<&'b AccVector<T,N,BE>>,
-          for<'b> Vector<'b,T,N,BE>: Sub<Vector<'a,T,N,BE>, Output = AccVector<T,N,BE>> {
+          for<'b> Vector<'b,T,N,BE>: Sub<Vector<'b,T,N,BE>, Output = AccVector<T,N,BE>> {
     type Output = AccVector<T,N,BE>;
 
     #[inline(always)]
@@ -1457,7 +1457,7 @@ impl<'a,BE,const N: usize> Mul<f64> for Vector<'a,f64,N,BE>
 impl<'a,BE,const N: usize> Mul<Vector<'a,i8,N,BE>> for AccVector<i8,N,BE>
     where BE: Backend,
           for<'b> Vector<'b,i8,N,BE>: From<&'b AccVector<i8,N,BE>>,
-          for<'b> Vector<'b,i8,N,BE>: Mul<Vector<'a,i8,N,BE>,Output = AccVector<i32,N,BE>> {
+          for<'b> Vector<'b,i8,N,BE>: Mul<Vector<'b,i8,N,BE>,Output = AccVector<i32,N,BE>> {
     type Output = AccVector<i32,N,BE>;
 
     #[inline(always)]
@@ -1468,7 +1468,7 @@ impl<'a,BE,const N: usize> Mul<Vector<'a,i8,N,BE>> for AccVector<i8,N,BE>
 impl<'a,BE,const N: usize> Mul<Vector<'a,i16,N,BE>> for AccVector<i16,N,BE>
     where BE: Backend,
           for<'b> Vector<'b,i16,N,BE>: From<&'b AccVector<i16,N,BE>>,
-          for<'b> Vector<'b,i16,N,BE>: Mul<Vector<'a,i16,N,BE>,Output = AccVector<i32,N,BE>> {
+          for<'b> Vector<'b,i16,N,BE>: Mul<Vector<'b,i16,N,BE>,Output = AccVector<i32,N,BE>> {
     type Output = AccVector<i32,N,BE>;
 
     #[inline(always)]
@@ -1479,7 +1479,7 @@ impl<'a,BE,const N: usize> Mul<Vector<'a,i16,N,BE>> for AccVector<i16,N,BE>
 impl<'a,BE,const N: usize> Mul<Vector<'a,i32,N,BE>> for AccVector<i32,N,BE>
     where BE: Backend,
           for<'b> Vector<'b,i32,N,BE>: From<&'b AccVector<i32,N,BE>>,
-          for<'b> Vector<'b,i32,N,BE>: Mul<Vector<'a,i32,N,BE>,Output = AccVector<i32,N,BE>> {
+          for<'b> Vector<'b,i32,N,BE>: Mul<Vector<'b,i32,N,BE>,Output = AccVector<i32,N,BE>> {
     type Output = AccVector<i32,N,BE>;
 
     #[inline(always)]
@@ -1490,7 +1490,7 @@ impl<'a,BE,const N: usize> Mul<Vector<'a,i32,N,BE>> for AccVector<i32,N,BE>
 impl<'a,BE,const N: usize> Mul<Vector<'a,f32,N,BE>> for AccVector<f32,N,BE>
     where BE: Backend,
           for<'b> Vector<'b,f32,N,BE>: From<&'b AccVector<f32,N,BE>>,
-          for<'b> Vector<'b,f32,N,BE>: Mul<Vector<'a,f32,N,BE>,Output = AccVector<f32,N,BE>> {
+          for<'b> Vector<'b,f32,N,BE>: Mul<Vector<'b,f32,N,BE>,Output = AccVector<f32,N,BE>> {
     type Output = AccVector<f32,N,BE>;
 
     #[inline(always)]
@@ -1501,7 +1501,7 @@ impl<'a,BE,const N: usize> Mul<Vector<'a,f32,N,BE>> for AccVector<f32,N,BE>
 impl<'a,BE,const N: usize> Mul<Vector<'a,f64,N,BE>> for AccVector<f64,N,BE>
     where BE: Backend,
           for<'b> Vector<'b,f64,N,BE>: From<&'b AccVector<f64,N,BE>>,
-          for<'b> Vector<'b,f64,N,BE>: Mul<Vector<'a,f64,N,BE>,Output = AccVector<f64,N,BE>> {
+          for<'b> Vector<'b,f64,N,BE>: Mul<Vector<'b,f64,N,BE>,Output = AccVector<f64,N,BE>> {
     type Output = AccVector<f64,N,BE>;
 
     #[inline(always)]
