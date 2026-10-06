@@ -1407,7 +1407,7 @@ impl<SL,SR,SO,BE> SimdMatMulKernel<SL,SR,SO> for BE
             }
         }
 
-        if M % COLS != 0 {
+        if M % ROWS != 0 {
             for j in (0..(M - M % COLS)).step_by(COLS) {
                 unsafe { self.matmul_tile::<N,M,K,{ ROWS }, { COLS }>(
                     &l, &r, N % ROWS, COLS, N - N % ROWS, j,
@@ -1416,7 +1416,7 @@ impl<SL,SR,SO,BE> SimdMatMulKernel<SL,SR,SO> for BE
             }
         }
 
-        if N % ROWS != 0 {
+        if N % COLS != 0 {
             for i in (0..(N - N % ROWS)).step_by(ROWS) {
                 unsafe { self.matmul_tile::<N,M,K,{ ROWS },{ COLS }>(
                     &l, &r, ROWS, M % COLS, i, M - M % COLS,

@@ -37,8 +37,8 @@ fn make_mat<T: Copy + Default, const N: usize, const M: usize>(vals: &[T]) -> Ow
 // ================= Vector Operation Tests =================
 
 fn run_vec_add<const N: usize>() {
-    let a = make_vec::<f64, N>(&[1.0; 8]);
-    let b = make_vec::<f64, N>(&[2.0; 8]);
+    let a = make_vec::<f64, N>(&vec![1.0; N]);
+    let b = make_vec::<f64, N>(&vec![2.0; N]);
     let va = <Vector<f64, N>>::try_from(&a).unwrap();
     let vb = <Vector<f64, N>>::try_from(&b).unwrap();
     let vc = va + vb;
@@ -46,8 +46,8 @@ fn run_vec_add<const N: usize>() {
 }
 
 fn run_vec_sub<const N: usize>() {
-    let a = make_vec::<f64, N>(&[5.0; 8]);
-    let b = make_vec::<f64, N>(&[2.0; 8]);
+    let a = make_vec::<f64, N>(&vec![5.0; N]);
+    let b = make_vec::<f64, N>(&vec![2.0; N]);
     let va = <Vector<f64, N>>::try_from(&a).unwrap();
     let vb = <Vector<f64, N>>::try_from(&b).unwrap();
     let vc = va - vb;
@@ -56,8 +56,8 @@ fn run_vec_sub<const N: usize>() {
 
 fn run_vec_mul<const N: usize>() {
     // Vector-vector multiplication for f64 is not implemented, so test with i32 (LANES=8)
-    let a = make_vec::<i32, N>(&[2; 8]);
-    let b = make_vec::<i32, N>(&[3; 8]);
+    let a = make_vec::<i32, N>(&vec![2; N]);
+    let b = make_vec::<i32, N>(&vec![3; N]);
     let va = <Vector<i32, N>>::try_from(&a).unwrap();
     let vb = <Vector<i32, N>>::try_from(&b).unwrap();
     let vc = va * vb;
@@ -65,15 +65,15 @@ fn run_vec_mul<const N: usize>() {
 }
 
 fn run_vec_scalar_mul<const N: usize>() {
-    let a = make_vec::<f64, N>(&[2.0; 8]);
+    let a = make_vec::<f64, N>(&vec![2.0; N]);
     let va = <Vector<f64, N>>::try_from(&a).unwrap();
     let vc = va * 3.0;
     for i in 0..N { assert_eq!(vc[i], 6.0); }
 }
 
 fn run_vec_bit_and<const N: usize>() {
-    let a = make_vec::<i32, N>(&[0xFF; 8]);
-    let b = make_vec::<i32, N>(&[0xF0; 8]);
+    let a = make_vec::<i32, N>(&vec![0xFF; N]);
+    let b = make_vec::<i32, N>(&vec![0xF0; N]);
     let va = <Vector<i32, N>>::try_from(&a).unwrap();
     let vb = <Vector<i32, N>>::try_from(&b).unwrap();
     let vc = va & vb;
@@ -81,8 +81,8 @@ fn run_vec_bit_and<const N: usize>() {
 }
 
 fn run_vec_bit_or<const N: usize>() {
-    let a = make_vec::<i32, N>(&[0x0F; 8]);
-    let b = make_vec::<i32, N>(&[0xF0; 8]);
+    let a = make_vec::<i32, N>(&vec![0x0F; N]);
+    let b = make_vec::<i32, N>(&vec![0xF0; N]);
     let va = <Vector<i32, N>>::try_from(&a).unwrap();
     let vb = <Vector<i32, N>>::try_from(&b).unwrap();
     let vc = va | vb;
@@ -90,8 +90,8 @@ fn run_vec_bit_or<const N: usize>() {
 }
 
 fn run_vec_bit_xor<const N: usize>() {
-    let a = make_vec::<i32, N>(&[0xFF; 8]);
-    let b = make_vec::<i32, N>(&[0xF0; 8]);
+    let a = make_vec::<i32, N>(&vec![0xFF; N]);
+    let b = make_vec::<i32, N>(&vec![0xF0; N]);
     let va = <Vector<i32, N>>::try_from(&a).unwrap();
     let vb = <Vector<i32, N>>::try_from(&b).unwrap();
     let vc = va ^ vb;
@@ -99,21 +99,21 @@ fn run_vec_bit_xor<const N: usize>() {
 }
 
 fn run_vec_bit_not<const N: usize>() {
-    let a = make_vec::<i32, N>(&[0xFF; 8]);
+    let a = make_vec::<i32, N>(&vec![0xFF; N]);
     let va = <Vector<i32, N>>::try_from(&a).unwrap();
     let vc = !va;
     for i in 0..N { assert_eq!(vc[i], !0xFF); }
 }
 
 fn run_vec_shl<const N: usize>() {
-    let a = make_vec::<i32, N>(&[1; 8]);
+    let a = make_vec::<i32, N>(&vec![1; N]);
     let va = <Vector<i32, N>>::try_from(&a).unwrap();
     let vc = va << 4;
     for i in 0..N { assert_eq!(vc[i], 16); }
 }
 
 fn run_vec_shr<const N: usize>() {
-    let a = make_vec::<i32, N>(&[16; 8]);
+    let a = make_vec::<i32, N>(&vec![16; N]);
     let va = <Vector<i32, N>>::try_from(&a).unwrap();
     let vc = va >> 4;
     for i in 0..N { assert_eq!(vc[i], 1); }
@@ -122,21 +122,21 @@ fn run_vec_shr<const N: usize>() {
 // ================= Type Conversion, Promotion, and Demotion Tests =================
 
 fn run_promote_i8_to_i16<const N: usize>() {
-    let a = make_vec::<i8, N>(&[5; 32]);
+    let a = make_vec::<i8, N>(&vec![5; N]);
     let va = <Vector<i8, N>>::try_from(&a).unwrap();
     let vc: AccVector<i16, N> = va.promotion();
     for i in 0..N { assert_eq!(vc[i], 5); }
 }
 
 fn run_demote_i32_to_i16<const N: usize>() {
-    let a = make_vec::<i32, N>(&[10; 8]);
+    let a = make_vec::<i32, N>(&vec![10; N]);
     let va = <Vector<i32, N>>::try_from(&a).unwrap();
     let vc: AccVector<i16, N> = va.demotion();
     for i in 0..N { assert_eq!(vc[i], 10); }
 }
 
 fn run_convert_i32_to_f32<const N: usize>() {
-    let a = make_vec::<i32, N>(&[7; 8]);
+    let a = make_vec::<i32, N>(&vec![7; N]);
     let va = <Vector<i32, N>>::try_from(&a).unwrap();
     let vc: AccVector<f32, N> = va.into();
     for i in 0..N { assert_eq!(vc[i], 7.0); }
@@ -145,8 +145,8 @@ fn run_convert_i32_to_f32<const N: usize>() {
 // ================= Matrix Operation Tests =================
 
 fn run_mat_add_assign<const N: usize, const M: usize>() {
-    let mut a = make_mat::<f64, N, M>(&[1.0; 32]);
-    let b = make_mat::<f64, N, M>(&[2.0; 32]);
+    let mut a = make_mat::<f64, N, M>(&vec![1.0; N * M]);
+    let b = make_mat::<f64, N, M>(&vec![2.0; N * M]);
 
     let mut acc_a: AccMatrix<f64, N, M, Avx2> = <AccMatrix<f64, N, M, Avx2>>::try_from(a).unwrap();
 
@@ -167,7 +167,7 @@ fn run_mat_add_assign<const N: usize, const M: usize>() {
 }
 
 fn run_mat_scalar_mul_assign<const N: usize, const M: usize>() {
-    let mut a = make_mat::<f64, N, M>(&[2.0; 32]);
+    let mut a = make_mat::<f64, N, M>(&vec![2.0; N * M]);
     let mut acc_a: AccMatrix<f64, N, M, Avx2> = <AccMatrix<f64, N, M, Avx2>>::try_from(a).unwrap();
 
     // Use AccMatrix to avoid lifetime issues with borrowed data
@@ -186,7 +186,7 @@ fn run_mat_scalar_mul_assign<const N: usize, const M: usize>() {
 }
 
 fn run_mat_scalar_mul<const N: usize, const M: usize>() {
-    let a = make_mat::<f64, N, M>(&[2.0; 32]);
+    let a = make_mat::<f64, N, M>(&vec![2.0; N * M]);
     
     // Use Avx2 backend explicitly to avoid AutoSelect trait issues
     let ma: Matrix<f64, N, M, Avx2> = <Matrix<f64, N, M, Avx2>>::try_from(&a).unwrap();
@@ -201,8 +201,8 @@ fn run_mat_scalar_mul<const N: usize, const M: usize>() {
 // ================= Product Operation Tests (Dot, Outer, MatVec, VMat, MatMul) =================
 
 fn run_dot<const N: usize>() {
-    let a = make_vec::<f64, N>(&[1.0; 8]);
-    let b = make_vec::<f64, N>(&[2.0; 8]);
+    let a = make_vec::<f64, N>(&vec![1.0; N]);
+    let b = make_vec::<f64, N>(&vec![2.0; N]);
     let va = <Vector<f64, N>>::try_from(&a).unwrap();
     let vb = <Vector<f64, N>>::try_from(&b).unwrap();
     let res = va.dot(vb);
@@ -210,8 +210,8 @@ fn run_dot<const N: usize>() {
 }
 
 fn run_outer_product<const N: usize, const M: usize>() {
-    let a = make_vec::<f64, N>(&[1.0; 8]);
-    let b = make_vec::<f64, M>(&[2.0; 8]);
+    let a = make_vec::<f64, N>(&vec![1.0; N]);
+    let b = make_vec::<f64, M>(&vec![2.0; M]);
     let va = <Vector<f64, N>>::try_from(&a).unwrap();
     let vb = <Vector<f64, M>>::try_from(&b).unwrap();
     let mc = va.product(vb);
@@ -223,8 +223,8 @@ fn run_outer_product<const N: usize, const M: usize>() {
 }
 
 fn run_matvec<const N: usize, const K: usize>() {
-    let a = make_mat::<f64, N, K>(&[1.0; 32]);
-    let b = make_vec::<f64, K>(&[2.0; 8]);
+    let a = make_mat::<f64, N, K>(&vec![1.0; N * K]);
+    let b = make_vec::<f64, K>(&vec![2.0; K]);
     let ma = <Matrix<f64, N, K>>::try_from(&a).unwrap();
     let vb = <Vector<f64, K>>::try_from(&b).unwrap();
     let vc = ma.product(vb);
@@ -234,7 +234,7 @@ fn run_matvec<const N: usize, const K: usize>() {
 }
 
 fn run_vmat<const K: usize, const M: usize>() {
-    let a = make_vec::<f64, K>(&[1.0; 8]);
+    let a = make_vec::<f64, K>(&vec![1.0; K]);
     // Column-major data (order does not matter since all values are the same)
     let col_data = vec![2.0; K * M];
     let cm: ColumnMajorMatrix<f64, K, M> = <ColumnMajorMatrix<f64, K, M>>::try_from(col_data.as_slice()).unwrap();
@@ -247,7 +247,7 @@ fn run_vmat<const K: usize, const M: usize>() {
 }
 
 fn run_matmul<const N: usize, const K: usize, const M: usize>() {
-    let a = make_mat::<f64, N, K>(&[1.0; 32]);
+    let a = make_mat::<f64, N, K>(&vec![1.0; N * K]);
     let col_data = vec![2.0; K * M];
     let cm: ColumnMajorMatrix<f64, K, M> = <ColumnMajorMatrix<f64, K, M>>::try_from(col_data.as_slice()).unwrap();
     
