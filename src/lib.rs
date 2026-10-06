@@ -1971,6 +1971,28 @@ impl<'a,BE,SL,SR,const N: usize> From<Vector<'a,SL,N,BE>> for AccVector<SR,N,BE>
         unsafe { s.backend.convert_vector((&s).into()).bind::<BE>().unwrap() }
     }
 }
+impl<'a,SL,SR,const N: usize> From<AccVector<SL,N,AutoSelect>> for AccVector<SR,N,AutoSelect>
+    where SL: 'static,
+          SR: 'static,
+          Avx2: Backend + NativeBackend + SimdConvertVector<SL,SR>,
+          for<'b> Vector<'b,SL,N,AutoSelect>: From<&'b AccVector<SL,N,AutoSelect>>,
+          for<'b> AccVector<SR,N,AutoSelect>: From<&'b Vector<'b,SL,N,AutoSelect>> {
+    #[inline(always)]
+    fn from(s:AccVector<SL,N,AutoSelect>) -> AccVector<SR,N,AutoSelect> {
+        Vector::<SL,N,AutoSelect>::from(&s).into()
+    }
+}
+impl<'a,BE,SL,SR,const N: usize> From<AccVector<SL,N,BE>> for AccVector<SR,N,BE>
+    where SL: 'static,
+          SR: 'static,
+          BE: Backend + NativeBackend + SimdConvertVector<SL,SR>,
+          for<'b> Vector<'b,SL,N,BE>: From<&'b AccVector<SL,N,BE>>,
+          for<'b> AccVector<SR,N,BE>: From<&'b Vector<'b,SL,N,BE>> {
+    #[inline(always)]
+    fn from(s:AccVector<SL,N,BE>) -> AccVector<SR,N,BE> {
+        Vector::<SL,N,BE>::from(&s).into()
+    }
+}
 impl<'a, 'b, T, const N: usize, const M: usize> AddAssign<Matrix<'b,T,N,M,AutoSelect>> for MatrixMut<'a,T,N,M,AutoSelect>
     where AutoSelect: Backend,
           Avx2: NativeBackend + SimdAddAssignMatrix<T,T>,
