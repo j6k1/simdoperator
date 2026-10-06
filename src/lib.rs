@@ -1936,6 +1936,17 @@ impl<'a,BE,SL,SR,const N: usize> Demote<AccVector<SR,N,BE>> for Vector<'a,SL,N,B
         unsafe { self.backend.demotion_vector((&self).into()).bind::<BE>().unwrap() }
     }
 }
+impl<'a,BE,SL,SR,const N: usize> Demote<AccVector<SR,N,BE>> for AccVector<SL,N,BE>
+    where SL: 'static,
+          SR: 'static,
+          BE: Backend,
+          for<'b> Vector<'b,SL,N,BE>: From<&'b AccVector<SL,N,BE>>,
+          for<'b> Vector<'b,SL,N,BE>: Demote<AccVector<SR,N,BE>> {
+    #[inline(always)]
+    fn demotion(self) -> AccVector<SR,N,BE> {
+        Vector::<SL,N,BE>::from(&self).demotion()
+    }
+}
 impl<'a,SL,SR,const N: usize> From<Vector<'a,SL,N,AutoSelect>> for AccVector<SR,N,AutoSelect>
     where SL: 'static,
           SR: 'static,
