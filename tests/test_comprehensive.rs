@@ -12,7 +12,7 @@
 //! i32: LANES=8, ROWS=2, COLS=2
 //! Test sizes: 1 (<LANES), 4 (=f64 LANES), 5 (>LANES and not divisible), 8 (i32 LANES / multiple of f64 LANES)
 
-use simdoperator::{Vector, OwnedVector, AccVector, Matrix, MatrixMut, OwnedMatrix, ColumnMajorMatrix, AccMatrix};
+use simdoperator::{Vector, OwnedVector, AccVector, Matrix, OwnedMatrix, ColumnMajorMatrix, AccMatrix};
 use simdoperator::traits::{Demote, Promote, Dot, Product};
 use simdoperator::backend::avx2::Avx2;
 
@@ -145,7 +145,7 @@ fn run_convert_i32_to_f32<const N: usize>() {
 // ================= Matrix Operation Tests =================
 
 fn run_mat_add_assign<const N: usize, const M: usize>() {
-    let mut a = make_mat::<f64, N, M>(&vec![1.0; N * M]);
+    let a = make_mat::<f64, N, M>(&vec![1.0; N * M]);
     let b = make_mat::<f64, N, M>(&vec![2.0; N * M]);
 
     let mut acc_a: AccMatrix<f64, N, M, Avx2> = <AccMatrix<f64, N, M, Avx2>>::try_from(a).unwrap();
@@ -155,7 +155,6 @@ fn run_mat_add_assign<const N: usize, const M: usize>() {
         let mb: Matrix<f64, N, M, Avx2> = <Matrix<f64, N, M, Avx2>>::try_from(&b).unwrap();
 
         // Perform add_assign operation
-        use std::ops::AddAssign;
         acc_a += mb;
     }
     
@@ -167,14 +166,13 @@ fn run_mat_add_assign<const N: usize, const M: usize>() {
 }
 
 fn run_mat_scalar_mul_assign<const N: usize, const M: usize>() {
-    let mut a = make_mat::<f64, N, M>(&vec![2.0; N * M]);
+    let a = make_mat::<f64, N, M>(&vec![2.0; N * M]);
     let mut acc_a: AccMatrix<f64, N, M, Avx2> = <AccMatrix<f64, N, M, Avx2>>::try_from(a).unwrap();
 
     // Use AccMatrix to avoid lifetime issues with borrowed data
     {
 
         // Perform scalar mul assign operation
-        use std::ops::MulAssign;
         acc_a *= 3.0;
     }
     
