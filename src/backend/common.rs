@@ -1407,28 +1407,34 @@ impl<SL,SR,SO,BE> SimdMatMulKernel<SL,SR,SO> for BE
             }
         }
 
-        for j in (0..(M - M % COLS)).step_by(COLS) {
+        if M % COLS != 0 {
+            for j in (0..(M - M % COLS)).step_by(COLS) {
+                unsafe { self.matmul_tile::<N,M,K,{ ROWS }, { COLS }>(
+                    &l, &r, N % ROWS, COLS, N - N % ROWS, j,
+                    &mut acc
+                ) };
+            }
+        }
+
+        if N % ROWS != 0 {
+            for i in (0..(N - N % ROWS)).step_by(ROWS) {
+                unsafe { self.matmul_tile::<N,M,K,{ ROWS },{ COLS }>(
+                    &l, &r, ROWS, M % COLS, i, M - M % COLS,
+                    &mut acc
+                ) };
+            }
+        }
+
+        if N % ROWS != 0 && M % COLS != 0 {
             unsafe { self.matmul_tile::<N,M,K,{ ROWS }, { COLS }>(
-                &l, &r, N % ROWS, COLS, N - N % ROWS, j,
+                &l,&r,
+                N % ROWS,
+                M % COLS,
+                N - N % ROWS,
+                M - M % COLS,
                 &mut acc
             ) };
         }
-
-        for i in (0..(N - N % ROWS)).step_by(ROWS) {
-            unsafe { self.matmul_tile::<N,M,K,{ ROWS },{ COLS }>(
-                &l, &r, ROWS, M % COLS, i, M - M % COLS,
-                &mut acc
-            ) };
-        }
-
-        unsafe { self.matmul_tile::<N,M,K,{ ROWS }, { COLS }>(
-            &l,&r,
-            N % ROWS,
-            M % COLS,
-            N - N % ROWS,
-            M - M % COLS,
-            &mut acc
-        ) };
     }
 
     unsafe fn matmul_tile<'a,const N: usize,const M: usize,const K: usize,const ROWS: usize,const COLS: usize>(
