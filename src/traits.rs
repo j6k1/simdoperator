@@ -108,7 +108,7 @@ pub trait SimdAddAssignVector<SL,SR> {
     /// # Arguments
     /// * `l` - Left hand side of the AddAssign
     /// * `r` - Right hand side of the AddAssign`
-    unsafe fn add_assign_vector<'a,const N: usize>(&self, l:VectorMutView<'a,SL,N>, r:VectorView<'a,SR,N>);
+    unsafe fn add_assign_vector<'a,'b,const N: usize>(&self, l:VectorMutView<'a,SL,N>, r:VectorView<'b,SR,N>);
 }
 /// Apply Add to each element of a Vector
 pub trait SimdAddVector<SL,SR,SO> {
@@ -229,7 +229,7 @@ pub trait SimdAddAssignMatrix<SL,SR> {
     /// # Arguments
     /// * `l` - Left hand side of the Add Assign
     /// * `r` - Right hand side of the Add Assign
-    unsafe fn add_assign_matrix<'a,const N: usize,const M: usize>(&self, l:MatrixMutView<'a,SL,N,M>, r:MatrixView<'a,SR,N,M>);
+    unsafe fn add_assign_matrix<'a,'b,const N: usize,const M: usize>(&self, l:MatrixMutView<'a,SL,N,M>, r:MatrixView<'b,SR,N,M>);
 }
 /// Update each element of the Matrix with the result of multiplying it by a scalar value
 pub trait SimdScalarMulAssignMatrix<SL,SR> {

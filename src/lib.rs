@@ -792,9 +792,8 @@ impl<'a,T,BE,const M: usize> From<&'a mut AccVector<T,M,BE>> for MatrixMut<'a,T,
         }
     }
 }
-impl<'a,'b,T,BE,const N: usize,const M: usize> TryFrom<&'a mut [T]> for MatrixMut<'b,T,N,M,BE>
-    where BE: Backend,
-          'a: 'b {
+impl<'a,T,BE,const N: usize,const M: usize> TryFrom<&'a mut [T]> for MatrixMut<'a,T,N,M,BE>
+    where BE: Backend {
     type Error = InstantiationError;
 
     #[inline(always)]
@@ -851,7 +850,8 @@ impl<'a,T,const M: usize> From<&'a mut OwnedVector<T,M>> for MatrixMutView<'a,T,
     }
 }
 impl<'a,'b,T,BE,const N: usize,const M: usize> From<&'b mut MatrixMut<'a,T,N,M,BE>> for MatrixMutView<'b,T,N,M>
-    where BE: Backend {
+    where BE: Backend,
+          'a: 'b {
     #[inline(always)]
     fn from(value: &'b mut MatrixMut<'a, T, N, M, BE>) -> Self {
         MatrixMutView {
@@ -1147,12 +1147,10 @@ impl<'a,T,BE,const N: usize> Add<Vector<'a,T,N,BE>> for AccVector<T,N,BE>
         Vector::<T,N,BE>::from(&self) + rhs
     }
 }
-impl<'a,T,const N: usize> AddAssign<Vector<'a,T,N,AutoSelect>> for VectorMut<'a,T,N,AutoSelect>
-    where Avx2: Backend + SimdAddAssignVector<T,T>,
-          for<'b> VectorView<'b,T,N>: From<&'b Vector<'b,T,N,AutoSelect>>,
-          for<'b> VectorMutView<'b,T,N>: From<&'b mut VectorMut<'a,T,N,AutoSelect>> {
+impl<'a,'b,T,const N: usize> AddAssign<Vector<'b,T,N,AutoSelect>> for VectorMut<'a,T,N,AutoSelect>
+    where Avx2: Backend + SimdAddAssignVector<T,T> {
     #[inline(always)]
-    fn add_assign(&mut self, rhs: Vector<'a,T,N,AutoSelect>) {
+    fn add_assign(&mut self, rhs: Vector<'b,T,N,AutoSelect>) {
         match rhs.backend.selected {
             SelectedBackend::Avx2(ref backend) => unsafe {
                 backend.add_assign_vector(self.into(), (&rhs).into())
@@ -1160,21 +1158,17 @@ impl<'a,T,const N: usize> AddAssign<Vector<'a,T,N,AutoSelect>> for VectorMut<'a,
         }
     }
 }
-impl<'a,BE,T,const N: usize> AddAssign<Vector<'a,T,N,BE>> for VectorMut<'a,T,N,BE>
-    where BE: Backend + NativeBackend + SimdAddAssignVector<T,T>,
-          for<'b> VectorView<'b,T,N>: From<&'b Vector<'b,T,N,BE>>,
-          for<'b> VectorMutView<'b,T,N>: From<&'b mut VectorMut<'a,T,N,BE>> {
+impl<'a,'b,BE,T,const N: usize> AddAssign<Vector<'b,T,N,BE>> for VectorMut<'a,T,N,BE>
+    where BE: Backend + NativeBackend + SimdAddAssignVector<T,T> {
     #[inline(always)]
-    fn add_assign(&mut self, rhs: Vector<'a,T,N,BE>) {
+    fn add_assign(&mut self, rhs: Vector<'b,T,N,BE>) {
         unsafe { rhs.backend.add_assign_vector(self.into(), (&rhs).into()) }
     }
 }
-impl<'a,T,const N: usize> AddAssign<Vector<'a,T,N,AutoSelect>> for AccVector<T,N,AutoSelect>
-    where Avx2: Backend + SimdAddAssignVector<T,T>,
-          for<'b> VectorView<'b,T,N>: From<&'b Vector<'b,T,N,AutoSelect>>,
-          for<'b> VectorMutView<'b,T,N>: From<&'b mut AccVector<T,N,AutoSelect>> {
+impl<'a,'b,T,const N: usize> AddAssign<Vector<'b,T,N,AutoSelect>> for AccVector<T,N,AutoSelect>
+    where Avx2: Backend + SimdAddAssignVector<T,T> {
     #[inline(always)]
-    fn add_assign(&mut self, rhs: Vector<'a,T,N,AutoSelect>) {
+    fn add_assign(&mut self, rhs: Vector<'b,T,N,AutoSelect>) {
         match rhs.backend.selected {
             SelectedBackend::Avx2(ref backend) => unsafe {
                 backend.add_assign_vector(self.into(), (&rhs).into())
@@ -1183,9 +1177,7 @@ impl<'a,T,const N: usize> AddAssign<Vector<'a,T,N,AutoSelect>> for AccVector<T,N
     }
 }
 impl<'a,BE,T,const N: usize> AddAssign<Vector<'a,T,N,BE>> for AccVector<T,N,BE>
-    where BE: Backend + NativeBackend + SimdAddAssignVector<T,T>,
-          for<'b> VectorView<'b,T,N>: From<&'b Vector<'b,T,N,BE>>,
-          for<'b> VectorMutView<'b,T,N>: From<&'b mut AccVector<T,N,BE>> {
+    where BE: Backend + NativeBackend + SimdAddAssignVector<T,T> {
     #[inline(always)]
     fn add_assign(&mut self, rhs: Vector<'a,T,N,BE>) {
         unsafe { rhs.backend.add_assign_vector(self.into(), (&rhs).into()) }
@@ -1995,10 +1987,7 @@ impl<'a,BE,SL,SR,const N: usize> From<AccVector<SL,N,BE>> for AccVector<SR,N,BE>
 }
 impl<'a, 'b, T, const N: usize, const M: usize> AddAssign<Matrix<'b,T,N,M,AutoSelect>> for MatrixMut<'a,T,N,M,AutoSelect>
     where AutoSelect: Backend,
-          Avx2: NativeBackend + SimdAddAssignMatrix<T,T>,
-          for<'c> MatrixMutView<'c,T,N,M>: From<&'c mut MatrixMut<'a,T,N,M,AutoSelect>>,
-          for<'c> MatrixView<'c,T,N,M>: From<&'c Matrix<'b,T,N,M,AutoSelect>>,
-          'a: 'b {
+          Avx2: NativeBackend + SimdAddAssignMatrix<T,T> {
     #[inline(always)]
     fn add_assign(&mut self, rhs: Matrix<'b,T,N,M,AutoSelect>) {
         match rhs.backend.selected {
@@ -2009,10 +1998,7 @@ impl<'a, 'b, T, const N: usize, const M: usize> AddAssign<Matrix<'b,T,N,M,AutoSe
     }
 }
 impl<'a, 'b, BE, T, const N: usize, const M: usize> AddAssign<Matrix<'b,T,N,M,BE>> for MatrixMut<'a,T,N,M,BE>
-    where BE: Backend + NativeBackend + SimdAddAssignMatrix<T,T>,
-          for<'c> MatrixMutView<'c,T,N,M>: From<&'c mut MatrixMut<'a,T,N,M,BE>>,
-          for<'c> MatrixView<'c,T,N,M>: From<&'c Matrix<'b,T,N,M,BE>>,
-          'a: 'b {
+    where BE: Backend + NativeBackend + SimdAddAssignMatrix<T,T> {
     #[inline(always)]
     fn add_assign(&mut self, rhs: Matrix<'b,T,N,M,BE>) {
         unsafe { rhs.backend.add_assign_matrix(self.into(), (&rhs).into()) }
@@ -2020,9 +2006,7 @@ impl<'a, 'b, BE, T, const N: usize, const M: usize> AddAssign<Matrix<'b,T,N,M,BE
 }
 impl<'a, T, const N: usize, const M: usize> AddAssign<Matrix<'a,T,N,M,AutoSelect>> for AccMatrix<T,N,M,AutoSelect>
     where AutoSelect: Backend,
-          Avx2: SimdAddAssignMatrix<T,T>,
-          for<'b> MatrixMutView<'b,T,N,M>: From<&'b mut AccMatrix<T,N,M,AutoSelect>>,
-          for<'b> MatrixView<'b,T,N,M>: From<&'b Matrix<'a,T,N,M,AutoSelect>> {
+          Avx2: SimdAddAssignMatrix<T,T> {
     #[inline(always)]
     fn add_assign(&mut self, rhs: Matrix<'a,T,N,M,AutoSelect>) {
         match rhs.backend.selected {
@@ -2033,9 +2017,7 @@ impl<'a, T, const N: usize, const M: usize> AddAssign<Matrix<'a,T,N,M,AutoSelect
     }
 }
 impl<'a, BE, T, const N: usize, const M: usize> AddAssign<Matrix<'a,T,N,M,BE>> for AccMatrix<T,N,M,BE>
-    where BE: Backend + NativeBackend + SimdAddAssignMatrix<T,T>,
-          for<'b> MatrixMutView<'b,T,N,M>: From<&'b mut AccMatrix<T,N,M,BE>>,
-          for<'b> MatrixView<'b,T,N,M>: From<&'b Matrix<'b,T,N,M,BE>> {
+    where BE: Backend + NativeBackend + SimdAddAssignMatrix<T,T> {
     #[inline(always)]
     fn add_assign(&mut self, rhs: Matrix<'a,T,N,M,BE>) {
         unsafe { rhs.backend.add_assign_matrix(self.into(), (&rhs).into()) }

@@ -1494,6 +1494,7 @@ impl SimdMatMul<i8,i8,i32> for Avx2
     where Self: SimdMatMulKernel<i8,i8,i32> +
                 SimdRows<i8> +
                 SimdCols<i8> {
+    #[target_feature(enable = "avx2")]
     unsafe fn matmul<'a, const N: usize, const M: usize, const K: usize>(&self, l: MatrixView<'a, i8, N, K>, r: ColumnMajorMatrix<'a, i8, K, M>, o: MatrixMutView<'a, i32, N, M>) {
         unsafe {
             <Self as SimdMatMulKernel<i8,i8,i32>>::matmul::<N,M,K,{ <Self as SimdRows<i8>>::ROWS },{ <Self as SimdCols<i8>>::COLS * 2}>(
@@ -1506,6 +1507,7 @@ impl SimdMatMul<i16,i16,i32> for Avx2
     where Self: SimdMatMulKernel<i16,i16,i32> +
                 SimdRows<i16> +
                 SimdCols<i16> {
+    #[target_feature(enable = "avx2")]
     unsafe fn matmul<'a, const N: usize, const M: usize, const K: usize>(&self, l: MatrixView<'a, i16, N, K>, r: ColumnMajorMatrix<'a, i16, K, M>, o: MatrixMutView<'a, i32, N, M>) {
         unsafe {
             <Self as SimdMatMulKernel<i16,i16,i32>>::matmul::<N,M,K,{ <Self as SimdRows<i16>>::ROWS },{ <Self as SimdCols<i16>>::COLS * 2}>(
@@ -1518,6 +1520,7 @@ impl SimdMatMul<i32,i32,i32> for Avx2
     where Self: SimdMatMulKernel<i32,i32,i32> +
                 SimdRows<i32> +
                 SimdCols<i32> {
+    #[target_feature(enable = "avx2")]
     unsafe fn matmul<'a, const N: usize, const M: usize, const K: usize>(&self, l: MatrixView<'a, i32, N, K>, r: ColumnMajorMatrix<'a, i32, K, M>, o: MatrixMutView<'a, i32, N, M>) {
         unsafe {
             <Self as SimdMatMulKernel<i32,i32,i32>>::matmul::<N,M,K,{ <Self as SimdRows<i32>>::ROWS },{ <Self as SimdCols<i32>>::COLS * 2}>(
@@ -1530,6 +1533,7 @@ impl SimdMatMul<f32,f32,f32> for Avx2
     where Self: SimdMatMulKernel<f32,f32,f32> +
                 SimdRows<f32> +
                 SimdCols<f32> {
+    #[target_feature(enable = "avx2")]
     unsafe fn matmul<'a, const N: usize, const M: usize, const K: usize>(&self, l: MatrixView<'a, f32, N, K>, r: ColumnMajorMatrix<'a, f32, K, M>, o: MatrixMutView<'a, f32, N, M>) {
         unsafe {
             <Self as SimdMatMulKernel<f32,f32,f32>>::matmul::<N,M,K,{ <Self as SimdRows<f32>>::ROWS },{ <Self as SimdCols<f32>>::COLS * 2}>(
@@ -1542,6 +1546,7 @@ impl SimdMatMul<f64,f64,f64> for Avx2
     where Self: SimdMatMulKernel<f64,f64,f64> +
                 SimdRows<f64> +
                 SimdCols<f64> {
+    #[target_feature(enable = "avx2")]
     unsafe fn matmul<'a, const N: usize, const M: usize, const K: usize>(&self, l: MatrixView<'a, f64, N, K>, r: ColumnMajorMatrix<'a, f64, K, M>, o: MatrixMutView<'a, f64, N, M>) {
         unsafe {
             <Self as SimdMatMulKernel<f64,f64,f64>>::matmul::<N,M,K,{ <Self as SimdRows<f64>>::ROWS },{ <Self as SimdCols<f64>>::COLS * 2}>(

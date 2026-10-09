@@ -150,7 +150,7 @@ impl<T,BE> SimdAddAssignVector<T,T> for BE
               SimdStore<T>,
           T: Default + Add<Output=T> + Copy {
     #[target_feature(enable = "avx2")]
-    unsafe fn add_assign_vector<'a,const N: usize>(&self, l: VectorMutView<'a,T,N>, r: VectorView<'a,T,N>) {
+    unsafe fn add_assign_vector<'a,'b,const N: usize>(&self, l: VectorMutView<'a,T,N>, r: VectorView<'b,T,N>) {
         unsafe {
             let mut l = l;
             let ref_l = l.as_mut();
@@ -1121,7 +1121,7 @@ impl<T,BE> SimdAddAssignMatrix<T,T> for BE
               SimdStore<T>,
           T: Default + Add<Output=T> + Copy {
     #[target_feature(enable = "avx2")]
-    unsafe fn add_assign_matrix<'a,const N: usize,const M: usize>(&self, l: MatrixMutView<'a,T,N,M>, r: MatrixView<'a,T,N,M>) {
+    unsafe fn add_assign_matrix<'a,'b,const N: usize,const M: usize>(&self, l: MatrixMutView<'a,T,N,M>, r: MatrixView<'b,T,N,M>) {
         unsafe {
             let mut l = l;
             let ref_l = l.as_mut();
