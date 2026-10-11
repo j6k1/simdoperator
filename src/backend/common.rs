@@ -1311,7 +1311,7 @@ impl<SL,SR,SO,BE> SimdDotKernel<SL,SR,SO> for BE
           SO: From<SL> + From<SR> + Default + Mul<SO,Output=SO> + AddAssign,
           <Self as SimdPartialDot<SL,SR,SO>>::Output: Copy {
     #[inline(always)]
-    unsafe fn dot<'a, const N: usize, const COLS: usize>(&self, l: &VectorView<'a, SL, N>, r: VectorView<'a, SR, N>) -> SO {
+    unsafe fn dot<'a, 'b, const N: usize, const COLS: usize>(&self, l: &VectorView<'a, SL, N>, r: VectorView<'b, SR, N>) -> SO {
         let mut acc = [<Self as SimdPartialDot<SL,SR,SO>>::zero_acc(self);COLS];
 
         let ref_l = l.as_ref();

@@ -1405,35 +1405,35 @@ impl SimdZero<f64> for Avx2 where Self: SimdReg<f64> {
 impl SimdDot<i8,i8,i32> for Avx2
     where Self: SimdDotKernel<i8,i8,i32> {
     #[target_feature(enable = "avx2")]
-    unsafe fn dot<'a, const N: usize>(&self, l: &VectorView<'a, i8, N>, r: VectorView<'a, i8, N>) -> i32 {
+    unsafe fn dot<'a, 'b, const N: usize>(&self, l: &VectorView<'a, i8, N>, r: VectorView<'b, i8, N>) -> i32 {
         unsafe { <Self as SimdDotKernel<i8,i8,i32>>::dot::<N,{ <Self as SimdCols<i8>>::COLS * 2 }>(self, l, r) }
     }
 }
 impl SimdDot<i16,i16,i32> for Avx2
     where Self: SimdDotKernel<i16,i16,i32> {
     #[target_feature(enable = "avx2")]
-    unsafe fn dot<'a, const N: usize>(&self, l: &VectorView<'a, i16, N>, r: VectorView<'a, i16, N>) -> i32 {
+    unsafe fn dot<'a, 'b, const N: usize>(&self, l: &VectorView<'a, i16, N>, r: VectorView<'b, i16, N>) -> i32 {
         unsafe { <Self as SimdDotKernel<i16,i16,i32>>::dot::<N,{ <Self as SimdCols<i16>>::COLS * 2 }>(self, l, r) }
     }
 }
 impl SimdDot<i32,i32,i32> for Avx2
     where Self: SimdDotKernel<i32,i32,i32> {
     #[target_feature(enable = "avx2")]
-    unsafe fn dot<'a, const N: usize>(&self, l: &VectorView<'a, i32, N>, r: VectorView<'a, i32, N>) -> i32 {
+    unsafe fn dot<'a, 'b, const N: usize>(&self, l: &VectorView<'a, i32, N>, r: VectorView<'b, i32, N>) -> i32 {
         unsafe { <Self as SimdDotKernel<i32,i32,i32>>::dot::<N,{ <Self as SimdCols<i32>>::COLS * 2 }>(self, l, r) }
     }
 }
 impl SimdDot<f32,f32,f32> for Avx2
     where Self: SimdDotKernel<f32,f32,f32> {
     #[target_feature(enable = "avx2")]
-    unsafe fn dot<'a, const N: usize>(&self, l: &VectorView<'a, f32, N>, r: VectorView<'a, f32, N>) -> f32 {
+    unsafe fn dot<'a, 'b, const N: usize>(&self, l: &VectorView<'a, f32, N>, r: VectorView<'b, f32, N>) -> f32 {
         unsafe { <Self as SimdDotKernel<f32,f32,f32>>::dot::<N,{ <Self as SimdCols<f32>>::COLS * 2 }>(self, l, r) }
     }
 }
 impl SimdDot<f64,f64,f64> for Avx2
     where Self: SimdDotKernel<f64,f64,f64> {
     #[target_feature(enable = "avx2")]
-    unsafe fn dot<'a, const N: usize>(&self, l: &VectorView<'a, f64, N>, r: VectorView<'a, f64, N>) -> f64 {
+    unsafe fn dot<'a, 'b, const N: usize>(&self, l: &VectorView<'a, f64, N>, r: VectorView<'b, f64, N>) -> f64 {
         unsafe { <Self as SimdDotKernel<f64,f64,f64>>::dot::<N,{ <Self as SimdCols<f64>>::COLS * 2 }>(self, l, r) }
     }
 }
@@ -1480,7 +1480,7 @@ impl<SL,SR,SO> SimdMatVec<SL,SR,SO> for Avx2
 impl<SL,SR,SO> SimdVMat<SL,SR,SO> for Avx2
     where Self: SimdDot<SL,SR,SO> {
     #[target_feature(enable = "avx2")]
-    unsafe fn vmat<'a, const M: usize, const K: usize>(&self, l: VectorView<'a, SL, K>, r: ColumnMajorMatrix<'a, SR, K, M>, o: &mut OwnedVector<SO, M>) {
+    unsafe fn vmat<'a,'b,const M: usize, const K: usize>(&self, l: VectorView<'a, SL, K>, r: ColumnMajorMatrix<'b, SR, K, M>, o: &mut OwnedVector<SO, M>) {
         for (o,c) in o.as_mut().iter_mut().zip(r.as_ref().chunks_exact(K)) {
             let v = VectorView::from(<& [SR;K]>::try_from(c).unwrap());
 

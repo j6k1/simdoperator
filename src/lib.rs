@@ -1904,6 +1904,22 @@ impl<'a,BE,SL,SR,const N: usize> Promote<AccVector<SR,N,BE>> for Vector<'a,SL,N,
         unsafe { self.backend.promotion_vector((&self).into()).bind::<BE>().unwrap() }
     }
 }
+impl<SL,SR,const N: usize> Promote<AccVector<SR,N>> for AccVector<SL,N,AutoSelect>
+    where Avx2: Backend + NativeBackend + SimdPromoteVector<SL,SR>,
+          for<'a> Vector<'a,SL,N,AutoSelect>: Promote<AccVector<SR,N,AutoSelect>> {
+    #[inline(always)]
+    fn promotion(self) -> AccVector<SR,N,AutoSelect> {
+        Vector::<SL,N,AutoSelect>::from(&self).promotion()
+    }
+}
+impl<BE,SL,SR,const N: usize> Promote<AccVector<SR,N,BE>> for AccVector<SL,N,BE>
+    where BE: Backend + NativeBackend + SimdPromoteVector<SL,SR> + Clone,
+          for<'a> Vector<'a,SL,N,BE>: Promote<AccVector<SR,N,BE>> {
+    #[inline(always)]
+    fn promotion(self) -> AccVector<SR,N,BE> {
+        Vector::<SL,N,BE>::from(&self).promotion()
+    }
+}
 impl<'a,SL,SR,const N: usize> Demote<AccVector<SR,N,AutoSelect>> for Vector<'a,SL,N,AutoSelect>
     where SL: 'static,
           SR: 'static,
@@ -2135,13 +2151,12 @@ impl<'a,BE,SL,SR,SO,const N: usize,const M: usize> Product<Vector<'a,SR,M,BE>,Ac
         o.bind::<BE>().unwrap()
     }
 }
-impl<'a,SL,SR,SO,const M: usize,const K: usize> Product<ColumnMajorMatrix<'a,SR,K,M>,AccVector<SO,M,AutoSelect>>
+impl<'a,'b,SL,SR,SO,const M: usize,const K: usize> Product<ColumnMajorMatrix<'b,SR,K,M>,AccVector<SO,M,AutoSelect>>
     for Vector<'a,SL,K,AutoSelect>
     where Avx2: Backend + SimdVMat<SL,SR,SO>,
-          SO: Default + Copy + Clone + 'static,
-          for<'b> VectorView<'b,SL,K>: From<&'b Vector<'b,SL,K,AutoSelect>> {
+          SO: Default + Copy + Clone + 'static {
     #[inline(always)]
-    fn product(&self,r:ColumnMajorMatrix<'a,SR,K,M>) -> AccVector<SO,M,AutoSelect> {
+    fn product(&self,r:ColumnMajorMatrix<'b,SR,K,M>) -> AccVector<SO,M,AutoSelect> {
         let mut o = OwnedVector::<SO,M>::default();
 
         match self.backend.selected {
@@ -2153,13 +2168,12 @@ impl<'a,SL,SR,SO,const M: usize,const K: usize> Product<ColumnMajorMatrix<'a,SR,
         o.bind_auto().unwrap()
     }
 }
-impl<'a,BE,SL,SR,SO,const M: usize,const K: usize> Product<ColumnMajorMatrix<'a,SR,K,M>,AccVector<SO,M,BE>>
+impl<'a,'b,BE,SL,SR,SO,const M: usize,const K: usize> Product<ColumnMajorMatrix<'b,SR,K,M>,AccVector<SO,M,BE>>
     for Vector<'a,SL,K,BE>
     where BE: Backend + NativeBackend + SimdVMat<SL,SR,SO>,
-          SO: Default + Copy + Clone + 'static,
-          for<'b> VectorView<'b,SL,K>: From<&'b Vector<'b,SL,K,BE>> {
+          SO: Default + Copy + Clone + 'static {
     #[inline(always)]
-    fn product(&self,r:ColumnMajorMatrix<'a,SR,K,M>) -> AccVector<SO,M,BE> {
+    fn product(&self,r:ColumnMajorMatrix<'b,SR,K,M>) -> AccVector<SO,M,BE> {
         let mut o = OwnedVector::<SO,M>::default();
 
         unsafe { self.backend.vmat(self.into(),r,&mut o) };
@@ -2170,9 +2184,7 @@ impl<'a,BE,SL,SR,SO,const M: usize,const K: usize> Product<ColumnMajorMatrix<'a,
 impl<'a,SL,SR,SO,const N: usize,const K: usize> Product<Vector<'a,SR,K,AutoSelect>,AccVector<SO,N,AutoSelect>>
     for Matrix<'a,SL,N,K,AutoSelect>
     where Avx2: Backend + SimdMatVec<SL,SR,SO>,
-          SO: Default + Copy + Clone + 'static,
-          for<'b> MatrixView<'b,SL,N,K>: From<&'b Matrix<'b,SL,N,K,AutoSelect>>,
-          for<'b> VectorView<'b,SR,K>: From<&'b Vector<'b,SR,K,AutoSelect>> {
+          SO: Default + Copy + Clone + 'static {
     #[inline(always)]
     fn product(&self, r: Vector<'a,SR,K,AutoSelect>) -> AccVector<SO,N,AutoSelect> {
         let mut o = OwnedVector::<SO,N>::default();

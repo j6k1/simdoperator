@@ -262,7 +262,7 @@ pub trait SimdDotKernel<SL,SR,SO> {
     /// # Arguments
     /// * `l` - Left-hand side
     /// * `r` - Right-hand side
-    unsafe fn dot<'a,const N: usize,const COLS:usize>(&self,l:&VectorView<'a,SL,N>,r:VectorView<'a,SR,N>) -> SO;
+    unsafe fn dot<'a,'b,const N: usize,const COLS:usize>(&self,l:&VectorView<'a,SL,N>,r:VectorView<'b,SR,N>) -> SO;
 }
 /// Calculating the dot product of two vectors
 pub trait SimdDot<SL,SR,SO> {
@@ -270,7 +270,7 @@ pub trait SimdDot<SL,SR,SO> {
     /// # Arguments
     /// * `l` - Left-hand side
     /// * `r` - Right-hand side
-    unsafe fn dot<'a,const N: usize>(&self,l:&VectorView<'a,SL,N>,r:VectorView<'a,SR,N>) -> SO;
+    unsafe fn dot<'a,'b,const N: usize>(&self,l:&VectorView<'a,SL,N>,r:VectorView<'b,SR,N>) -> SO;
 }
 /// Calculate the cross product of two vectors
 pub trait SimdOuterProduct<SL,SR,SO> {
@@ -290,9 +290,9 @@ pub trait SimdVMat<SL,SR,SO> {
     /// * `l` - Left-hand side
     /// * `r` - Right-hand side
     /// * `o` - Output vector
-    unsafe fn vmat<'a,const M: usize,const K: usize>(&self,
+    unsafe fn vmat<'a,'b,const M: usize,const K: usize>(&self,
                                               l:VectorView<'a,SL,K>,
-                                              r:ColumnMajorMatrix<'a,SR,K,M>,
+                                              r:ColumnMajorMatrix<'b,SR,K,M>,
                                               o:&mut OwnedVector<SO,M>);
 }
 /// Matrix * Vector Product
