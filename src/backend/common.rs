@@ -87,6 +87,20 @@ impl<T,BE> SimdLoadSeq<T,Regs<<Self as SimdReg<T>>::Reg,2>> for BE
         Regs::new([a,b])
     }
 }
+impl<T,BE> SimdLoadSeq<T,Regs<<Self as SimdReg<T>>::Reg,4>> for BE
+    where BE: Backend +
+              SimdLanes<T> +
+              SimdReg<T> +
+              SimdLoad<T> {
+    #[inline(always)]
+    unsafe fn load_seq(&self, ptr: *const T) -> Regs<<Self as SimdReg<T>>::Reg,4> {
+        let a = unsafe { self.load(ptr) };
+        let b = unsafe { self.load(ptr.add(<Self as SimdLanes<T>>::LANES)) };
+        let c = unsafe { self.load(ptr.add(<Self as SimdLanes<T>>::LANES * 2)) };
+        let d = unsafe { self.load(ptr.add(<Self as SimdLanes<T>>::LANES * 3)) };
+        Regs::new([a,b,c,d])
+    }
+}
 impl<T,BE> SimdStoreSeq<T,Regs<<Self as SimdReg<T>>::Reg,4>> for BE
     where BE: Backend +
               SimdLanes<T> +
@@ -1028,7 +1042,7 @@ impl<SS,SD,BE> SimdPromoteVector<SS,SD> for BE
 impl<SS,SD,BE> SimdDemoteVector<SS,SD> for BE
     where BE: Backend +
               SimdReg<SS> +
-              SimdReg<SS> +
+              SimdReg<SD> +
               SimdLanes<SD> +
               SimdDemote<SS,SD> +
               SimdLoadSeq<SS,<Self as SimdDemote<SS,SD>>::Input> +
@@ -1807,6 +1821,12 @@ impl Assume<i16> for i32 {
     #[inline(always)]
     fn assume(self) -> i16 {
         self as i16
+    }
+}
+impl Assume<i8> for i32 {
+    #[inline(always)]
+    fn assume(self) -> i8 {
+        self as i8
     }
 }
 /// Operations Between Elements of the Same Type

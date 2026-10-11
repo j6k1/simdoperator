@@ -421,6 +421,29 @@ impl SimdPromote<i16,i32> for Avx2 where Self: SimdReg<i16> + SimdReg<i32> {
         }
     }
 }
+impl SimdPromote<i8,i32> for Avx2
+    where Self: SimdReg<i8> +
+                SimdReg<i16> +
+                SimdReg<i32> +
+                SimdPromote<i8,i16> +
+                SimdPromote<i16,i32> {
+    type Output = Regs<<Self as SimdReg<i32>>::Reg,4>;
+
+    #[inline(always)]
+    fn promotion(&self, reg: <Self as SimdReg<i8>>::Reg) -> Self::Output {
+        let regs = <Self as SimdPromote<i8,i16>>::promotion(self, reg);
+
+        let &[lo,hi] = regs.as_ref();
+
+        let lo32 = <Self as SimdPromote<i16,i32>>::promotion(self, lo);
+        let hi32 = <Self as SimdPromote<i16,i32>>::promotion(self, hi);
+
+        let &[lo_lo,lo_hi] = lo32.as_ref();
+        let &[hi_lo,hi_hi] = hi32.as_ref();
+
+        Regs::new([lo_lo,lo_hi,hi_lo,hi_hi])
+    }
+}
 impl SimdDemote<i32,i16> for Avx2 where Self: SimdReg<i32> + SimdReg<i16> {
     type Input = Regs<<Self as SimdReg<i32>>::Reg,2>;
 
@@ -442,6 +465,27 @@ impl SimdDemote<i16,i8> for Avx2 where Self: SimdReg<i16> + SimdReg<i8> {
 
             _mm256_permute4x64_epi64(_mm256_packs_epi16(lo_16, hi_16),mm_shuffle(3,1,2,0))
         }
+    }
+}
+impl SimdDemote<i32,i8> for Avx2
+    where Self: SimdReg<i32> +
+                SimdReg<i16> +
+                SimdReg<i8> +
+                SimdDemote<i32,i16> +
+                SimdDemote<i16,i8> {
+    type Input = Regs<<Self as SimdReg<i32>>::Reg,4>;
+
+    #[inline(always)]
+    fn demotion(&self, reg: Regs<<Self as SimdReg<i32>>::Reg,4>) -> <Self as SimdReg<i8>>::Reg {
+        let &[lo_lo,lo_hi,hi_lo,hi_hi] = reg.as_ref();
+
+        let lo = Regs::new([lo_lo,lo_hi]);
+        let hi = Regs::new([hi_lo,hi_hi]);
+
+        let lo_16 = <Self as SimdDemote<i32,i16>>::demotion(self,lo);
+        let hi_16 = <Self as SimdDemote<i32,i16>>::demotion(self,hi);
+
+        <Self as SimdDemote<i16,i8>>::demotion(self,Regs::new([lo_16,hi_16]))
     }
 }
 impl SimdConvert<i16,f32> for Avx2 where Self: SimdReg<i16> + SimdReg<f32> {

@@ -1147,6 +1147,17 @@ impl<'a,T,BE,const N: usize> Add<Vector<'a,T,N,BE>> for AccVector<T,N,BE>
         Vector::<T,N,BE>::from(&self) + rhs
     }
 }
+impl<'a,T,BE,const N: usize> Add<AccVector<T,N,BE>> for AccVector<T,N,BE>
+    where BE: Backend,
+          for<'b> Vector<'b,T,N,BE>: From<&'b AccVector<T,N,BE>>,
+          for<'b> AccVector<T,N,BE>: Add<Vector<'b,T,N,BE>, Output = AccVector<T,N,BE>> {
+    type Output = AccVector<T,N,BE>;
+
+    #[inline(always)]
+    fn add(self, rhs: AccVector<T,N,BE>) -> Self::Output {
+        self + Vector::<T,N,BE>::from(&rhs)
+    }
+}
 impl<'a,'b,T,const N: usize> AddAssign<Vector<'b,T,N,AutoSelect>> for VectorMut<'a,T,N,AutoSelect>
     where Avx2: Backend + SimdAddAssignVector<T,T> {
     #[inline(always)]
@@ -1923,8 +1934,7 @@ impl<BE,SL,SR,const N: usize> Promote<AccVector<SR,N,BE>> for AccVector<SL,N,BE>
 impl<'a,SL,SR,const N: usize> Demote<AccVector<SR,N,AutoSelect>> for Vector<'a,SL,N,AutoSelect>
     where SL: 'static,
           SR: 'static,
-          Avx2: Backend + SimdDemoteVector<SL,SR>,
-          for<'b> VectorView<'b,SL,N>: From<&'b Vector<'b,SL,N,AutoSelect>> {
+          Avx2: Backend + SimdDemoteVector<SL,SR> {
     #[inline(always)]
     fn demotion(self) -> AccVector<SR,N,AutoSelect> {
         match self.backend.selected {
@@ -1937,19 +1947,27 @@ impl<'a,SL,SR,const N: usize> Demote<AccVector<SR,N,AutoSelect>> for Vector<'a,S
 impl<'a,BE,SL,SR,const N: usize> Demote<AccVector<SR,N,BE>> for Vector<'a,SL,N,BE>
     where SL: 'static,
           SR: 'static,
-          BE: Backend + NativeBackend + SimdDemoteVector<SL,SR>,
-          for<'b> VectorView<'b,SL,N>: From<&'b Vector<'b,SL,N,BE>> {
+          BE: Backend + NativeBackend + SimdDemoteVector<SL,SR> {
     #[inline(always)]
     fn demotion(self) -> AccVector<SR,N,BE> {
         unsafe { self.backend.demotion_vector((&self).into()).bind::<BE>().unwrap() }
     }
 }
-impl<'a,BE,SL,SR,const N: usize> Demote<AccVector<SR,N,BE>> for AccVector<SL,N,BE>
+impl<SL,SR,const N: usize> Demote<AccVector<SR,N,AutoSelect>> for AccVector<SL,N,AutoSelect>
     where SL: 'static,
           SR: 'static,
-          BE: Backend,
-          for<'b> Vector<'b,SL,N,BE>: From<&'b AccVector<SL,N,BE>>,
-          for<'b> Vector<'b,SL,N,BE>: Demote<AccVector<SR,N,BE>> {
+          Avx2: Backend + SimdDemoteVector<SL,SR>,
+          for<'b> Vector<'b,SL,N,AutoSelect>: From<&'b AccVector<SL,N,AutoSelect>> {
+    #[inline(always)]
+    fn demotion(self) -> AccVector<SR,N,AutoSelect> {
+        Vector::<SL,N,AutoSelect>::from(&self).demotion()
+    }
+}
+impl<BE,SL,SR,const N: usize> Demote<AccVector<SR,N,BE>> for AccVector<SL,N,BE>
+    where SL: 'static,
+          SR: 'static,
+          BE: Backend + NativeBackend + SimdDemoteVector<SL,SR>,
+          for<'b> Vector<'b,SL,N,BE>: From<&'b AccVector<SL,N,BE>> {
     #[inline(always)]
     fn demotion(self) -> AccVector<SR,N,BE> {
         Vector::<SL,N,BE>::from(&self).demotion()
