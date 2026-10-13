@@ -6,7 +6,7 @@ use crate::{ColumnMajorMatrix, MatrixMutView, MatrixView, OwnedVector, VectorMut
 use crate::error::InstantiationError;
 
 /// A trait that defines the instantiation of a SIMD arithmetic backend
-pub trait Backend: 'static + Sized {
+pub trait Backend: Sized + Send + Sync + 'static {
     fn new() -> Result<Self,InstantiationError>;
 }
 /// A set of one or more registers
@@ -198,7 +198,7 @@ impl<T,BE> SimdAddVector<T,T,T> for BE
               SimdAddAssignVector<T,T>,
               T: Copy {
     #[target_feature(enable = "avx2")]
-    unsafe fn add_vector<'a,const N: usize>(&self, l: VectorView<'a,T,N>, r: VectorView<'a,T,N>)
+    unsafe fn add_vector<'a,'b,const N: usize>(&self, l: VectorView<'a,T,N>, r: VectorView<'b,T,N>)
         -> OwnedVector<T,N> {
         let mut acc = OwnedVector::from(Box::<[T;N]>::from(&l));
 
@@ -220,7 +220,7 @@ impl<T,BE> SimdSubAssignVector<T,T> for BE
               SimdStore<T>,
           T: Default + Sub<Output=T> + Copy {
     #[target_feature(enable = "avx2")]
-    unsafe fn sub_assign_vector<'a,const N: usize>(&self, l: VectorMutView<'a,T,N>, r: VectorView<'a,T,N>) {
+    unsafe fn sub_assign_vector<'a,'b,const N: usize>(&self, l: VectorMutView<'a,T,N>, r: VectorView<'b,T,N>) {
         unsafe {
             let mut l = l;
             let ref_l = l.as_mut();
@@ -254,7 +254,7 @@ impl<T,BE> SimdSubVector<T,T,T> for BE
               SimdSubAssignVector<T,T>,
       T: Copy {
     #[target_feature(enable = "avx2")]
-    unsafe fn sub_vector<'a,const N: usize>(&self, l: VectorView<'a,T,N>, r: VectorView<'a,T,N>)
+    unsafe fn sub_vector<'a,'b,const N: usize>(&self, l: VectorView<'a,T,N>, r: VectorView<'b,T,N>)
         -> OwnedVector<T,N> {
         let mut acc = OwnedVector::from(Box::<[T;N]>::from(&l));
 
@@ -333,7 +333,7 @@ impl<SL,SR,BE> SimdMulAssignVector<SL,SR> for BE
           <Self as SimdMul<SL,SR,SL>>::Output: Copy,
           (SL,SL): SupportMul<Homogeneous> {
     #[target_feature(enable = "avx2")]
-    unsafe fn mul_assign_vector<'a,const N: usize>(&self, l: VectorMutView<'a,SL,N>, r: VectorView<'a,SR,N>) {
+    unsafe fn mul_assign_vector<'a,'b,const N: usize>(&self, l: VectorMutView<'a,SL,N>, r: VectorView<'b,SR,N>) {
         unsafe {
             let mut l = l;
             let ref_l = l.as_mut();
@@ -379,7 +379,7 @@ impl<SL,SR,SO,BE> SimdMulVector<SL,SR,SO> for BE
               <Self as SimdMul<SL,SR,SO>>::Output: Copy,
               (SL,SO): SupportMul<Homogeneous> {
     #[target_feature(enable = "avx2")]
-    unsafe fn mul_vector<'a,const N: usize>(&self, l: VectorView<'a,SL,N>, r: VectorView<'a,SR,N>)
+    unsafe fn mul_vector<'a,'b,const N: usize>(&self, l: VectorView<'a,SL,N>, r: VectorView<'b,SR,N>)
         -> OwnedVector<SO,N> {
         let mut rs = OwnedVector::from(Box::new([SO::default(); N]));
 
@@ -434,7 +434,7 @@ impl<SL,SR,SO,BE> SimdScalarMulVector<SL,SR,SO> for BE
               <Self as SimdMul<SL,SR,SO>>::Output: Copy,
               (SL,SO): SupportMul<Heterogeneous> {
     #[target_feature(enable = "avx2")]
-    unsafe fn scalarmul_vector<'a, const N: usize>(&self, l:SL, r: VectorView<'a, SR, N>) -> OwnedVector<SO, N> {
+    unsafe fn scalarmul_vector<'a,'b,const N: usize>(&self, l:SL, r: VectorView<'b, SR, N>) -> OwnedVector<SO, N> {
         let mut rs = OwnedVector::from(Box::new([SO::default(); N]));
 
         unsafe {
@@ -498,7 +498,7 @@ impl<SL,SR,BE> SimdScalarMulAssignVector<SL,SR> for BE
       <Self as SimdMul<SL,SR,SR>>::Output: Copy,
       (SL,SR): SupportMul<Homogeneous> {
     #[target_feature(enable = "avx2")]
-    unsafe fn scalarmul_assign_vector<'a, const N: usize>(&self, l:SL, r: VectorMutView<'a, SR, N>) {
+    unsafe fn scalarmul_assign_vector<'a,'b,const N: usize>(&self, l:SL, r: VectorMutView<'b, SR, N>) {
         unsafe {
             let mut r = r;
             let s = self.splat(l);

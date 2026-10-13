@@ -116,7 +116,7 @@ pub trait SimdAddVector<SL,SR,SO> {
     /// # Arguments
     /// * `l` - Left hand side of the Add
     /// * `r` - Right hand side of the Add
-    unsafe fn add_vector<'a,const N: usize>(&self, l:VectorView<'a,SL,N>, r:VectorView<'a,SR,N>) -> OwnedVector<SO,N>;
+    unsafe fn add_vector<'a,'b,const N: usize>(&self, l:VectorView<'a,SL,N>, r:VectorView<'b,SR,N>) -> OwnedVector<SO,N>;
 }
 /// Apply SubAssign to each element of a Vector
 pub trait SimdSubAssignVector<SL,SR> {
@@ -124,7 +124,7 @@ pub trait SimdSubAssignVector<SL,SR> {
     /// # Arguments
     /// * `l` - Left hand side of the SubAssign
     /// * `r` - Right hand side of the SubAssign
-    unsafe fn sub_assign_vector<'a,const N: usize>(&self, l:VectorMutView<'a,SL,N>, r:VectorView<'a,SR,N>);
+    unsafe fn sub_assign_vector<'a,'b,const N: usize>(&self, l:VectorMutView<'a,SL,N>, r:VectorView<'b,SR,N>);
 }
 /// Apply Sub to each element of a Vector
 pub trait SimdSubVector<SL,SR,SO> {
@@ -132,7 +132,7 @@ pub trait SimdSubVector<SL,SR,SO> {
     /// # Arguments
     /// * `l` - Left hand side of the Sub
     /// * `r` - Right hand side of the Sub
-    unsafe fn sub_vector<'a,const N: usize>(&self, l:VectorView<'a,SL,N>, r:VectorView<'a,SR,N>) -> OwnedVector<SO,N>;
+    unsafe fn sub_vector<'a,'b,const N: usize>(&self, l:VectorView<'a,SL,N>, r:VectorView<'b,SR,N>) -> OwnedVector<SO,N>;
 }
 /// Apply MulAssign to each element of a Vector
 pub trait SimdMulAssignVector<SL,SR> {
@@ -140,7 +140,7 @@ pub trait SimdMulAssignVector<SL,SR> {
     /// # Arguments
     /// * `l` - Left hand side of the MulAssign
     /// * `r` - Right hand side of the MulAssign
-    unsafe fn mul_assign_vector<'a,const N: usize>(&self, l:VectorMutView<'a,SL,N>, r:VectorView<'a,SR,N>);
+    unsafe fn mul_assign_vector<'a,'b,const N: usize>(&self, l:VectorMutView<'a,SL,N>, r:VectorView<'b,SR,N>);
 }
 /// Apply Mul to each element of a Vector
 pub trait SimdMulVector<SL,SR,SO> {
@@ -148,7 +148,7 @@ pub trait SimdMulVector<SL,SR,SO> {
     /// # Arguments
     /// * `l` - Left hand side of the Mul
     /// * `r` - Right hand side of the Mul
-    unsafe fn mul_vector<'a,const N: usize>(&self, l:VectorView<'a,SL,N>, r:VectorView<'a,SR,N>) -> OwnedVector<SO,N>;
+    unsafe fn mul_vector<'a,'b,const N: usize>(&self, l:VectorView<'a,SL,N>, r:VectorView<'b,SR,N>) -> OwnedVector<SO,N>;
 }
 /// Multiply each element of the vector by a scalar value to update its value
 pub trait SimdScalarMulAssignVector<SL,SR> {
@@ -164,7 +164,7 @@ pub trait SimdScalarMulVector<SL,SR,SO> {
     /// # Arguments
     /// * `l` - Left hand side of the Mul
     /// * `r` - Right hand side of the Mul
-    unsafe fn scalarmul_vector<'a,const N: usize>(&self, l:SL, r:VectorView<'a,SR,N>) -> OwnedVector<SO,N>;
+    unsafe fn scalarmul_vector<'a,'b,const N: usize>(&self, l:SL, r:VectorView<'b,SR,N>) -> OwnedVector<SO,N>;
 }
 pub trait SimdScalarMulVectorInto<SL,SR,SO> {
     ///
