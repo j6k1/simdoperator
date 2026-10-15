@@ -10,7 +10,7 @@ pub trait SimdAdd<SL,SR,SO>: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> {
     /// # Arguments
     /// * `l` - Left hand side of the addition
     /// * `r` - Right hand side of the addition
-    fn add(&self,l:<Self as SimdReg<SL>>::Reg,r:<Self as SimdReg<SR>>::Reg) -> <Self as SimdReg<SO>>::Reg;
+    unsafe fn add(&self,l:<Self as SimdReg<SL>>::Reg,r:<Self as SimdReg<SR>>::Reg) -> <Self as SimdReg<SO>>::Reg;
 }
 /// Subtract at the SIMD register level
 pub trait SimdSub<SL,SR,SO>: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> {
@@ -101,6 +101,39 @@ pub trait SimdSplat<S>: SimdReg<S> {
     /// # Arguments
     /// * `v` - A scalar value that will be splatted into a SIMD register
     fn splat(&self,v:S) -> Self::Reg;
+}
+/// A trait that represents binary operators
+pub trait SimdBinaryOperator<BE,SL,SR,SO>
+    where BE: Backend + NativeBackend {
+    type Lhs: Copy;
+    type Rhs: Copy;
+    type Output: Copy;
+    fn apply_lanes(&self, l:Self::Lhs, r:Self::Rhs) -> Self::Output;
+    fn apply_scalar(&self,l:SL,r:SR) -> SO;
+}
+/// The trait to apply operators to vectors
+pub trait SimdQueryVector<T,OP> {
+    ///
+    /// # Arguments
+    /// * `l` - Left hand side
+    /// * `r` - Right hand side
+    unsafe fn query_vector<'a,'b,const N: usize>(&self, l:VectorView<'a,T,N>, r:VectorView<'b,T,N>,operator:&OP) -> OwnedVector<T,N>;
+}
+/// The trait of applying operators to vectors loaded with LoadSeqThe trait of applying operators to vectors loaded with LoadSeq
+pub trait SimdQueryVectorLoadSeq<SL,SR,SO,OP> {
+    ///
+    /// # Arguments
+    /// * `l` - Left hand side
+    /// * `r` - Right hand side
+    unsafe fn query_vector_load_seq<'a,'b,const N: usize>(&self, l:VectorView<'a,SL,N>, r:VectorView<'b,SR,N>,operator:&OP) -> OwnedVector<SO,N>;
+}
+/// The trait to apply operators to loaded vectors and write the results using the StoreSeq implementation
+pub trait SimdQueryVectorStoreSeq<SL,SR,SO,OP> {
+    ///
+    /// # Arguments
+    /// * `l` - Left hand side
+    /// * `r` - Right hand side
+    unsafe fn query_vector_store_seq<'a,'b,const N: usize>(&self, l:VectorView<'a,SL,N>, r:VectorView<'b,SR,N>,operator:&OP) -> OwnedVector<SO,N>;
 }
 /// Apply AddAssign to each element of a Vector
 pub trait SimdAddAssignVector<SL,SR> {

@@ -1,7 +1,8 @@
 //! Common Backend Implementation
 
+use std::marker::PhantomData;
 use std::ops::{Add, AddAssign, Mul, Sub};
-use crate::traits::{SimdAddVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportMul, FoldRegs, SimdOuterProduct, SimdMulAssignVector, SimdAddAssignVector, SimdSubAssignVector, SimdShiftWidth, SimdScalarMulAssignVector, SimdAddAssignMatrix, SimdScalarMulAssignMatrix, SimdScalarMulMatrix, SimdConvertMatrix, SimdLoadSeq, SimdScalarMulVectorInto, SimdHSum, SimdZero, SimdPartialDot, SimdDotKernel, IsScaler, SimdMatMulKernel};
+use crate::traits::{SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportMul, FoldRegs, SimdOuterProduct, SimdMulAssignVector, SimdAddAssignVector, SimdSubAssignVector, SimdShiftWidth, SimdScalarMulAssignVector, SimdAddAssignMatrix, SimdScalarMulAssignMatrix, SimdScalarMulMatrix, SimdConvertMatrix, SimdLoadSeq, SimdScalarMulVectorInto, SimdHSum, SimdZero, SimdPartialDot, SimdDotKernel, IsScaler, SimdMatMulKernel, SimdQueryVector, SimdBinaryOperator, NativeBackend};
 use crate::{ColumnMajorMatrix, MatrixMutView, MatrixView, OwnedVector, VectorMutView, VectorView};
 use crate::error::InstantiationError;
 
@@ -27,6 +28,54 @@ impl<R,const N:usize> AsRef<[R;N]> for Regs<R,N>
         &self.regs
     }
 }
+/// A type representing an operator that performs addition in the SIMD registers
+pub struct SimdAddOperator<SL,SR,SO,BE>
+    where BE: Backend + NativeBackend +
+              SimdReg<SL> +
+              SimdReg<SR> +
+              SimdReg<SO> +
+              SimdAdd<SL,SR,SO> {
+    sl:PhantomData<SL>,
+    sr:PhantomData<SR>,
+    so:PhantomData<SO>,
+    backend: BE
+}
+impl<SL,SR,SO,BE> SimdAddOperator<SL,SR,SO,BE>
+    where BE: Backend + NativeBackend + Clone +
+              SimdReg<SL> +
+              SimdReg<SR> +
+              SimdReg<SO> +
+              SimdAdd<SL,SR,SO>{
+    pub fn new(backend:&BE) -> Self {
+        Self {
+            sl:PhantomData,
+            sr:PhantomData,
+            so:PhantomData,
+            backend:backend.clone()
+        }
+    }
+}
+impl<BE,SL,SR,SO> SimdBinaryOperator<BE,SL,SR,SO> for SimdAddOperator<SL,SR,SO,BE>
+    where BE: Backend + NativeBackend +
+              SimdReg<SL> +
+              SimdReg<SR> +
+              SimdReg<SO> +
+              SimdAdd<SL,SR,SO>,
+          SO: From<SL> + From<SR> + Add<SO,Output=SO> {
+    type Lhs = <BE as SimdReg<SL>>::Reg;
+    type Rhs = <BE as SimdReg<SR>>::Reg;
+    type Output = <BE as SimdReg<SO>>::Reg;
+
+    #[inline(always)]
+    fn apply_lanes(&self, l: Self::Lhs, r: Self::Rhs) -> Self::Output {
+        unsafe { self.backend.add(l,r) }
+    }
+
+    #[inline(always)]
+    fn apply_scalar(&self, l: SL, r: SR) -> SO {
+        SO::from(l) + SO::from(r)
+    }
+}
 impl<S,BE: SimdReg<S> + SimdAdd<S,S,S>> FoldRegs<S,BE> for Regs<<BE as SimdReg<S>>::Reg,1>
     where <BE as SimdReg<S>>::Reg: Copy {
     #[inline(always)]
@@ -38,14 +87,18 @@ impl<S,BE: SimdReg<S> + SimdAdd<S,S,S>> FoldRegs<S,BE> for Regs<<BE as SimdReg<S
     where <BE as SimdReg<S>>::Reg: Copy {
     #[inline(always)]
     fn fold(&self,backend: &BE) -> <BE as SimdReg<S>>::Reg {
-        backend.add(self.regs[0],self.regs[1])
+        unsafe {
+            backend.add(self.regs[0],self.regs[1])
+        }
     }
 }
 impl<S,BE: SimdReg<S> + SimdAdd<S,S,S>> FoldRegs<S,BE> for Regs<<BE as SimdReg<S>>::Reg,4>
     where <BE as SimdReg<S>>::Reg: Copy {
     #[inline(always)]
     fn fold(&self,backend: &BE) -> <BE as SimdReg<S>>::Reg {
-        backend.add(backend.add(self.regs[0],self.regs[1]),backend.add(self.regs[2],self.regs[3]))
+        unsafe {
+            backend.add(backend.add(self.regs[0],self.regs[1]),backend.add(self.regs[2],self.regs[3]))
+        }
     }
 }
 impl IsScaler for i8 {}
@@ -153,6 +206,50 @@ impl<T,BE> SimdStoreSeq<T,Regs<<Self as SimdReg<T>>::Reg,1>> for BE
         }
     }
 }
+impl<T,BE,OP> SimdQueryVector<T,OP> for BE
+    where BE: Backend + NativeBackend +
+              SimdReg<T> +
+              SimdLanes<T> +
+              SimdLoad<T> +
+              SimdStore<T>,
+          T: Default + Copy,
+          OP: SimdBinaryOperator<BE,T,T,T, Lhs=<BE as SimdReg<T>>::Reg, Rhs=<BE as SimdReg<T>>::Reg, Output=<BE as SimdReg<T>>::Reg> {
+    #[target_feature(enable = "avx2")]
+    unsafe fn query_vector<'a,'b,const N: usize>(&self, l: VectorView<'a,T,N>, r: VectorView<'b,T,N>,operator: &OP) -> OwnedVector<T,N> {
+        let mut rs = OwnedVector::from(Box::new([T::default(); N]));
+
+        unsafe {
+            let ref_l = l.as_ref();
+            let ref_r = r.as_ref();
+            let ref_o = rs.as_mut();
+
+            let chunks_l = ref_l.chunks_exact(<Self as SimdLanes<T>>::LANES);
+            let chunks_r = ref_r.chunks_exact(<Self as SimdLanes<T>>::LANES);
+            let chunks_o = ref_o.chunks_exact_mut(<Self as SimdLanes<T>>::LANES);
+
+            for (co,(cl,cr)) in chunks_o.zip(chunks_l.zip(chunks_r)) {
+                let ra = self.load(cl.as_ptr());
+                let rb = self.load(cr.as_ptr());
+
+                let rr = operator.apply_lanes(ra,rb);
+
+                self.store(co.as_mut_ptr(),rr);
+            }
+
+            let chuks_l_remainder = ref_l.chunks_exact(<Self as SimdLanes<T>>::LANES).remainder();
+            let chuks_r_remainder = ref_r.chunks_exact(<Self as SimdLanes<T>>::LANES).remainder();
+            let chuks_o_remainder = ref_o.chunks_exact_mut(<Self as SimdLanes<T>>::LANES).into_remainder();
+
+            if N % <Self as SimdLanes<T>>::LANES != 0 {
+                for (o,(l,r)) in chuks_o_remainder.iter_mut().zip(chuks_l_remainder.iter().zip(chuks_r_remainder.iter())) {
+                    *o = operator.apply_scalar(*l,*r);
+                }
+            }
+
+            rs
+        }
+    }
+}
 impl<T,BE> SimdAddAssignVector<T,T> for BE
     where BE: Backend +
               SimdReg<T> +
@@ -193,6 +290,7 @@ impl<T,BE> SimdAddAssignVector<T,T> for BE
         }
     }
 }
+/*
 impl<T,BE> SimdAddVector<T,T,T> for BE
     where BE: Backend +
               SimdAddAssignVector<T,T>,
@@ -209,6 +307,8 @@ impl<T,BE> SimdAddVector<T,T,T> for BE
         acc
     }
 }
+
+ */
 impl<T,BE> SimdSubAssignVector<T,T> for BE
     where BE: Backend +
               SimdReg<T> +
@@ -1408,6 +1508,7 @@ impl<SL,SR,SO,BE> SimdMatMulKernel<SL,SR,SO> for BE
           SR: Copy,
           SO: Default + AddAssign + Mul<SO,Output=SO> + From<SL> + From<SR> + Copy,
           <BE as SimdPartialDot<SL,SR,SO>>::Output: Copy {
+    #[inline(always)]
     unsafe fn matmul<'a, const N: usize, const M: usize, const K: usize,const ROWS: usize,const COLS: usize>(
         &self, l: MatrixView<'a, SL, N, K>, r: ColumnMajorMatrix<'a, SR, K, M>, acc: MatrixMutView<'a,SO, N, M>) {
 
@@ -1451,6 +1552,7 @@ impl<SL,SR,SO,BE> SimdMatMulKernel<SL,SR,SO> for BE
         }
     }
 
+    #[inline(always)]
     unsafe fn matmul_tile<'a,const N: usize,const M: usize,const K: usize,const ROWS: usize,const COLS: usize>(
         &self,
         l:&MatrixView<'a,SL,N,K>,

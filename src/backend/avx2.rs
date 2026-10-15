@@ -2,8 +2,8 @@
 
 use std::arch::x86_64::{__m256, __m256d, __m256i, _mm256_add_epi16, _mm256_add_epi32, _mm256_add_epi8, _mm256_add_pd, _mm256_add_ps, _mm256_and_pd, _mm256_and_ps, _mm256_and_si256, _mm256_andnot_si256, _mm256_blendv_epi8, _mm256_blendv_pd, _mm256_blendv_ps, _mm256_castpd256_pd128, _mm256_castpd_si256, _mm256_castps256_ps128, _mm256_castps_si256, _mm256_castsi256_pd, _mm256_castsi256_ps, _mm256_castsi256_si128, _mm256_cmp_pd, _mm256_cmp_ps, _mm256_cmpeq_epi16, _mm256_cmpeq_epi32, _mm256_cmpeq_epi8, _mm256_cmpgt_epi16, _mm256_cmpgt_epi32, _mm256_cmpgt_epi8, _mm256_cvtepi16_epi32, _mm256_cvtepi32_ps, _mm256_cvtepi8_epi16, _mm256_cvtps_epi32, _mm256_extractf128_pd, _mm256_extractf128_ps, _mm256_extracti128_si256, _mm256_fmadd_pd, _mm256_fmadd_ps, _mm256_loadu_pd, _mm256_loadu_ps, _mm256_loadu_si256, _mm256_madd_epi16, _mm256_mul_pd, _mm256_mul_ps, _mm256_mullo_epi16, _mm256_mullo_epi32, _mm256_or_si256, _mm256_packs_epi16, _mm256_packs_epi32, _mm256_permute4x64_epi64, _mm256_set1_epi16, _mm256_set1_epi32, _mm256_set1_epi64x, _mm256_set1_epi8, _mm256_set1_pd, _mm256_set1_ps, _mm256_setzero_pd, _mm256_setzero_ps, _mm256_setzero_si256, _mm256_sllv_epi32, _mm256_sllv_epi64, _mm256_srlv_epi32, _mm256_srlv_epi64, _mm256_storeu_pd, _mm256_storeu_ps, _mm256_storeu_si256, _mm256_sub_epi16, _mm256_sub_epi32, _mm256_sub_epi8, _mm256_sub_pd, _mm256_sub_ps, _mm256_unpackhi_epi32, _mm256_unpackhi_ps, _mm256_unpacklo_epi32, _mm256_unpacklo_ps, _mm256_xor_si256, _mm_add_epi32, _mm_add_pd, _mm_add_ps, _mm_add_sd, _mm_add_ss, _mm_cvtsd_f64, _mm_cvtsi128_si32, _mm_cvtss_f32, _mm_movehl_ps, _mm_shuffle_ps, _mm_srli_si128, _mm_unpackhi_pd, _CMP_EQ_OQ, _CMP_GT_OQ};
 use std::ops::{Add, AddAssign, Mul};
-use crate::backend::common::{mm_shuffle, Backend, Regs};
-use crate::traits::{SimdCols, SimdDot, SimdHSum, SimdLanes, SimdLoad, SimdMask, SimdMatMul, SimdMatVec, SimdMulAdd, SimdPartialDot, SimdReg, SimdRows, SimdStore, SimdTranspose, SimdVMat, SimdZero, SimdAdd, SimdSub, SimdMul, SimdPromote, SimdScalarMul, SimdSplat, SimdBitOr, SimdBitAnd, SimdReinterpret, SimdBitXor, SimdBitNot, BitsBitAnd, BitsBitOr, BitsBitXor, SimdShl, SimdShr, SimdDemote, SimdConvert, FoldRegs, SimdShiftWidth, NativeBackend, SimdDotKernel, SimdMatMulKernel};
+use crate::backend::common::{mm_shuffle, Backend, Regs, SimdAddOperator};
+use crate::traits::{SimdCols, SimdDot, SimdHSum, SimdLanes, SimdLoad, SimdMask, SimdMatMul, SimdMatVec, SimdMulAdd, SimdPartialDot, SimdReg, SimdRows, SimdStore, SimdTranspose, SimdVMat, SimdZero, SimdAdd, SimdSub, SimdMul, SimdPromote, SimdScalarMul, SimdSplat, SimdBitOr, SimdBitAnd, SimdReinterpret, SimdBitXor, SimdBitNot, BitsBitAnd, BitsBitOr, BitsBitXor, SimdShl, SimdShr, SimdDemote, SimdConvert, FoldRegs, SimdShiftWidth, NativeBackend, SimdDotKernel, SimdMatMulKernel, SimdAddVector, SimdQueryVector};
 use crate::{ColumnMajorMatrix, MatrixMutView, MatrixView, OwnedVector, VectorView};
 use crate::error::InstantiationError;
 
@@ -592,46 +592,36 @@ impl SimdConvert<f32,i8> for Avx2
 }
 impl SimdAdd<i8,i8,i8> for Avx2 where Self: SimdReg<i8> {
 
-    #[inline(always)]
-    fn add(&self, l: <Self as SimdReg<i8>>::Reg, r: <Self as SimdReg<i8>>::Reg) -> <Self as SimdReg<i8>>::Reg {
-        unsafe {
-            _mm256_add_epi8(l, r)
-        }
+    #[target_feature(enable = "avx2")]
+    unsafe fn add(&self, l: <Self as SimdReg<i8>>::Reg, r: <Self as SimdReg<i8>>::Reg) -> <Self as SimdReg<i8>>::Reg {
+        _mm256_add_epi8(l, r)
     }
 }
 impl SimdAdd<i16,i16,i16> for Avx2 where Self: SimdReg<i16> {
-    #[inline(always)]
-    fn add(&self, l: <Self as SimdReg<i16>>::Reg, r: <Self as SimdReg<i16>>::Reg) -> <Self as SimdReg<i16>>::Reg {
-        unsafe {
-            _mm256_add_epi16(l, r)
-        }
+    #[target_feature(enable = "avx2")]
+    unsafe fn add(&self, l: <Self as SimdReg<i16>>::Reg, r: <Self as SimdReg<i16>>::Reg) -> <Self as SimdReg<i16>>::Reg {
+        _mm256_add_epi16(l, r)
     }
 }
 impl SimdAdd<i32,i32,i32> for Avx2 where Self: SimdReg<i32> {
 
-    #[inline(always)]
-    fn add(&self, l: <Self as SimdReg<i32>>::Reg, r: <Self as SimdReg<i32>>::Reg) -> <Self as SimdReg<i32>>::Reg {
-        unsafe {
-            _mm256_add_epi32(l, r)
-        }
+    #[target_feature(enable = "avx2")]
+    unsafe fn add(&self, l: <Self as SimdReg<i32>>::Reg, r: <Self as SimdReg<i32>>::Reg) -> <Self as SimdReg<i32>>::Reg {
+        _mm256_add_epi32(l, r)
     }
 }
 impl SimdAdd<f32,f32,f32> for Avx2 where Self: SimdReg<f32> {
 
-    #[inline(always)]
-    fn add(&self, l: <Self as SimdReg<f32>>::Reg, r: <Self as SimdReg<f32>>::Reg) -> <Self as SimdReg<f32>>::Reg {
-        unsafe {
-            _mm256_add_ps(l, r)
-        }
+    #[target_feature(enable = "avx2")]
+    unsafe fn add(&self, l: <Self as SimdReg<f32>>::Reg, r: <Self as SimdReg<f32>>::Reg) -> <Self as SimdReg<f32>>::Reg {
+        _mm256_add_ps(l, r)
     }
 }
 impl SimdAdd<f64,f64,f64> for Avx2 where Self: SimdReg<f64> {
 
-    #[inline(always)]
-    fn add(&self, l: <Self as SimdReg<f64>>::Reg, r: <Self as SimdReg<f64>>::Reg) -> <Self as SimdReg<f64>>::Reg {
-        unsafe {
-            _mm256_add_pd(l, r)
-        }
+    #[target_feature(enable = "avx2")]
+    unsafe fn add(&self, l: <Self as SimdReg<f64>>::Reg, r: <Self as SimdReg<f64>>::Reg) -> <Self as SimdReg<f64>>::Reg {
+        _mm256_add_pd(l, r)
     }
 }
 impl SimdSub<i8,i8,i8> for Avx2 where Self: SimdReg<i8> {
@@ -1356,7 +1346,7 @@ impl SimdMulAdd<i32,i32,i32> for Avx2
 
         let &[acc] = acc.as_ref();
 
-        Regs::new([<Self as SimdAdd<i32,i32,i32>>::add(self,acc,r)])
+        unsafe { Regs::new([<Self as SimdAdd<i32,i32,i32>>::add(self,acc,r)]) }
     }
 }
 impl SimdMulAdd<f32,f32,f32> for Avx2 {
@@ -1444,6 +1434,19 @@ impl SimdZero<f64> for Avx2 where Self: SimdReg<f64> {
         unsafe {
             _mm256_setzero_pd()
         }
+    }
+}
+impl<T> SimdAddVector<T,T,T> for Avx2
+    where Self: SimdReg<T> +
+                SimdLoad<T> +
+                SimdStore<T> +
+                SimdLanes<T> +
+                SimdAdd<T,T,T>,
+          T: Add<T,Output=T> + Default + Copy {
+    #[target_feature(enable = "avx2")]
+    unsafe fn add_vector<'a,'b,const N: usize>(&self, l: VectorView<'a,T,N>, r: VectorView<'b,T,N>)
+        -> OwnedVector<T,N> {
+        unsafe { <Self as SimdQueryVector<T,SimdAddOperator<T,T,T,Avx2>>>::query_vector(self,l,r,&SimdAddOperator::new(self)) }
     }
 }
 impl SimdDot<i8,i8,i32> for Avx2
