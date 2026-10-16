@@ -1,7 +1,7 @@
 //! Trait and data type features for abstracting SIMD operations
 
 use crate::{ColumnMajorMatrix, MatrixMutView, MatrixView, OwnedVector, VectorMutView, VectorView};
-use crate::backend::common::{Backend};
+use crate::backend::common::{Backend, Extent};
 use crate::traits::private::BindBackendBase;
 
 /// Addition at the SIMD register level
@@ -328,6 +328,19 @@ pub trait SimdVMat<SL,SR,SO> {
                                               r:ColumnMajorMatrix<'b,SR,K,M>,
                                               o:&mut OwnedVector<SO,M>);
 }
+/// Map onto the product of Vectors * Matrix
+pub trait SimdMapVMat<SL,SR,SO> {
+    ///
+    /// # Arguments
+    /// * `l` - Left-hand side
+    /// * `r` - Right-hand side
+    /// * `o` - Output vector
+    unsafe fn map_vmat<'a,'b,MP,MO,const M: usize,const K: usize>(&self,
+                                                        l:VectorView<'a,SL,K>,
+                                                        r:ColumnMajorMatrix<'b,SR,K,M>,
+                                                        mapper:MP,
+                                                        o:&mut OwnedVector<MO,M>) where MP: Mapper<Extent<M>,SO,MO>;
+}
 /// Matrix * Vector Product
 pub trait SimdMatVec<SL,SR,SO> {
     ///
@@ -601,6 +614,15 @@ pub trait Dot<R,O> {
 pub trait Product<T,O> {
     fn product(&self, r: T) -> O;
 }
+/// A trait that represents the map onto the product of matrix operations
+pub trait MapProduct<T,SO> {
+    /// outut.
+    type Output<MO>;
+    /// dimension of the output.
+    type Dim: Dim;
+    fn map_product<MP,MO>(&self, r: T,mapper:MP) -> Self::Output<MO>
+        where MP: Mapper<Self::Dim,SO,MO>, MO: Clone + Copy + Default + 'static;
+}
 /// A characteristic that defines a horizontal sum
 pub trait HSum<S> {
     fn hsum(&self) -> S;
@@ -614,17 +636,29 @@ pub trait HMin<S> {
     fn hmin(&self) -> S;
 }
 /// A trait that transposes a matrix
-pub trait Transpose<T,const N: usize, const M: usize> where Self: Dims<N,M> {
-    type Output: Dims<M,N>;
+pub trait Transpose<T,const N: usize, const M: usize> where Self: MatrixSize<N,M> {
+    type Output: MatrixSize<M,N>;
     fn transpose(self) -> Self::Output;
 }
 /// A trait that converts a matrix to column major order
-pub trait ToColumnMajor<T,const N: usize, const M: usize> where Self: Dims<N,M> {
-    type Output: Dims<N,M>;
+pub trait ToColumnMajor<T,const N: usize, const M: usize> where Self: MatrixSize<N,M> {
+    type Output: MatrixSize<N,M>;
     fn to_column_major(self) -> Self::Output;
 }
+pub trait Mapper<D: Dim,SI,SO> {
+    fn map(&mut self,i:SI) -> SO;
+}
+pub trait Loader<D: Dim> {
+    type Output;
+
+    fn load(&mut self) -> Self::Output;
+}
+/// Traits that represent the size of matrices and vectors
+pub trait Dim {}
+/// A trait that represents the number of elements in a specific dimension of a matrix or vector
+pub trait DimOne {}
 /// A trait that defines the dimension of a matrix
-pub trait Dims<const N: usize,const M: usize> {
+pub trait MatrixSize<const N: usize,const M: usize> {
 }
 pub trait IsScaler {}
 /// A trait that treats a type as a bit string and performs a bitwise AND operation

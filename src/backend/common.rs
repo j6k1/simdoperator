@@ -2,7 +2,7 @@
 
 use std::marker::PhantomData;
 use std::ops::{Add, AddAssign, Mul, Sub};
-use crate::traits::{SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportMul, FoldRegs, SimdOuterProduct, SimdMulAssignVector, SimdAddAssignVector, SimdSubAssignVector, SimdShiftWidth, SimdScalarMulAssignVector, SimdAddAssignMatrix, SimdScalarMulAssignMatrix, SimdScalarMulMatrix, SimdConvertMatrix, SimdLoadSeq, SimdScalarMulVectorInto, SimdHSum, SimdZero, SimdPartialDot, SimdDotKernel, IsScaler, SimdMatMulKernel, SimdQueryVector, SimdBinaryOperator, NativeBackend};
+use crate::traits::{SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportMul, FoldRegs, SimdOuterProduct, SimdMulAssignVector, SimdAddAssignVector, SimdSubAssignVector, SimdShiftWidth, SimdScalarMulAssignVector, SimdAddAssignMatrix, SimdScalarMulAssignMatrix, SimdScalarMulMatrix, SimdConvertMatrix, SimdLoadSeq, SimdScalarMulVectorInto, SimdHSum, SimdZero, SimdPartialDot, SimdDotKernel, IsScaler, SimdMatMulKernel, SimdQueryVector, SimdBinaryOperator, NativeBackend, Dim, DimOne, Loader, Mapper};
 use crate::{ColumnMajorMatrix, MatrixMutView, MatrixView, OwnedVector, VectorMutView, VectorView};
 use crate::error::InstantiationError;
 
@@ -1938,3 +1938,81 @@ pub enum Heterogeneous {}
 impl SupportMul<Heterogeneous> for (i8,i32) {}
 impl SupportMul<Heterogeneous> for (i16,i32) {}
 impl<T> SupportMul<Homogeneous> for (T,T) {}
+/// Number of elements in a vector
+pub enum Extent<const N: usize> {}
+/// The size of each dimension of a multidimensional array
+pub struct Dims<E: DimOne,D: Dim> {
+    extent:PhantomData<E>,
+    dim:PhantomData<D>
+}
+impl<const N:usize> Dim for Extent<N> {}
+impl<const N:usize> DimOne for Extent<N> {}
+impl<E:DimOne,D:Dim> Dim for Dims<E,D> {}
+pub struct LoaderMapper<D,SI,SO,L,F: FnMut(SI,<L as Loader<D>>::Output) -> SO>
+    where D: Dim, L: Loader<D> {
+    dim:PhantomData<D>,
+    si:PhantomData<SI>,
+    so:PhantomData<SO>,
+    loader:L,
+    f:F
+}
+impl<D,L,F,SI,SO> LoaderMapper<D,SI,SO,L,F>
+    where D: Dim,
+          L: Loader<D>,
+          F: FnMut(SI,<L as Loader<D>>::Output) -> SO{
+    pub fn new(loader:L,f:F) -> LoaderMapper<D,SI,SO,L,F> {
+        LoaderMapper {
+            dim:PhantomData,
+            si:PhantomData,
+            so:PhantomData,
+            loader:loader,
+            f:f
+        }
+    }
+}
+impl<D,L,F,SI,SO> Mapper<D,SI,SO> for LoaderMapper<D,SI,SO,L,F>
+    where D: Dim,
+          L: Loader<D>,
+          F: FnMut(SI,<L as Loader<D>>::Output) -> SO {
+    fn map(&mut self, i: SI) -> SO {
+        (self.f)(i,self.loader.load())
+    }
+} 
+pub struct LoaderMappperBuilder {
+}
+impl LoaderMappperBuilder {
+    pub fn new() -> LoaderMappperBuilder {
+        LoaderMappperBuilder {
+        }
+    }
+
+    pub fn build<D,SI,SO,L,F: FnMut(SI,<L as Loader<D>>::Output) -> SO>(self, loader:L,f:F) -> LoaderMapper<D,SI,SO,L,F>
+        where D: Dim,
+              L: Loader<D> {
+        LoaderMapper {
+            dim:PhantomData,
+            si:PhantomData,
+            so:PhantomData,
+            loader:loader,
+            f
+        }
+    }
+}
+pub struct VectorLoader<'a,T,const N:usize> where T: Copy {
+    it:<VectorView<'a,T,N> as IntoIterator>::IntoIter
+}
+impl<'a,T,const N: usize> VectorLoader<'a,T,N> where T: Copy {
+    pub fn new(v:VectorView<'a,T,N>) -> VectorLoader<'a,T,N> {
+        VectorLoader {
+            it:v.into_iter()
+        }
+    }
+}
+impl<T,const N: usize> Loader<Extent<N>> for VectorLoader<'_,T,N>
+    where T: Copy {
+    type Output = T;
+
+    fn load(&mut self) -> Self::Output {
+        *self.it.next().expect("Unable to read an item from the iterator.")
+    }
+}

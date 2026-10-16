@@ -6,8 +6,8 @@ use rayon::prelude::{ParallelSliceMut, IndexedParallelIterator};
 use crate::backend::autoselect::{AutoSelect, SelectedBackend};
 use crate::backend::avx2::Avx2;
 use crate::error::{InstantiationError, TryFromSliceError};
-use crate::backend::common::{Backend};
-use crate::traits::{BindBackend, BitsBitAnd, BitsBitOr, BitsBitXor, Demote, Dims, Dot, IsScaler, NativeBackend, Product, Promote, SimdAddAssignMatrix, SimdAddAssignVector, SimdAddVector, SimdBitAndVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdConvertMatrix, SimdConvertVector, SimdDemoteVector, SimdDot, SimdMatMul, SimdMatVec, SimdMulAssignVector, SimdMulVector, SimdOuterProduct, SimdPromoteVector, SimdReg, SimdScalarMulAssignMatrix, SimdScalarMulAssignVector, SimdScalarMulMatrix, SimdScalarMulVector, SimdShlVector, SimdShrVector, SimdSubAssignVector, SimdSubVector, SimdVMat, ToColumnMajor, Transpose};
+use crate::backend::common::{Backend, Extent};
+use crate::traits::{BindBackend, BitsBitAnd, BitsBitOr, BitsBitXor, Demote, MatrixSize, Dot, IsScaler, NativeBackend, Product, Promote, SimdAddAssignMatrix, SimdAddAssignVector, SimdAddVector, SimdBitAndVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdConvertMatrix, SimdConvertVector, SimdDemoteVector, SimdDot, SimdMatMul, SimdMatVec, SimdMulAssignVector, SimdMulVector, SimdOuterProduct, SimdPromoteVector, SimdReg, SimdScalarMulAssignMatrix, SimdScalarMulAssignVector, SimdScalarMulMatrix, SimdScalarMulVector, SimdShlVector, SimdShrVector, SimdSubAssignVector, SimdSubVector, SimdVMat, ToColumnMajor, Transpose, MapProduct, Mapper, SimdMapVMat};
 use crate::traits::private::BindBackendBase;
 
 pub mod backend;
@@ -268,6 +268,14 @@ impl<'a,T,const N: usize> VectorView<'a,T,N> {
         }
     }
 }
+impl<'a,T,const N: usize> IntoIterator for VectorView<'a,T,N> {
+    type Item = &'a T;
+    type IntoIter = <&'a [T] as IntoIterator>::IntoIter;
+    #[inline(always)]
+    fn into_iter(self) -> Self::IntoIter {
+        self.data.into_iter()
+    }
+}
 /// A view type that represents a vector whose elements mutable
 pub struct VectorMutView<'a,T,const N: usize> {
     data: &'a mut [T;N]
@@ -468,7 +476,7 @@ pub struct Matrix<'a,T,const N: usize,const M: usize,BE: Backend = AutoSelect> {
     data: &'a [T],
     backend: BE
 }
-impl<'a,BE: Backend,T,const N: usize,const M: usize> Dims<N,M> for Matrix<'a,T,N,M,BE> {}
+impl<'a,BE: Backend,T,const N: usize,const M: usize> MatrixSize<N,M> for Matrix<'a,T,N,M,BE> {}
 impl<'a,BE: Backend,T,const N: usize,const M: usize> Matrix<'a,T,N,M,BE> {
     /// Retrieve a specified row of a matrix as a vector
     ///
@@ -603,7 +611,7 @@ impl<'a,BE: Backend,T,const N:usize,const M: usize> Clone for Matrix<'a,T,N,M,BE
 pub struct MatrixView<'a,T,const N: usize,const M: usize> {
     data: &'a [T]
 }
-impl<'a,T,const N: usize,const M: usize> Dims<N,M> for MatrixView<'a,T,N,M> {}
+impl<'a,T,const N: usize,const M: usize> MatrixSize<N,M> for MatrixView<'a,T,N,M> {}
 impl<'a,T,const N: usize,const M: usize> MatrixView<'a,T,N,M> {
     /// Retrieve a specified row of a matrix as a vector view.
     ///
@@ -758,7 +766,7 @@ pub struct MatrixMut<'a,T,const N: usize,const M: usize,BE = AutoSelect> {
     data: &'a mut [T],
     backend: BE
 }
-impl<'a,T,BE,const N: usize,const M: usize> Dims<N,M> for MatrixMut<'a,T,N,M,BE> {}
+impl<'a,T,BE,const N: usize,const M: usize> MatrixSize<N,M> for MatrixMut<'a,T,N,M,BE> {}
 impl<'a,T,BE,const N: usize,const M: usize> Index<(usize,usize)> for MatrixMut<'a,T,N,M,BE> {
     type Output = T;
     #[inline(always)]
@@ -818,7 +826,7 @@ impl<'a,T,BE,const N: usize,const M: usize> AsMut<[T]> for MatrixMut<'a,T,N,M,BE
 pub struct MatrixMutView<'a,T,const N: usize,const M: usize> {
     data: &'a mut [T]
 }
-impl<'a,T,const N: usize,const M: usize> Dims<N,M> for MatrixMutView<'a,T,N,M> {}
+impl<'a,T,const N: usize,const M: usize> MatrixSize<N,M> for MatrixMutView<'a,T,N,M> {}
 impl<'a,T,const N: usize,const M: usize> Index<(usize,usize)> for MatrixMutView<'a,T,N,M> {
     type Output = T;
     #[inline(always)]
@@ -949,7 +957,7 @@ impl<T,const N: usize,const M: usize> AsMut<[T]> for OwnedMatrix<T,N,M> {
         &mut self.data
     }
 }
-impl<T,const N: usize,const M:usize> Dims<N,M> for OwnedMatrix<T,N,M> {}
+impl<T,const N: usize,const M:usize> MatrixSize<N,M> for OwnedMatrix<T,N,M> {}
 impl<'a,T,const N: usize,const M: usize> BindBackendBase for OwnedMatrix<T,N,M>
     where T: Copy + 'static {
     type Output<BE: Backend> = AccMatrix<T,N,M,BE>;
@@ -1012,7 +1020,7 @@ impl<T,BE,const N: usize,const M: usize> AsMut<[T]> for AccMatrix<T,N,M,BE>
         &mut self.data
     }
 }
-impl<T,BE,const N: usize,const M:usize> Dims<N,M> for AccMatrix<T,N,M,BE> where BE: Backend {}
+impl<T,BE,const N: usize,const M:usize> MatrixSize<N,M> for AccMatrix<T,N,M,BE> where BE: Backend {}
 impl<'a,T,const N: usize,const M: usize> ColumnMajorMatrix<'a,T,N,M> {
     /// Retrieve a specified col of a matrix as a vector
     ///
@@ -1031,7 +1039,7 @@ impl<'a,T,const N: usize,const M: usize> ColumnMajorMatrix<'a,T,N,M> {
 pub struct ColumnMajorMatrix<'a,T,const N: usize,const M: usize> {
     data: &'a [T]
 }
-impl<'a,T,const N: usize,const M: usize> Dims<N,M> for ColumnMajorMatrix<'a,T,N,M> {}
+impl<'a,T,const N: usize,const M: usize> MatrixSize<N,M> for ColumnMajorMatrix<'a,T,N,M> {}
 impl<'a,T,const N: usize,const M: usize> TryFrom<&'a [T]> for ColumnMajorMatrix<'a,T,N,M> {
     type Error = InstantiationError;
 
@@ -1090,7 +1098,7 @@ impl<T,const N: usize,const M: usize> From<Box<[T]>> for OwnedColumnMajorMatrix<
         OwnedColumnMajorMatrix { data: value }
     }
 }
-impl<T,const N: usize,const M: usize> Dims<N,M> for OwnedColumnMajorMatrix<T,N,M> {}
+impl<T,const N: usize,const M: usize> MatrixSize<N,M> for OwnedColumnMajorMatrix<T,N,M> {}
 impl<'a,T,const N: usize,const M: usize> From<&'a OwnedColumnMajorMatrix<T,N,M>> for ColumnMajorMatrix<'a,T,N,M> {
     #[inline(always)]
     fn from(value: &'a OwnedColumnMajorMatrix<T,N,M>) -> Self {
@@ -2144,6 +2152,42 @@ impl<'a,'b,BE,SL,SR,SO,const M: usize,const K: usize> Product<ColumnMajorMatrix<
         let mut o = OwnedVector::<SO,M>::default();
 
         unsafe { self.backend.vmat(self.into(),r,&mut o) };
+
+        o.bind::<BE>().unwrap()
+    }
+}
+impl<'a,'b,SL,SR,SO,const M: usize,const K: usize> MapProduct<ColumnMajorMatrix<'b,SR,K,M>,SO>
+    for Vector<'a,SL,K,AutoSelect>
+    where Avx2: Backend + SimdMapVMat<SL,SR,SO>,
+          SO: Default + Copy + Clone + 'static {
+    type Output<MO> = AccVector<MO,M,AutoSelect>;
+    type Dim = Extent<M>;
+    #[inline(always)]
+    fn map_product<MP,MO>(&self,r:ColumnMajorMatrix<'b,SR,K,M>,mapper:MP) -> AccVector<MO,M,AutoSelect>
+        where MP: Mapper<Extent<M>,SO,MO>, MO: Clone + Copy + Default + 'static {
+        let mut o = OwnedVector::<MO,M>::default();
+
+        match self.backend.selected {
+            SelectedBackend::Avx2(ref backend) => {
+                unsafe { backend.map_vmat(self.into(),r,mapper,&mut o) };
+            }
+        }
+
+        o.bind_auto().unwrap()
+    }
+}
+impl<'a,'b,BE,SL,SR,SO,const M: usize,const K: usize> MapProduct<ColumnMajorMatrix<'b,SR,K,M>,SO>
+    for Vector<'a,SL,K,BE>
+    where BE: Backend + NativeBackend + SimdMapVMat<SL,SR,SO>,
+          SO: Default + Copy + Clone + 'static {
+    type Output<MO> = AccVector<MO,M,BE>;
+    type Dim = Extent<M>;
+    #[inline(always)]
+    fn map_product<MP,MO>(&self,r:ColumnMajorMatrix<'b,SR,K,M>,mapper:MP) -> AccVector<MO,M,BE>
+        where MP: Mapper<Extent<M>,SO,MO>, MO: Clone + Copy + Default + 'static {
+        let mut o = OwnedVector::<MO,M>::default();
+
+        unsafe { self.backend.map_vmat(self.into(),r,mapper,&mut o) };
 
         o.bind::<BE>().unwrap()
     }
