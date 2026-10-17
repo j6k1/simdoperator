@@ -1542,7 +1542,7 @@ impl<SL,SR,SO> SimdMapVMat<SL,SR,SO> for Avx2
     #[target_feature(enable = "avx2")]
     unsafe fn map_vmat<'a,'b,MP,MO,const M: usize, const K: usize>(&self, l: VectorView<'a, SL, K>,
                                                                    r: ColumnMajorMatrix<'b, SR, K, M>,
-                                                                   mapper:MP,o: &mut OwnedVector<MO, M>) where MP: Mapper<Extent<M>,SO,MO>{
+                                                                   mapper:MP,o: &mut OwnedVector<MO, M>) where MP: Mapper<Extent<M>,SO,MO> {
         let mut mapper = mapper;
 
         for (o,c) in o.as_mut().iter_mut().zip(r.as_ref().chunks_exact(K)) {

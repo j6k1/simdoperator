@@ -616,7 +616,7 @@ pub trait Product<T,O> {
 }
 /// A trait that represents the map onto the product of matrix operations
 pub trait MapProduct<T,SO> {
-    /// outut.
+    /// output.
     type Output<MO>;
     /// dimension of the output.
     type Dim: Dim;
@@ -645,12 +645,17 @@ pub trait ToColumnMajor<T,const N: usize, const M: usize> where Self: MatrixSize
     type Output: MatrixSize<N,M>;
     fn to_column_major(self) -> Self::Output;
 }
+/// A trait that represents a mapper for calculation results
 pub trait Mapper<D: Dim,SI,SO> {
+    /// Map an input to an output
     fn map(&mut self,i:SI) -> SO;
 }
+/// A trait that represents a loader for reading data from a container with a specific number of dimensions and size
 pub trait Loader<D: Dim> {
+    /// Type of the Loaded Value
     type Output;
 
+    /// Load data from the container
     fn load(&mut self) -> Self::Output;
 }
 /// Traits that represent the size of matrices and vectors
@@ -660,6 +665,7 @@ pub trait DimOne {}
 /// A trait that defines the dimension of a matrix
 pub trait MatrixSize<const N: usize,const M: usize> {
 }
+/// A marker trait that indicates that the implemented type is a scalar type
 pub trait IsScaler {}
 /// A trait that treats a type as a bit string and performs a bitwise AND operation
 pub trait BitsBitAnd {

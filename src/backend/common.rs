@@ -1948,6 +1948,7 @@ pub struct Dims<E: DimOne,D: Dim> {
 impl<const N:usize> Dim for Extent<N> {}
 impl<const N:usize> DimOne for Extent<N> {}
 impl<E:DimOne,D:Dim> Dim for Dims<E,D> {}
+/// Implementation of a mapper that maps inputs using data loaded from the data loader and returns the results
 pub struct LoaderMapper<D,SI,SO,L,F: FnMut(SI,<L as Loader<D>>::Output) -> SO>
     where D: Dim, L: Loader<D> {
     dim:PhantomData<D>,
@@ -1956,62 +1957,55 @@ pub struct LoaderMapper<D,SI,SO,L,F: FnMut(SI,<L as Loader<D>>::Output) -> SO>
     loader:L,
     f:F
 }
-impl<D,L,F,SI,SO> LoaderMapper<D,SI,SO,L,F>
-    where D: Dim,
-          L: Loader<D>,
-          F: FnMut(SI,<L as Loader<D>>::Output) -> SO{
-    pub fn new(loader:L,f:F) -> LoaderMapper<D,SI,SO,L,F> {
-        LoaderMapper {
-            dim:PhantomData,
-            si:PhantomData,
-            so:PhantomData,
-            loader:loader,
-            f:f
-        }
-    }
-}
 impl<D,L,F,SI,SO> Mapper<D,SI,SO> for LoaderMapper<D,SI,SO,L,F>
     where D: Dim,
           L: Loader<D>,
           F: FnMut(SI,<L as Loader<D>>::Output) -> SO {
+    #[inline(always)]
     fn map(&mut self, i: SI) -> SO {
         (self.f)(i,self.loader.load())
     }
-} 
+}
+/// A builder for generating mappers that use data sources
 pub struct LoaderMappperBuilder {
 }
 impl LoaderMappperBuilder {
+    /// Create a LoaderMappperBuilder
     pub fn new() -> LoaderMappperBuilder {
         LoaderMappperBuilder {
         }
     }
 
+    /// Build a LoaderMapper from a loader and a mapping function
     pub fn build<D,SI,SO,L,F: FnMut(SI,<L as Loader<D>>::Output) -> SO>(self, loader:L,f:F) -> LoaderMapper<D,SI,SO,L,F>
         where D: Dim,
               L: Loader<D> {
         LoaderMapper {
-            dim:PhantomData,
-            si:PhantomData,
-            so:PhantomData,
+            dim:PhantomData::<D>,
+            si:PhantomData::<SI>,
+            so:PhantomData::<SO>,
             loader:loader,
             f
         }
     }
 }
-pub struct VectorLoader<'a,T,const N:usize> where T: Copy {
+/// A loader for loading Vector
+pub struct VectorLoader<'a,T,const N:usize> where T: Copy + 'static {
     it:<VectorView<'a,T,N> as IntoIterator>::IntoIter
 }
-impl<'a,T,const N: usize> VectorLoader<'a,T,N> where T: Copy {
+impl<'a,T,const N: usize> VectorLoader<'a,T,N> where T: Copy + 'static {
+    /// Create a VectorLoader from a VectorView
     pub fn new(v:VectorView<'a,T,N>) -> VectorLoader<'a,T,N> {
         VectorLoader {
             it:v.into_iter()
         }
     }
 }
-impl<T,const N: usize> Loader<Extent<N>> for VectorLoader<'_,T,N>
-    where T: Copy {
+impl<'a,T,const N: usize> Loader<Extent<N>> for VectorLoader<'a,T,N>
+    where T: Copy + 'static {
     type Output = T;
 
+    #[inline(always)]
     fn load(&mut self) -> Self::Output {
         *self.it.next().expect("Unable to read an item from the iterator.")
     }
