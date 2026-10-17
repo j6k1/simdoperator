@@ -1,8 +1,8 @@
 //! Common Backend Implementation
 
 use std::marker::PhantomData;
-use std::ops::{Add, AddAssign, Mul, Sub};
-use crate::traits::{SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportMul, FoldRegs, SimdOuterProduct, SimdMulAssignVector, SimdAddAssignVector, SimdSubAssignVector, SimdShiftWidth, SimdScalarMulAssignVector, SimdAddAssignMatrix, SimdScalarMulAssignMatrix, SimdScalarMulMatrix, SimdConvertMatrix, SimdLoadSeq, SimdScalarMulVectorInto, SimdHSum, SimdZero, SimdPartialDot, SimdDotKernel, IsScaler, SimdMatMulKernel, SimdQueryVector, SimdBinaryOperator, NativeBackend, Dim, DimOne, Loader, Mapper};
+use std::ops::{Add, AddAssign, Mul, Shr, Sub};
+use crate::traits::{SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportMul, FoldRegs, SimdOuterProduct, SimdMulAssignVector, SimdAddAssignVector, SimdSubAssignVector, SimdShiftWidth, SimdScalarMulAssignVector, SimdAddAssignMatrix, SimdScalarMulAssignMatrix, SimdScalarMulMatrix, SimdConvertMatrix, SimdLoadSeq, SimdScalarMulVectorInto, SimdHSum, SimdZero, SimdPartialDot, SimdDotKernel, IsScaler, SimdMatMulKernel, SimdQueryVector, SimdBinaryOperator, NativeBackend, Dim, DimOne, Loader, Mapper, SimdPartialUnaryOperator};
 use crate::{ColumnMajorMatrix, MatrixMutView, MatrixView, OwnedVector, VectorMutView, VectorView};
 use crate::error::InstantiationError;
 
@@ -45,7 +45,7 @@ impl<SL,SR,SO,BE> SimdAddOperator<SL,SR,SO,BE>
               SimdReg<SL> +
               SimdReg<SR> +
               SimdReg<SO> +
-              SimdAdd<SL,SR,SO>{
+              SimdAdd<SL,SR,SO> {
     pub fn new(backend:&BE) -> Self {
         Self {
             sl:PhantomData,
@@ -74,6 +74,161 @@ impl<BE,SL,SR,SO> SimdBinaryOperator<BE,SL,SR,SO> for SimdAddOperator<SL,SR,SO,B
     #[inline(always)]
     fn apply_scalar(&self, l: SL, r: SR) -> SO {
         SO::from(l) + SO::from(r)
+    }
+}
+pub struct SimdInputOperator<BE,IO,T> {
+    _backend: BE,
+    input_output: PhantomData<IO>,
+    scalar: PhantomData<T>,
+}
+impl<BE,IO,T> SimdInputOperator<BE,IO,T> {
+    #[inline(always)]
+    pub fn new(backend: BE) -> Self {
+        Self {
+            _backend: backend,
+            input_output: PhantomData::<IO>,
+            scalar: PhantomData::<T>,
+        }
+    }
+}
+impl<BE,IO,T> SimdPartialUnaryOperator<BE> for SimdInputOperator<BE,IO,T>
+    where BE: Backend + NativeBackend,
+          IO: Copy,
+          T: Copy {
+    type Input = IO;
+    type ScalarInput = T;
+    type Output = IO;
+    type ScalarOutput = T;
+
+    #[inline(always)]
+    fn apply_lanes(&self, i: Self::Input) -> Self::Output {
+        i
+    }
+
+    #[inline(always)]
+    fn apply_scalar(&self, i: Self::ScalarInput) -> Self::ScalarOutput {
+        i
+    }
+}
+pub struct SimdWidenShrOperator<BE,P,IO,T>
+    where BE: Backend + NativeBackend + SimdReg<T>,
+          IO: Copy,
+          T: Copy,
+          P: SimdPartialUnaryOperator<BE> {
+    backend: BE,
+    parent: P,
+    input_output: PhantomData<IO>,
+    scalar: PhantomData<T>,
+    width: <BE as SimdReg<T>>::ShiftWidth,
+    sw: usize
+}
+impl<BE,P,IO,T> SimdWidenShrOperator<BE,P,IO,T>
+    where BE: Backend + NativeBackend + SimdReg<T> + SimdShiftWidth<T>,
+          IO: Copy,
+          T: Copy,
+          P: SimdPartialUnaryOperator<BE> {
+    #[inline(always)]
+    pub fn new(backend: BE,parent:P,width: usize) -> Self {
+        let sw = width;
+        let width = backend.shift_width(width);
+
+        Self {
+            backend: backend,
+            parent: parent,
+            input_output: PhantomData::<IO>,
+            scalar: PhantomData::<T>,
+            width: width,
+            sw: sw
+        }
+    }
+}
+impl<BE,P,T> SimdPartialUnaryOperator<BE> for SimdWidenShrOperator<BE,P,Regs<<BE as SimdReg<T>>::Reg,4>,T>
+    where BE: Backend + NativeBackend +
+              SimdReg<T> +
+              SimdShr<T>,
+          T: Shr<usize,Output=T> + Copy,
+          P: SimdPartialUnaryOperator<BE,Output=Regs<<BE as SimdReg<T>>::Reg,4>,ScalarOutput=T> {
+    type Input = P::Input;
+    type ScalarInput = P::ScalarInput;
+    type Output = Regs<<BE as SimdReg<T>>::Reg,4>;
+    type ScalarOutput = T;
+
+    #[inline(always)]
+    fn apply_lanes(&self, i: Self::Input) -> Self::Output {
+        let &[a,b,c,d] = self.parent.apply_lanes(i).as_ref();
+
+        Regs::new([
+            self.backend.shr(a,self.width),
+            self.backend.shr(b,self.width),
+            self.backend.shr(c,self.width),
+            self.backend.shr(d,self.width)
+        ])
+    }
+
+    #[inline(always)]
+    fn apply_scalar(&self, i: Self::ScalarInput) -> Self::ScalarOutput {
+        self.parent.apply_scalar(i) >> self.sw
+    }
+}
+pub struct SimdDemoteOperator<BE,P,I,O,SI,SO>
+    where BE: Backend + NativeBackend +
+              SimdReg<SI> +
+             SimdReg<SO>,
+          I: Copy,
+          O: Copy,
+          SI: Copy,
+          SO: Copy,
+          P: SimdPartialUnaryOperator<BE> {
+    backend: BE,
+    parent: P,
+    input: PhantomData<I>,
+    output: PhantomData<O>,
+    si: PhantomData<SI>,
+    so: PhantomData<SO>,
+}
+impl<BE,P,I,O,SI,SO> SimdDemoteOperator<BE,P,I,O,SI,SO>
+    where BE: Backend + NativeBackend +
+              SimdReg<SI> +
+              SimdReg<SO>,
+          I: Copy,
+          O: Copy,
+          SI: Copy,
+          SO: Copy,
+          P: SimdPartialUnaryOperator<BE> {
+    #[inline(always)]
+    pub fn new(backend: BE, parent: P) -> SimdDemoteOperator<BE,P,I,O,SI,SO> {
+        SimdDemoteOperator {
+            backend: backend,
+            parent: parent,
+            input: PhantomData::<I>,
+            output: PhantomData::<O>,
+            si: PhantomData::<SI>,
+            so: PhantomData::<SO>,
+        }
+    }
+}
+impl<BE,P,SI,SO> SimdPartialUnaryOperator<BE>
+    for SimdDemoteOperator<BE,P,Regs<<BE as SimdReg<SI>>::Reg,4>,<BE as SimdReg<SO>>::Reg,SI,SO>
+    where BE: Backend + NativeBackend +
+              SimdReg<SI> +
+              SimdReg<SO> +
+              SimdDemote<SI,SO,Input=Regs<<BE as SimdReg<SI>>::Reg,4>>,
+          SI: Assume<SO> + Copy,
+          SO: Copy,
+          P: SimdPartialUnaryOperator<BE,Output=Regs<<BE as SimdReg<SI>>::Reg,4>,ScalarOutput=SI> {
+    type Input = P::Input;
+    type ScalarInput = P::ScalarInput;
+    type Output = <BE as SimdReg<SO>>::Reg;
+    type ScalarOutput = SO;
+
+    #[inline(always)]
+    fn apply_lanes(&self, i: Self::Input) -> Self::Output {
+        self.backend.demotion(self.parent.apply_lanes(i))
+    }
+
+    #[inline(always)]
+    fn apply_scalar(&self, i: Self::ScalarInput) -> Self::ScalarOutput {
+        self.parent.apply_scalar(i).assume()
     }
 }
 impl<S,BE: SimdReg<S> + SimdAdd<S,S,S>> FoldRegs<S,BE> for Regs<<BE as SimdReg<S>>::Reg,1>

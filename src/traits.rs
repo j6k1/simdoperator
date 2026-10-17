@@ -111,6 +111,17 @@ pub trait SimdBinaryOperator<BE,SL,SR,SO>
     fn apply_lanes(&self, l:Self::Lhs, r:Self::Rhs) -> Self::Output;
     fn apply_scalar(&self,l:SL,r:SR) -> SO;
 }
+/// A trait that represents a subset of operators used in combination
+pub trait SimdPartialUnaryOperator<BE>
+    where BE: Backend + NativeBackend {
+    type Input: Copy;
+    type ScalarInput: Copy;
+    type Output: Copy;
+    type ScalarOutput: Copy;
+
+    fn apply_lanes(&self, i:Self::Input) -> Self::Output;
+    fn apply_scalar(&self,i:Self::ScalarInput) -> Self::ScalarOutput;
+}
 /// The trait to apply operators to vectors
 pub trait SimdQueryVector<T,OP> {
     ///
@@ -119,13 +130,29 @@ pub trait SimdQueryVector<T,OP> {
     /// * `r` - Right hand side
     unsafe fn query_vector<'a,'b,const N: usize>(&self, l:VectorView<'a,T,N>, r:VectorView<'b,T,N>,operator:&OP) -> OwnedVector<T,N>;
 }
-/// The trait of applying operators to vectors loaded with LoadSeqThe trait of applying operators to vectors loaded with LoadSeq
-pub trait SimdQueryVectorLoadSeq<SL,SR,SO,OP> {
+/// The trait to apply combination operators to vectors
+pub trait SimdCombinationQueryVector<SL,SR,SO,OP>
+    where OP: SimdPartialUnaryOperator<Self,ScalarInput=SO>,
+          Self: Backend + NativeBackend {
     ///
     /// # Arguments
     /// * `l` - Left hand side
     /// * `r` - Right hand side
-    unsafe fn query_vector_load_seq<'a,'b,const N: usize>(&self, l:VectorView<'a,SL,N>, r:VectorView<'b,SR,N>,operator:&OP) -> OwnedVector<SO,N>;
+    unsafe fn combination_query_vector<'a,'b,const N: usize>(
+        &self, l:VectorView<'a,SL,N>, r:VectorView<'b,SR,N>,operator:&OP
+    ) -> OwnedVector<<OP as SimdPartialUnaryOperator<Self>>::ScalarOutput,N>;
+}
+/// The trait to apply combination operators to vectors kernel
+pub trait SimdCombinationQueryVectorKernel<SL,SR,SO,OP>
+    where OP: SimdPartialUnaryOperator<Self,ScalarInput=SO>,
+          Self: Backend + NativeBackend {
+    ///
+    /// # Arguments
+    /// * `l` - Left hand side
+    /// * `r` - Right hand side
+    unsafe fn combination_query_vector<'a,'b,const N: usize>(
+        &self, l:VectorView<'a,SL,N>, r:VectorView<'b,SR,N>,operator:&OP
+    ) -> OwnedVector<<OP as SimdPartialUnaryOperator<Self>>::ScalarOutput,N>;
 }
 /// The trait to apply operators to loaded vectors and write the results using the StoreSeq implementation
 pub trait SimdQueryVectorStoreSeq<SL,SR,SO,OP> {
