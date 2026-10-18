@@ -2,7 +2,7 @@
 
 use std::marker::PhantomData;
 use std::ops::{Add, AddAssign, Mul, Shr, Sub};
-use crate::traits::{SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportMul, FoldRegs, SimdOuterProduct, SimdMulAssignVector, SimdAddAssignVector, SimdSubAssignVector, SimdShiftWidth, SimdScalarMulAssignVector, SimdAddAssignMatrix, SimdScalarMulAssignMatrix, SimdScalarMulMatrix, SimdConvertMatrix, SimdLoadSeq, SimdScalarMulVectorInto, SimdHSum, SimdZero, SimdPartialDot, SimdDotKernel, IsScaler, SimdMatMulKernel, SimdQueryVector, SimdBinaryOperator, NativeBackend, Dim, DimOne, Loader, Mapper, SimdPartialOperator};
+use crate::traits::{SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportMul, FoldRegs, SimdOuterProduct, SimdMulAssignVector, SimdAddAssignVector, SimdSubAssignVector, SimdShiftWidth, SimdScalarMulAssignVector, SimdAddAssignMatrix, SimdScalarMulAssignMatrix, SimdScalarMulMatrix, SimdConvertMatrix, SimdLoadSeq, SimdScalarMulVectorInto, SimdHSum, SimdZero, SimdPartialDot, SimdDotKernel, IsScaler, SimdMatMulKernel, SimdQueryVector, SimdBinaryOperator, NativeBackend, Dim, DimOne, Loader, Mapper, SimdPartialOperator, BinaryOperator, SimdResolveBinaryOperator};
 use crate::{ColumnMajorMatrix, MatrixMutView, MatrixView, OwnedVector, VectorMutView, VectorView};
 use crate::error::InstantiationError;
 
@@ -2164,5 +2164,37 @@ impl<'a,T,const N: usize> Loader<Extent<N>> for VectorLoader<'a,T,N>
     #[inline(always)]
     fn load(&mut self) -> Self::Output {
         *self.it.next().expect("Unable to read an item from the iterator.")
+    }
+}
+pub struct AddOperator<SL,SR,SO> {
+    sl:PhantomData<SL>,
+    sr:PhantomData<SR>,
+    so:PhantomData<SO>
+}
+impl<SL,SR,SO> AddOperator<SL,SR,SO> {
+    pub fn new() -> AddOperator<SL,SR,SO> {
+        AddOperator {
+            sl:PhantomData::<SL>,
+            sr:PhantomData::<SR>,
+            so:PhantomData::<SO>
+        }
+    }
+}
+impl<BE,O,SL,SR,SO> BinaryOperator<BE,O> for AddOperator<SL,SR,SO>
+    where BE: Backend + NativeBackend +
+              SimdResolveBinaryOperator<Self,SL,SR,SO,O>,
+          SL: Copy,
+          SR: Copy,
+          SO: Copy {
+    type Lhs = SL;
+    type Rhs = SR;
+    type Output = SO;
+    fn compose<F: Fn(Self) -> OP, OP>(self, f: F) -> OP
+        where OP: BinaryOperator<BE,O> {
+        f(self)
+    }
+
+    fn to_simd_operator(&self) -> impl SimdBinaryOperator<BE,SL,SR,SO> {
+        <BE as SimdResolveBinaryOperator<Self,SL,SR,SO,O>>::resolve_operator(self)
     }
 }

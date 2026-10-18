@@ -113,7 +113,18 @@ pub trait SimdBinaryOperator<BE,SL,SR,SO>
 }
 /// A trait that represents a subset of operators used in combination
 pub trait SimdPartialOperator<BE> where Self: Sized {
-    fn compose<F: Fn(Self) -> OP,OP>(self, f: F) -> OP;
+    fn compose<F: Fn(Self) -> OP,OP>(self, f: F) -> OP where OP: SimdPartialOperator<BE>;
+}
+/// A trait that converts operators in the abstract layer into operator types associated with specific backends
+pub trait SimdResolvePatrialBinaryOperator<OP,SL,SR,SO,SI,O>
+    where Self: Backend + NativeBackend,
+          SI: Copy {
+    fn resolve_operator(operator:&OP) -> impl SimdBinaryOperator<Self,SL,SR,SO>;
+}
+/// A feature that converts binary operators in the abstract layer to operator types associated with specific backends
+pub trait SimdResolveBinaryOperator<OP,SL,SR,SO,O>
+    where Self: Backend + NativeBackend {
+    fn resolve_operator(operator:&OP) -> impl SimdBinaryOperator<Self,SL,SR,SO>;
 }
 /// The trait to apply operators to vectors
 pub trait SimdQueryVector<T,OP> {
@@ -755,4 +766,20 @@ pub trait Promote<SD> {
 /// A trait that defines type downcasts
 pub trait Demote<SD> {
     fn demotion(self) -> SD;
+}
+/// A type that represents an abstract operator for combining and applying arbitrary operations
+pub trait BinaryOperator<BE,O>
+    where Self: Sized,
+          BE: Backend + NativeBackend {
+    /// Scalar type on the left-hand side
+    type Lhs: Copy;
+    /// Scalar type on the right-hand side
+    type Rhs: Copy;
+    /// Scalar type on the output
+    type Output: Copy;
+
+    /// Combine the operation on the left-hand side with the subsequent operation
+    fn compose<F: Fn(Self) -> OP,OP,>(self, f: F) -> OP where OP: BinaryOperator<BE,O>;
+
+    fn to_simd_operator(&self) -> impl SimdBinaryOperator<BE,Self::Lhs,Self::Rhs,Self::Output>;
 }
