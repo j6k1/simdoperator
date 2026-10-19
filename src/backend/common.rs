@@ -1,7 +1,7 @@
 //! Common Backend Implementation
 
 use std::marker::PhantomData;
-use std::ops::{Add, AddAssign, Mul, Shr, Sub};
+use std::ops::{Add, AddAssign, Mul, Sub};
 use crate::traits::{SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportMul, FoldRegs, SimdOuterProduct, SimdMulAssignVector, SimdAddAssignVector, SimdSubAssignVector, SimdShiftWidth, SimdScalarMulAssignVector, SimdAddAssignMatrix, SimdScalarMulAssignMatrix, SimdScalarMulMatrix, SimdConvertMatrix, SimdLoadSeq, SimdScalarMulVectorInto, SimdHSum, SimdZero, SimdPartialDot, SimdDotKernel, IsScaler, SimdMatMulKernel, SimdQueryVector, SimdBinaryOperator, NativeBackend, Dim, DimOne, Loader, Mapper, SimdPartialOperator, BinaryOperator, ToSimdBinaryOperator, SimdResolvePatrialBinaryOperator, SimdResolveBinaryOperator};
 use crate::{ColumnMajorMatrix, MatrixMutView, MatrixView, OwnedVector, VectorMutView, VectorView};
 use crate::error::InstantiationError;
@@ -93,7 +93,86 @@ impl<BE,SL,SR,SO> SimdPartialOperator<BE> for SimdAddOperator<SL,SR,SO,BE>
         f(self)
     }
 }
-pub struct SimdShrOperator<BE,P,IO,T>
+/// A version that combines multiple operators of a type representing operators
+/// that perform addition within SIMD registers
+pub struct SimdQueryAddOperator<SL,SR,SO,BE>
+    where BE: Backend + NativeBackend +
+              SimdReg<SL> +
+              SimdReg<SR> +
+              SimdReg<SO> {
+    sl:PhantomData<SL>,
+    sr:PhantomData<SR>,
+    so:PhantomData<SO>,
+    backend: BE
+}
+impl<SL,SR,SO,BE> SimdQueryAddOperator<SL,SR,SO,BE>
+    where BE: Backend + NativeBackend + Clone +
+              SimdReg<SL> +
+              SimdReg<SR> +
+              SimdReg<SO> {
+    pub fn new(backend:&BE) -> Self {
+        Self {
+            sl:PhantomData,
+            sr:PhantomData,
+            so:PhantomData,
+            backend:backend.clone()
+        }
+    }
+}
+impl<BE> SimdBinaryOperator<BE,i32,i8> for SimdQueryAddOperator<i32,i8,i32,BE>
+    where BE: Backend + NativeBackend +
+              SimdReg<i32> +
+              SimdReg<i16> +
+              SimdReg<i8> +
+              SimdPromote<i8,i16> +
+              SimdPromote<i16,i32> +
+              SimdPromote<i8,i32,Output=Regs<<BE as SimdReg<i32>>::Reg,4>> +
+              SimdAdd<i32,i32,i32> {
+    type Lhs = Regs<<BE as SimdReg<i32>>::Reg,4>;
+    type Rhs = Regs<<BE as SimdReg<i8>>::Reg,1>;
+    type Output = Regs<<BE as SimdReg<i32>>::Reg,4>;
+    type ScalarOutput = i32;
+
+    #[inline(always)]
+    fn apply_lanes(&self, l: Self::Lhs, r: Self::Rhs) -> Self::Output {
+        unsafe {
+            let &[a,b,c,d] = l.as_ref();
+
+            let regs = <BE as SimdPromote<i8,i32>>::promotion(&self.backend,r.as_ref()[0]);
+
+            let &[ra,rb,rc,rd] = regs.as_ref();
+
+            Regs::new([
+                <BE as SimdAdd<i32,i32,i32>>::add(&self.backend,a,ra),
+                <BE as SimdAdd<i32,i32,i32>>::add(&self.backend,b,rb),
+                <BE as SimdAdd<i32,i32,i32>>::add(&self.backend,c,rc),
+                <BE as SimdAdd<i32,i32,i32>>::add(&self.backend,d,rd),
+            ])
+        }
+    }
+
+    #[inline(always)]
+    fn apply_scalar(&self, l: i32, r: i8) -> i32 {
+        l + r as i32
+    }
+
+    #[inline(always)]
+    fn compose<F: Fn(Self) -> OP,OP>(self, f: F) -> OP where OP: SimdBinaryOperator<BE,i32,i8> {
+        f(self)
+    }
+}
+impl<BE,SL,SR,SO> SimdPartialOperator<BE> for SimdQueryAddOperator<SL,SR,SO,BE>
+    where BE: Backend + NativeBackend +
+              SimdReg<SL> +
+              SimdReg<SR> +
+              SimdReg<SO>,
+      SO: From<SL> + From<SR> + Add<SO,Output=SO> {
+    fn compose<F: Fn(Self) -> OP,OP>(self, f: F) -> OP {
+        f(self)
+    }
+}
+/// A version that combines multiple operators of a type representing right-shift operators within SIMD registers
+pub struct SimdQueryShrOperator<BE,P,IO,T>
     where BE: Backend + NativeBackend + SimdReg<T>,
           IO: Copy,
           T: Copy {
@@ -104,7 +183,7 @@ pub struct SimdShrOperator<BE,P,IO,T>
     width: <BE as SimdReg<T>>::ShiftWidth,
     sw: usize
 }
-impl<BE,P,IO,T> SimdShrOperator<BE,P,IO,T>
+impl<BE,P,IO,T> SimdQueryShrOperator<BE,P,IO,T>
     where BE: Backend + NativeBackend + SimdReg<T> + SimdShiftWidth<T> + Clone,
           IO: Copy,
           T: Copy {
@@ -123,25 +202,23 @@ impl<BE,P,IO,T> SimdShrOperator<BE,P,IO,T>
         }
     }
 }
-impl<BE,P,T> SimdPartialOperator<BE> for SimdShrOperator<BE,P,Regs<<BE as SimdReg<T>>::Reg,4>,T>
+impl<BE,P> SimdPartialOperator<BE> for SimdQueryShrOperator<BE,P,Regs<<BE as SimdReg<i32>>::Reg,4>,i32>
     where BE: Backend + NativeBackend +
-              SimdReg<T> +
-              SimdShr<T>,
-          T: Shr<usize,Output=T> + Copy {
+              SimdReg<i32> +
+              SimdShr<i32> {
     fn compose<F: Fn(Self) -> OP,OP>(self, f: F) -> OP {
         f(self)
     }
 }
-impl<BE,P,SL,SR,T> SimdBinaryOperator<BE,SL,SR> for SimdShrOperator<BE,P,Regs<<BE as SimdReg<T>>::Reg,4>,T>
+impl<BE,P,SL,SR> SimdBinaryOperator<BE,SL,SR> for SimdQueryShrOperator<BE,P,Regs<<BE as SimdReg<i32>>::Reg,4>,i32>
     where BE: Backend + NativeBackend +
-              SimdReg<T> +
-              SimdShr<T>,
-          T: Shr<usize,Output=T> + Copy,
-          P: SimdBinaryOperator<BE,SL,SR,Output=Regs<<BE as SimdReg<T>>::Reg,4>,ScalarOutput=T> {
+              SimdReg<i32> +
+              SimdShr<i32>,
+          P: SimdBinaryOperator<BE,SL,SR,Output=Regs<<BE as SimdReg<i32>>::Reg,4>,ScalarOutput=i32> {
     type Lhs = P::Lhs;
     type Rhs = P::Rhs;
-    type Output = Regs<<BE as SimdReg<T>>::Reg,4>;
-    type ScalarOutput = T;
+    type Output = Regs<<BE as SimdReg<i32>>::Reg,4>;
+    type ScalarOutput = i32;
 
     fn apply_lanes(&self, l: Self::Lhs, r: Self::Rhs) -> Self::Output {
         let i = self.parent.apply_lanes(l,r);
@@ -156,7 +233,7 @@ impl<BE,P,SL,SR,T> SimdBinaryOperator<BE,SL,SR> for SimdShrOperator<BE,P,Regs<<B
         ])
     }
 
-    fn apply_scalar(&self, l: SL, r: SR) -> T {
+    fn apply_scalar(&self, l: SL, r: SR) -> i32 {
         let i = self.parent.apply_scalar(l,r);
 
         i >> self.sw
@@ -167,7 +244,9 @@ impl<BE,P,SL,SR,T> SimdBinaryOperator<BE,SL,SR> for SimdShrOperator<BE,P,Regs<<B
         f(self)
     }
 }
-pub struct SimdDemoteOperator<BE,P,I,O,SI,SO>
+/// A version consisting of multiple operators combined from a type
+/// that represents an operator for downcasting data types within SIMD registers
+pub struct SimdQueryDemoteOperator<BE,P,I,O,SI,SO>
     where BE: Backend + NativeBackend +
               SimdReg<SI> +
               SimdReg<SO>,
@@ -182,8 +261,8 @@ pub struct SimdDemoteOperator<BE,P,I,O,SI,SO>
     si: PhantomData<SI>,
     so: PhantomData<SO>,
 }
-impl<BE,P,I,O,SI,SO> SimdDemoteOperator<BE,P,I,O,SI,SO>
-    where BE: Backend + NativeBackend +
+impl<BE,P,I,O,SI,SO> SimdQueryDemoteOperator<BE,P,I,O,SI,SO>
+    where BE: Backend + NativeBackend + Clone +
               SimdReg<SI> +
               SimdReg<SO>,
           I: Copy,
@@ -191,9 +270,9 @@ impl<BE,P,I,O,SI,SO> SimdDemoteOperator<BE,P,I,O,SI,SO>
           SI: Copy,
           SO: Copy {
     #[inline(always)]
-    pub fn new(backend: BE, parent: P) -> SimdDemoteOperator<BE,P,I,O,SI,SO> {
-        SimdDemoteOperator {
-            backend: backend,
+    pub fn new(backend: &BE, parent: P) -> SimdQueryDemoteOperator<BE,P,I,O,SI,SO> {
+        SimdQueryDemoteOperator {
+            backend: backend.clone(),
             parent: parent,
             input: PhantomData::<I>,
             output: PhantomData::<O>,
@@ -202,36 +281,30 @@ impl<BE,P,I,O,SI,SO> SimdDemoteOperator<BE,P,I,O,SI,SO>
         }
     }
 }
-impl<BE,P,SI,SO> SimdPartialOperator<BE>
-    for SimdDemoteOperator<BE,P,Regs<<BE as SimdReg<SI>>::Reg,4>,<BE as SimdReg<SO>>::Reg,SI,SO>
+impl<BE,P> SimdPartialOperator<BE>
+    for SimdQueryDemoteOperator<BE,P,Regs<<BE as SimdReg<i32>>::Reg,4>,<BE as SimdReg<i8>>::Reg,i32,i8>
     where BE: Backend + NativeBackend +
-              SimdReg<SI> +
-              SimdReg<SO> +
-              SimdDemote<SI,SO,Input=Regs<<BE as SimdReg<SI>>::Reg,4>>,
-          SI: Assume<SO> + Copy,
-          SO: Copy {
+              SimdReg<i32> +
+              SimdReg<i8> +
+              SimdDemote<i32,i8,Input=Regs<<BE as SimdReg<i32>>::Reg,4>> {
     fn compose<F: Fn(Self) -> OP, OP>(self, f: F) -> OP {
         f(self)
     }
 }
 
-impl<BE,P,SL,SR,PO,SO> SimdBinaryOperator<BE,SL,SR>
-    for SimdDemoteOperator<BE,P,Regs<<BE as SimdReg<PO>>::Reg,4>,Regs<<BE as SimdReg<SO>>::Reg,1>,PO,SO>
+impl<BE,P,SL,SR> SimdBinaryOperator<BE,SL,SR>
+    for SimdQueryDemoteOperator<BE,P,Regs<<BE as SimdReg<i32>>::Reg,4>,Regs<<BE as SimdReg<i8>>::Reg,1>,i32,i8>
     where BE: Backend + NativeBackend +
-             SimdReg<SL> +
-             SimdReg<SR> +
-             SimdReg<PO> +
-             SimdReg<SO> +
-             SimdDemote<PO,SO,Input=Regs<<BE as SimdReg<PO>>::Reg,4>>,
+             SimdReg<i32> +
+             SimdReg<i8> +
+             SimdDemote<i32,i8,Input=Regs<<BE as SimdReg<i32>>::Reg,4>>,
           SL: Copy,
           SR: Copy,
-          PO: Assume<SO> + Copy,
-          SO: Copy,
-          P: SimdBinaryOperator<BE,SL,SR,Output=Regs<<BE as SimdReg<PO>>::Reg,4>,ScalarOutput=PO> {
+          P: SimdBinaryOperator<BE,SL,SR,Output=Regs<<BE as SimdReg<i32>>::Reg,4>,ScalarOutput=i32> {
     type Lhs = P::Lhs;
     type Rhs = P::Rhs;
-    type Output = Regs<<BE as SimdReg<SO>>::Reg,1>;
-    type ScalarOutput = SO;
+    type Output = Regs<<BE as SimdReg<i8>>::Reg,1>;
+    type ScalarOutput = i8;
 
     fn apply_lanes(&self, l: Self::Lhs, r: Self::Rhs) -> Self::Output {
         let i = self.parent.apply_lanes(l,r);
@@ -239,7 +312,7 @@ impl<BE,P,SL,SR,PO,SO> SimdBinaryOperator<BE,SL,SR>
         Regs::new([self.backend.demotion(i)])
     }
 
-    fn apply_scalar(&self, l: SL, r: SR) -> SO {
+    fn apply_scalar(&self, l: SL, r: SR) -> i8 {
         let i = self.parent.apply_scalar(l,r);
 
         i.assume()
@@ -2184,6 +2257,7 @@ impl<'a,T,const N: usize> Loader<Extent<N>> for VectorLoader<'a,T,N>
         *self.it.next().expect("Unable to read an item from the iterator.")
     }
 }
+/// A type that abstracts operators that perform addition
 pub struct AddOperator<SL,SR,SO> {
     sl:PhantomData<SL>,
     sr:PhantomData<SR>,
@@ -2223,6 +2297,7 @@ impl<BE,SL,SR,SO> ToSimdBinaryOperator<BE> for AddOperator<SL,SR,SO>
         backend.resolve_operator(self)
     }
 }
+/// A type that abstracts operators that perform right shift.
 pub struct ShrOperator<P,T> {
     parent:P,
     s:PhantomData<T>,
@@ -2262,6 +2337,47 @@ impl<BE,P,T> ToSimdBinaryOperator<BE> for ShrOperator<P,T>
           P: BinaryOperator<BE> + ToSimdBinaryOperator<BE>,
           T: Copy {
     type NativeOperator = <BE as SimdResolvePatrialBinaryOperator<P,ShrOperator<P,T>,Self::Lhs,Self::Rhs>>::NativeOperator;
+    fn to_simd_operator(&self,backend:&BE) -> Self::NativeOperator {
+        self.parent.to_simd_operator(backend).compose(|p| {
+            backend.resolve_operator(p,self)
+        })
+    }
+}
+/// A type that abstracts operators that perform demotion.
+pub struct DemoteOperator<P,T> {
+    parent:P,
+    s:PhantomData<T>,
+}
+impl<P,T> DemoteOperator<P,T> {
+    pub fn new(parent:P) -> DemoteOperator<P,T> {
+        DemoteOperator {
+            parent:parent,
+            s:PhantomData::<T>,
+        }
+    }
+}
+impl<BE,P,T> BinaryOperator<BE> for DemoteOperator<P,T>
+    where BE: Backend + NativeBackend +
+              SimdReg<T> +
+              Clone,
+          P: BinaryOperator<BE>,
+          T: Copy {
+    type Lhs = P::Lhs;
+    type Rhs = P::Rhs;
+    type Output = T;
+    fn compose<F: Fn(Self) -> OP, OP>(self, f: F) -> OP
+        where OP: BinaryOperator<BE> {
+        f(self)
+    }
+}
+impl<BE,P,T> ToSimdBinaryOperator<BE> for DemoteOperator<P,T>
+    where BE: Backend + NativeBackend +
+              SimdResolvePatrialBinaryOperator<P,DemoteOperator<P,T>,Self::Lhs,Self::Rhs> +
+              SimdReg<T> +
+              Clone,
+      P: BinaryOperator<BE> + ToSimdBinaryOperator<BE>,
+      T: Copy {
+    type NativeOperator = <BE as SimdResolvePatrialBinaryOperator<P,DemoteOperator<P,T>,Self::Lhs,Self::Rhs>>::NativeOperator;
     fn to_simd_operator(&self,backend:&BE) -> Self::NativeOperator {
         self.parent.to_simd_operator(backend).compose(|p| {
             backend.resolve_operator(p,self)
