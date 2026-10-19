@@ -2,7 +2,7 @@
 
 use std::marker::PhantomData;
 use std::ops::{Add, AddAssign, Mul, Shr, Sub};
-use crate::traits::{SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportMul, FoldRegs, SimdOuterProduct, SimdMulAssignVector, SimdAddAssignVector, SimdSubAssignVector, SimdShiftWidth, SimdScalarMulAssignVector, SimdAddAssignMatrix, SimdScalarMulAssignMatrix, SimdScalarMulMatrix, SimdConvertMatrix, SimdLoadSeq, SimdScalarMulVectorInto, SimdHSum, SimdZero, SimdPartialDot, SimdDotKernel, IsScaler, SimdMatMulKernel, SimdQueryVector, SimdBinaryOperator, NativeBackend, Dim, DimOne, Loader, Mapper, SimdPartialOperator, BinaryOperator, SimdResolveBinaryOperator};
+use crate::traits::{SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportMul, FoldRegs, SimdOuterProduct, SimdMulAssignVector, SimdAddAssignVector, SimdSubAssignVector, SimdShiftWidth, SimdScalarMulAssignVector, SimdAddAssignMatrix, SimdScalarMulAssignMatrix, SimdScalarMulMatrix, SimdConvertMatrix, SimdLoadSeq, SimdScalarMulVectorInto, SimdHSum, SimdZero, SimdPartialDot, SimdDotKernel, IsScaler, SimdMatMulKernel, SimdQueryVector, SimdBinaryOperator, NativeBackend, Dim, DimOne, Loader, Mapper, SimdPartialOperator, BinaryOperator, ToSimdBinaryOperator, SimdResolvePatrialBinaryOperator, SimdResolveBinaryOperator};
 use crate::{ColumnMajorMatrix, MatrixMutView, MatrixView, OwnedVector, VectorMutView, VectorView};
 use crate::error::InstantiationError;
 
@@ -55,16 +55,17 @@ impl<SL,SR,SO,BE> SimdAddOperator<SL,SR,SO,BE>
         }
     }
 }
-impl<BE,SL,SR,SO> SimdBinaryOperator<BE,SL,SR,SO> for SimdAddOperator<SL,SR,SO,BE>
+impl<BE,SL,SR,SO> SimdBinaryOperator<BE,SL,SR> for SimdAddOperator<SL,SR,SO,BE>
     where BE: Backend + NativeBackend +
               SimdReg<SL> +
               SimdReg<SR> +
               SimdReg<SO> +
               SimdAdd<SL,SR,SO>,
-          SO: From<SL> + From<SR> + Add<SO,Output=SO> {
+          SO: From<SL> + From<SR> + Add<SO,Output=SO> + Copy {
     type Lhs = <BE as SimdReg<SL>>::Reg;
     type Rhs = <BE as SimdReg<SR>>::Reg;
     type Output = <BE as SimdReg<SO>>::Reg;
+    type ScalarOutput = SO;
 
     #[inline(always)]
     fn apply_lanes(&self, l: Self::Lhs, r: Self::Rhs) -> Self::Output {
@@ -74,6 +75,11 @@ impl<BE,SL,SR,SO> SimdBinaryOperator<BE,SL,SR,SO> for SimdAddOperator<SL,SR,SO,B
     #[inline(always)]
     fn apply_scalar(&self, l: SL, r: SR) -> SO {
         SO::from(l) + SO::from(r)
+    }
+
+    #[inline(always)]
+    fn compose<F: Fn(Self) -> OP,OP>(self, f: F) -> OP where OP: SimdBinaryOperator<BE,SL,SR> {
+        f(self)
     }
 }
 impl<BE,SL,SR,SO> SimdPartialOperator<BE> for SimdAddOperator<SL,SR,SO,BE>
@@ -87,7 +93,7 @@ impl<BE,SL,SR,SO> SimdPartialOperator<BE> for SimdAddOperator<SL,SR,SO,BE>
         f(self)
     }
 }
-pub struct SimdWidenShrOperator<BE,P,IO,T>
+pub struct SimdShrOperator<BE,P,IO,T>
     where BE: Backend + NativeBackend + SimdReg<T>,
           IO: Copy,
           T: Copy {
@@ -98,17 +104,17 @@ pub struct SimdWidenShrOperator<BE,P,IO,T>
     width: <BE as SimdReg<T>>::ShiftWidth,
     sw: usize
 }
-impl<BE,P,IO,T> SimdWidenShrOperator<BE,P,IO,T>
-    where BE: Backend + NativeBackend + SimdReg<T> + SimdShiftWidth<T>,
+impl<BE,P,IO,T> SimdShrOperator<BE,P,IO,T>
+    where BE: Backend + NativeBackend + SimdReg<T> + SimdShiftWidth<T> + Clone,
           IO: Copy,
           T: Copy {
     #[inline(always)]
-    pub fn new(backend: BE,parent:P,width: usize) -> Self {
+    pub fn new(backend: &BE,parent:P,width: usize) -> Self {
         let sw = width;
         let width = backend.shift_width(width);
 
         Self {
-            backend: backend,
+            backend: backend.clone(),
             parent: parent,
             input_output: PhantomData::<IO>,
             scalar: PhantomData::<T>,
@@ -117,7 +123,7 @@ impl<BE,P,IO,T> SimdWidenShrOperator<BE,P,IO,T>
         }
     }
 }
-impl<BE,P,T> SimdPartialOperator<BE> for SimdWidenShrOperator<BE,P,Regs<<BE as SimdReg<T>>::Reg,4>,T>
+impl<BE,P,T> SimdPartialOperator<BE> for SimdShrOperator<BE,P,Regs<<BE as SimdReg<T>>::Reg,4>,T>
     where BE: Backend + NativeBackend +
               SimdReg<T> +
               SimdShr<T>,
@@ -126,15 +132,16 @@ impl<BE,P,T> SimdPartialOperator<BE> for SimdWidenShrOperator<BE,P,Regs<<BE as S
         f(self)
     }
 }
-impl<BE,P,SL,SR,PO> SimdBinaryOperator<BE,SL,SR,PO> for SimdWidenShrOperator<BE,P,Regs<<BE as SimdReg<PO>>::Reg,4>,PO>
+impl<BE,P,SL,SR,T> SimdBinaryOperator<BE,SL,SR> for SimdShrOperator<BE,P,Regs<<BE as SimdReg<T>>::Reg,4>,T>
     where BE: Backend + NativeBackend +
-              SimdReg<PO> +
-              SimdShr<PO>,
-          PO: Shr<usize,Output=PO> + Copy,
-          P: SimdBinaryOperator<BE,SL,SR,PO,Output=Regs<<BE as SimdReg<PO>>::Reg,4>> {
+              SimdReg<T> +
+              SimdShr<T>,
+          T: Shr<usize,Output=T> + Copy,
+          P: SimdBinaryOperator<BE,SL,SR,Output=Regs<<BE as SimdReg<T>>::Reg,4>,ScalarOutput=T> {
     type Lhs = P::Lhs;
     type Rhs = P::Rhs;
-    type Output = Regs<<BE as SimdReg<PO>>::Reg,4>;
+    type Output = Regs<<BE as SimdReg<T>>::Reg,4>;
+    type ScalarOutput = T;
 
     fn apply_lanes(&self, l: Self::Lhs, r: Self::Rhs) -> Self::Output {
         let i = self.parent.apply_lanes(l,r);
@@ -149,10 +156,15 @@ impl<BE,P,SL,SR,PO> SimdBinaryOperator<BE,SL,SR,PO> for SimdWidenShrOperator<BE,
         ])
     }
 
-    fn apply_scalar(&self, l: SL, r: SR) -> PO {
+    fn apply_scalar(&self, l: SL, r: SR) -> T {
         let i = self.parent.apply_scalar(l,r);
 
         i >> self.sw
+    }
+
+    fn compose<F: Fn(Self) -> OP, OP>(self, f: F) -> OP
+        where OP: SimdBinaryOperator<BE, SL, SR> {
+        f(self)
     }
 }
 pub struct SimdDemoteOperator<BE,P,I,O,SI,SO>
@@ -203,7 +215,7 @@ impl<BE,P,SI,SO> SimdPartialOperator<BE>
     }
 }
 
-impl<BE,P,SL,SR,PO,SO> SimdBinaryOperator<BE,SL,SR,SO>
+impl<BE,P,SL,SR,PO,SO> SimdBinaryOperator<BE,SL,SR>
     for SimdDemoteOperator<BE,P,Regs<<BE as SimdReg<PO>>::Reg,4>,Regs<<BE as SimdReg<SO>>::Reg,1>,PO,SO>
     where BE: Backend + NativeBackend +
              SimdReg<SL> +
@@ -215,10 +227,11 @@ impl<BE,P,SL,SR,PO,SO> SimdBinaryOperator<BE,SL,SR,SO>
           SR: Copy,
           PO: Assume<SO> + Copy,
           SO: Copy,
-          P: SimdBinaryOperator<BE,SL,SR,PO,Output=Regs<<BE as SimdReg<PO>>::Reg,4>> {
+          P: SimdBinaryOperator<BE,SL,SR,Output=Regs<<BE as SimdReg<PO>>::Reg,4>,ScalarOutput=PO> {
     type Lhs = P::Lhs;
     type Rhs = P::Rhs;
     type Output = Regs<<BE as SimdReg<SO>>::Reg,1>;
+    type ScalarOutput = SO;
 
     fn apply_lanes(&self, l: Self::Lhs, r: Self::Rhs) -> Self::Output {
         let i = self.parent.apply_lanes(l,r);
@@ -230,6 +243,11 @@ impl<BE,P,SL,SR,PO,SO> SimdBinaryOperator<BE,SL,SR,SO>
         let i = self.parent.apply_scalar(l,r);
 
         i.assume()
+    }
+
+    fn compose<F: Fn(Self) -> OP, OP>(self, f: F) -> OP
+        where OP: SimdBinaryOperator<BE, SL, SR> {
+        f(self)
     }
 }
 impl<S,BE: SimdReg<S> + SimdAdd<S,S,S>> FoldRegs<S,BE> for Regs<<BE as SimdReg<S>>::Reg,1>
@@ -369,7 +387,7 @@ impl<T,BE,OP> SimdQueryVector<T,OP> for BE
               SimdLoad<T> +
               SimdStore<T>,
           T: Default + Copy,
-          OP: SimdBinaryOperator<BE,T,T,T, Lhs=<BE as SimdReg<T>>::Reg, Rhs=<BE as SimdReg<T>>::Reg, Output=<BE as SimdReg<T>>::Reg> {
+          OP: SimdBinaryOperator<BE,T,T,Lhs=<BE as SimdReg<T>>::Reg, Rhs=<BE as SimdReg<T>>::Reg, Output=<BE as SimdReg<T>>::Reg, ScalarOutput = T> {
     #[target_feature(enable = "avx2")]
     unsafe fn query_vector<'a,'b,const N: usize>(&self, l: VectorView<'a,T,N>, r: VectorView<'b,T,N>,operator: &OP) -> OwnedVector<T,N> {
         let mut rs = OwnedVector::from(Box::new([T::default(); N]));
@@ -2180,9 +2198,8 @@ impl<SL,SR,SO> AddOperator<SL,SR,SO> {
         }
     }
 }
-impl<BE,O,SL,SR,SO> BinaryOperator<BE,O> for AddOperator<SL,SR,SO>
-    where BE: Backend + NativeBackend +
-              SimdResolveBinaryOperator<Self,SL,SR,SO,O>,
+impl<BE,SL,SR,SO> BinaryOperator<BE> for AddOperator<SL,SR,SO>
+    where BE: Backend + NativeBackend,
           SL: Copy,
           SR: Copy,
           SO: Copy {
@@ -2190,11 +2207,64 @@ impl<BE,O,SL,SR,SO> BinaryOperator<BE,O> for AddOperator<SL,SR,SO>
     type Rhs = SR;
     type Output = SO;
     fn compose<F: Fn(Self) -> OP, OP>(self, f: F) -> OP
-        where OP: BinaryOperator<BE,O> {
+        where OP: BinaryOperator<BE> {
         f(self)
     }
-
-    fn to_simd_operator(&self) -> impl SimdBinaryOperator<BE,SL,SR,SO> {
-        <BE as SimdResolveBinaryOperator<Self,SL,SR,SO,O>>::resolve_operator(self)
+}
+impl<BE,SL,SR,SO> ToSimdBinaryOperator<BE> for AddOperator<SL,SR,SO>
+    where BE: Backend + NativeBackend + Clone +
+              SimdAdd<SL,SR,SO> +
+              SimdResolveBinaryOperator<AddOperator<SL,SR,SO>,SL,SR,SO>,
+          SL: Copy,
+          SR: Copy,
+          SO: From<SL> + From<SR> + Add<SO,Output=SO> + Copy {
+    type NativeOperator = <BE as SimdResolveBinaryOperator<AddOperator<SL,SR,SO>,SL,SR,SO>>::NativeOperator;
+    fn to_simd_operator(&self,backend:&BE) -> Self::NativeOperator {
+        backend.resolve_operator(self)
+    }
+}
+pub struct ShrOperator<P,T> {
+    parent:P,
+    s:PhantomData<T>,
+    pub width:usize
+}
+impl<P,T> ShrOperator<P,T> {
+    pub fn new(parent:P,width:usize) -> ShrOperator<P,T> {
+        ShrOperator {
+            parent:parent,
+            s:PhantomData::<T>,
+            width:width
+        }
+    }
+}
+impl<BE,P,T> BinaryOperator<BE> for ShrOperator<P,T>
+    where BE: Backend + NativeBackend +
+              SimdReg<T> +
+              SimdShr<T> +
+              Clone,
+          P: BinaryOperator<BE>,
+          T: Copy {
+    type Lhs = P::Lhs;
+    type Rhs = P::Rhs;
+    type Output = T;
+    fn compose<F: Fn(Self) -> OP, OP>(self, f: F) -> OP
+        where OP: BinaryOperator<BE> {
+        f(self)
+    }
+}
+impl<BE,P,T> ToSimdBinaryOperator<BE> for ShrOperator<P,T>
+    where BE: Backend + NativeBackend +
+              SimdResolvePatrialBinaryOperator<P,ShrOperator<P,T>,Self::Lhs,Self::Rhs> +
+              SimdReg<T> +
+              SimdShiftWidth<T> +
+              SimdShr<T> +
+              Clone,
+          P: BinaryOperator<BE> + ToSimdBinaryOperator<BE>,
+          T: Copy {
+    type NativeOperator = <BE as SimdResolvePatrialBinaryOperator<P,ShrOperator<P,T>,Self::Lhs,Self::Rhs>>::NativeOperator;
+    fn to_simd_operator(&self,backend:&BE) -> Self::NativeOperator {
+        self.parent.to_simd_operator(backend).compose(|p| {
+            backend.resolve_operator(p,self)
+        })
     }
 }

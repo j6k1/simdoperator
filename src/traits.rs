@@ -103,28 +103,33 @@ pub trait SimdSplat<S>: SimdReg<S> {
     fn splat(&self,v:S) -> Self::Reg;
 }
 /// A trait that represents binary operators
-pub trait SimdBinaryOperator<BE,SL,SR,SO>
-    where BE: Backend + NativeBackend {
+pub trait SimdBinaryOperator<BE,SL,SR>
+    where BE: Backend + NativeBackend,
+          Self: Sized {
     type Lhs: Copy;
     type Rhs: Copy;
     type Output: Copy;
+    type ScalarOutput: Copy;
     fn apply_lanes(&self, l:Self::Lhs, r:Self::Rhs) -> Self::Output;
-    fn apply_scalar(&self,l:SL,r:SR) -> SO;
+    fn apply_scalar(&self,l:SL,r:SR) -> Self::ScalarOutput;
+    fn compose<F: Fn(Self) -> OP,OP>(self, f: F) -> OP where OP: SimdBinaryOperator<BE,SL,SR>;
 }
 /// A trait that represents a subset of operators used in combination
 pub trait SimdPartialOperator<BE> where Self: Sized {
     fn compose<F: Fn(Self) -> OP,OP>(self, f: F) -> OP where OP: SimdPartialOperator<BE>;
 }
 /// A trait that converts operators in the abstract layer into operator types associated with specific backends
-pub trait SimdResolvePatrialBinaryOperator<OP,SL,SR,SO,SI,O>
+pub trait SimdResolvePatrialBinaryOperator<P,OP,SL,SR>
     where Self: Backend + NativeBackend,
-          SI: Copy {
-    fn resolve_operator(operator:&OP) -> impl SimdBinaryOperator<Self,SL,SR,SO>;
+          P: ToSimdBinaryOperator<Self> {
+    type NativeOperator: SimdBinaryOperator<Self,SL,SR>;
+    fn resolve_operator(&self,parent_operator:<P as ToSimdBinaryOperator<Self>>::NativeOperator,operator:&OP) -> Self::NativeOperator;
 }
 /// A feature that converts binary operators in the abstract layer to operator types associated with specific backends
-pub trait SimdResolveBinaryOperator<OP,SL,SR,SO,O>
+pub trait SimdResolveBinaryOperator<OP,SL,SR,SO>
     where Self: Backend + NativeBackend {
-    fn resolve_operator(operator:&OP) -> impl SimdBinaryOperator<Self,SL,SR,SO>;
+    type NativeOperator: SimdBinaryOperator<Self,SL,SR>;
+    fn resolve_operator(&self,operator:&OP) -> Self::NativeOperator;
 }
 /// The trait to apply operators to vectors
 pub trait SimdQueryVector<T,OP> {
@@ -159,7 +164,7 @@ pub trait SimdCombinationQueryVector<SL,SR,SO>
     /// * `r` - Right hand side
     unsafe fn combination_query_vector<'a,'b,OP,const N: usize>(
         &self, l:VectorView<'a,SL,N>, r:VectorView<'b,SR,N>,operator:&OP
-    ) -> OwnedVector<SO,N> where OP: SimdBinaryOperator<Self,SL,SR,SO>;
+    ) -> OwnedVector<SO,N> where OP: SimdBinaryOperator<Self,SL,SR>;
 }
 /// The trait to apply combination operators to vectors kernel
 pub trait SimdCombinationQueryVectorKernel<SL,SR,SO>
@@ -170,7 +175,7 @@ pub trait SimdCombinationQueryVectorKernel<SL,SR,SO>
     /// * `r` - Right hand side
     unsafe fn combination_query_vector<'a,'b,OP,const N: usize>(
         &self, l:VectorView<'a,SL,N>, r:VectorView<'b,SR,N>,operator:&OP
-    ) -> OwnedVector<SO,N> where OP: SimdBinaryOperator<Self,SL,SR,SO>;
+    ) -> OwnedVector<SO,N> where OP: SimdBinaryOperator<Self,SL,SR>;
 }
 /// Apply AddAssign to each element of a Vector
 pub trait SimdAddAssignVector<SL,SR> {
@@ -768,7 +773,7 @@ pub trait Demote<SD> {
     fn demotion(self) -> SD;
 }
 /// A type that represents an abstract operator for combining and applying arbitrary operations
-pub trait BinaryOperator<BE,O>
+pub trait BinaryOperator<BE>
     where Self: Sized,
           BE: Backend + NativeBackend {
     /// Scalar type on the left-hand side
@@ -779,7 +784,14 @@ pub trait BinaryOperator<BE,O>
     type Output: Copy;
 
     /// Combine the operation on the left-hand side with the subsequent operation
-    fn compose<F: Fn(Self) -> OP,OP,>(self, f: F) -> OP where OP: BinaryOperator<BE,O>;
+    fn compose<F: Fn(Self) -> OP,OP,>(self, f: F) -> OP where OP: BinaryOperator<BE>;
+}
+/// Conversion from an abstract operator object to an operator object that actually performs calculations
+pub trait ToSimdBinaryOperator<BE>: BinaryOperator<BE>
+    where Self: Sized,
+          BE: Backend + NativeBackend {
 
-    fn to_simd_operator(&self) -> impl SimdBinaryOperator<BE,Self::Lhs,Self::Rhs,Self::Output>;
+    type NativeOperator: SimdBinaryOperator<BE,Self::Lhs,Self::Rhs>;
+
+    fn to_simd_operator(&self,backend:&BE) -> Self::NativeOperator;
 }
