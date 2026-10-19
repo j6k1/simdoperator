@@ -5,6 +5,7 @@ use std::ops::{Add, AddAssign, Mul, Sub};
 use crate::traits::{SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportMul, FoldRegs, SimdOuterProduct, SimdMulAssignVector, SimdAddAssignVector, SimdSubAssignVector, SimdShiftWidth, SimdScalarMulAssignVector, SimdAddAssignMatrix, SimdScalarMulAssignMatrix, SimdScalarMulMatrix, SimdConvertMatrix, SimdLoadSeq, SimdScalarMulVectorInto, SimdHSum, SimdZero, SimdPartialDot, SimdDotKernel, IsScaler, SimdMatMulKernel, SimdQueryVector, SimdBinaryOperator, NativeBackend, Dim, DimOne, Loader, Mapper, SimdPartialOperator, BinaryOperator, ToSimdBinaryOperator, SimdResolvePatrialBinaryOperator, SimdResolveBinaryOperator};
 use crate::{ColumnMajorMatrix, MatrixMutView, MatrixView, OwnedVector, VectorMutView, VectorView};
 use crate::error::InstantiationError;
+use crate::traits::kernel::SimdCombinationQueryVectorKernel;
 
 /// A trait that defines the instantiation of a SIMD arithmetic backend
 pub trait Backend: Sized + Send + Sync + 'static {
@@ -488,6 +489,56 @@ impl<T,BE,OP> SimdQueryVector<T,OP> for BE
             let chuks_o_remainder = ref_o.chunks_exact_mut(<Self as SimdLanes<T>>::LANES).into_remainder();
 
             if N % <Self as SimdLanes<T>>::LANES != 0 {
+                for (o,(l,r)) in chuks_o_remainder.iter_mut().zip(chuks_l_remainder.iter().zip(chuks_r_remainder.iter())) {
+                    *o = operator.apply_scalar(*l,*r);
+                }
+            }
+
+            rs
+        }
+    }
+}
+impl<BE,SL,SR,SO> SimdCombinationQueryVectorKernel<SL,SR,SO> for BE
+    where BE: Backend + NativeBackend +
+              SimdReg<SL> +
+              SimdReg<SR> +
+              SimdReg<SO>,
+          SL: Copy,
+          SR: Copy,
+          SO: Default + Copy {
+    #[inline(always)]
+    fn combination_query_vector<'a, 'b, OP, const N: usize, const LANES: usize>(
+        &self, l: VectorView<'a, SL, N>, r: VectorView<'b, SR, N>, operator: &OP
+    ) -> OwnedVector<SO, N> where
+        OP: SimdBinaryOperator<Self, SL, SR, ScalarOutput = SO>,
+        Self: SimdLoadSeq<SL, <OP as SimdBinaryOperator<Self, SL, SR>>::Lhs> +
+              SimdLoadSeq<SR, <OP as SimdBinaryOperator<Self, SL, SR>>::Rhs> +
+              SimdStoreSeq<SO, <OP as SimdBinaryOperator<Self, SL, SR>>::Output> {
+        let mut rs = OwnedVector::from(Box::new([SO::default(); N]));
+
+        unsafe {
+            let ref_l = l.as_ref();
+            let ref_r = r.as_ref();
+            let ref_o = rs.as_mut();
+
+            let chunks_l = ref_l.chunks_exact(LANES);
+            let chunks_r = ref_r.chunks_exact(LANES);
+            let chunks_o = ref_o.chunks_exact_mut(LANES);
+
+            for (co,(cl,cr)) in chunks_o.zip(chunks_l.zip(chunks_r)) {
+                let ra = self.load_seq(cl.as_ptr());
+                let rb = self.load_seq(cr.as_ptr());
+
+                let rr = operator.apply_lanes(ra,rb);
+
+                self.store_seq(co.as_mut_ptr(),rr);
+            }
+
+            let chuks_l_remainder = ref_l.chunks_exact(LANES).remainder();
+            let chuks_r_remainder = ref_r.chunks_exact(LANES).remainder();
+            let chuks_o_remainder = ref_o.chunks_exact_mut(LANES).into_remainder();
+
+            if N % LANES != 0 {
                 for (o,(l,r)) in chuks_o_remainder.iter_mut().zip(chuks_l_remainder.iter().zip(chuks_r_remainder.iter())) {
                     *o = operator.apply_scalar(*l,*r);
                 }

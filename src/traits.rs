@@ -164,18 +164,10 @@ pub trait SimdCombinationQueryVector<SL,SR,SO>
     /// * `r` - Right hand side
     unsafe fn combination_query_vector<'a,'b,OP,const N: usize>(
         &self, l:VectorView<'a,SL,N>, r:VectorView<'b,SR,N>,operator:&OP
-    ) -> OwnedVector<SO,N> where OP: SimdBinaryOperator<Self,SL,SR>;
-}
-/// The trait to apply combination operators to vectors kernel
-pub trait SimdCombinationQueryVectorKernel<SL,SR,SO>
-    where Self: Backend + NativeBackend {
-    ///
-    /// # Arguments
-    /// * `l` - Left hand side
-    /// * `r` - Right hand side
-    unsafe fn combination_query_vector<'a,'b,OP,const N: usize>(
-        &self, l:VectorView<'a,SL,N>, r:VectorView<'b,SR,N>,operator:&OP
-    ) -> OwnedVector<SO,N> where OP: SimdBinaryOperator<Self,SL,SR>;
+    ) -> OwnedVector<SO,N> where OP: SimdBinaryOperator<Self,SL,SR, ScalarOutput = SO>,
+                                 Self: SimdLoadSeq<SL,<OP as SimdBinaryOperator<Self,SL,SR>>::Lhs> +
+                                       SimdLoadSeq<SR,<OP as SimdBinaryOperator<Self,SL,SR>>::Rhs> +
+                                       SimdStoreSeq<SO,<OP as SimdBinaryOperator<Self,SL,SR>>::Output>;
 }
 /// Apply AddAssign to each element of a Vector
 pub trait SimdAddAssignVector<SL,SR> {
@@ -794,4 +786,25 @@ pub trait ToSimdBinaryOperator<BE>: BinaryOperator<BE>
     type NativeOperator: SimdBinaryOperator<BE,Self::Lhs,Self::Rhs>;
 
     fn to_simd_operator(&self,backend:&BE) -> Self::NativeOperator;
+}
+pub(crate) mod kernel {
+    use crate::backend::common::Backend;
+    use crate::traits::{NativeBackend, SimdBinaryOperator, SimdLoadSeq, SimdStoreSeq};
+    use crate::{OwnedVector, VectorView};
+
+    /// The trait to apply combination operators to vectors kernel
+    pub trait SimdCombinationQueryVectorKernel<SL, SR, SO>
+        where Self: Backend + NativeBackend {
+        ///
+        /// # Arguments
+        /// * `l` - Left hand side
+        /// * `r` - Right hand side
+        fn combination_query_vector<'a, 'b, OP, const N: usize, const LANES: usize>(
+            &self, l: VectorView<'a, SL, N>, r: VectorView<'b, SR, N>, operator: &OP
+        ) -> OwnedVector<SO, N> where
+            OP: SimdBinaryOperator<Self, SL, SR, ScalarOutput = SO>,
+            Self: SimdLoadSeq<SL, <OP as SimdBinaryOperator<Self, SL, SR>>::Lhs> +
+            SimdLoadSeq<SR, <OP as SimdBinaryOperator<Self, SL, SR>>::Rhs> +
+            SimdStoreSeq<SO, <OP as SimdBinaryOperator<Self, SL, SR>>::Output>;
+    }
 }
