@@ -2338,11 +2338,10 @@ impl<BE,SL,SR,SO> BinaryOperator<BE> for AddOperator<SL,SR,SO>
 }
 impl<BE,SL,SR,SO> ToSimdBinaryOperator<BE> for AddOperator<SL,SR,SO>
     where BE: Backend + NativeBackend + Clone +
-              SimdAdd<SL,SR,SO> +
               SimdResolveBinaryOperator<AddOperator<SL,SR,SO>,SL,SR,SO>,
           SL: Copy,
           SR: Copy,
-          SO: From<SL> + From<SR> + Add<SO,Output=SO> + Copy,
+          SO: Copy,
           Self: BinaryOperator<BE,Lhs=SL,Rhs=SR,Output=SO> {
     type NativeOperator = <BE as SimdResolveBinaryOperator<AddOperator<SL,SR,SO>,SL,SR,SO>>::NativeOperator;
     fn to_simd_operator(&self,backend:&BE) -> Self::NativeOperator {
