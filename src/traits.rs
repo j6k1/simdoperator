@@ -764,9 +764,8 @@ pub trait Demote<SD> {
     fn demotion(self) -> SD;
 }
 /// A type that represents an abstract operator for combining and applying arbitrary operations
-pub trait BinaryOperator<BE>
-    where Self: Sized,
-          BE: Backend + NativeBackend {
+pub trait BinaryOperator: 'static
+    where Self: Sized {
     /// Scalar type on the left-hand side
     type Lhs: Copy;
     /// Scalar type on the right-hand side
@@ -775,10 +774,10 @@ pub trait BinaryOperator<BE>
     type Output: Copy;
 
     /// Combine the operation on the left-hand side with the subsequent operation
-    fn compose<F: Fn(Self) -> OP,OP,>(self, f: F) -> OP where OP: BinaryOperator<BE>;
+    fn compose<F: Fn(Self) -> OP,OP,>(self, f: F) -> OP where OP: BinaryOperator;
 }
 /// Conversion from an abstract operator object to an operator object that actually performs calculations
-pub trait ToSimdBinaryOperator<BE>: BinaryOperator<BE>
+pub trait ToSimdBinaryOperator<BE>: BinaryOperator
     where Self: Sized,
           BE: Backend + NativeBackend {
 
@@ -791,7 +790,7 @@ pub trait ToSimdBinaryOperator<BE>: BinaryOperator<BE>
 pub trait BinaryQuery<R,SL,SR,SO> {
     type Output;
     fn query<OP>(self, rhs: R, op: OP) -> Self::Output
-        where OP: BinaryOperator<Avx2,Lhs=SL,Rhs=SR,Output=SO> + ToSimdBinaryOperator<Avx2>,
+        where OP: BinaryOperator<Lhs=SL,Rhs=SR,Output=SO> + ToSimdBinaryOperator<Avx2>,
               <OP as ToSimdBinaryOperator<Avx2>>::NativeOperator: SimdBinaryOperator<Avx2,SL,SR,ScalarOutput=SO>,
               Avx2: SimdCombinationQueryVector<<OP as ToSimdBinaryOperator<Avx2>>::NativeOperator,SL,SR,SO>;
 }

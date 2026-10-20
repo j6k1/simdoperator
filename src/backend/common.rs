@@ -2323,16 +2323,15 @@ impl<SL,SR,SO> AddOperator<SL,SR,SO> {
         }
     }
 }
-impl<BE,SL,SR,SO> BinaryOperator<BE> for AddOperator<SL,SR,SO>
-    where BE: Backend + NativeBackend,
-          SL: Copy,
-          SR: Copy,
-          SO: Copy {
+impl<SL,SR,SO> BinaryOperator for AddOperator<SL,SR,SO>
+    where SL: Copy + 'static,
+          SR: Copy + 'static,
+          SO: Copy + 'static {
     type Lhs = SL;
     type Rhs = SR;
     type Output = SO;
     fn compose<F: Fn(Self) -> OP, OP>(self, f: F) -> OP
-        where OP: BinaryOperator<BE> {
+        where OP: BinaryOperator {
         f(self)
     }
 }
@@ -2342,7 +2341,7 @@ impl<BE,SL,SR,SO> ToSimdBinaryOperator<BE> for AddOperator<SL,SR,SO>
           SL: Copy,
           SR: Copy,
           SO: Copy,
-          Self: BinaryOperator<BE,Lhs=SL,Rhs=SR,Output=SO> {
+          Self: BinaryOperator<Lhs=SL,Rhs=SR,Output=SO> {
     type NativeOperator = <BE as SimdResolveBinaryOperator<AddOperator<SL,SR,SO>,SL,SR,SO>>::NativeOperator;
     fn to_simd_operator(&self,backend:&BE) -> Self::NativeOperator {
         backend.resolve_operator(self)
@@ -2363,18 +2362,14 @@ impl<P,T> ShrOperator<P,T> {
         }
     }
 }
-impl<BE,P,T> BinaryOperator<BE> for ShrOperator<P,T>
-    where BE: Backend + NativeBackend +
-              SimdReg<T> +
-              SimdShr<T> +
-              Clone,
-          P: BinaryOperator<BE>,
-          T: Copy {
+impl<P,T> BinaryOperator for ShrOperator<P,T>
+    where P: BinaryOperator,
+          T: Copy + 'static {
     type Lhs = P::Lhs;
     type Rhs = P::Rhs;
     type Output = T;
     fn compose<F: Fn(Self) -> OP, OP>(self, f: F) -> OP
-        where OP: BinaryOperator<BE> {
+        where OP: BinaryOperator {
         f(self)
     }
 }
@@ -2385,8 +2380,8 @@ impl<BE,P,T> ToSimdBinaryOperator<BE> for ShrOperator<P,T>
               SimdShiftWidth<T> +
               SimdShr<T> +
               Clone,
-          P: BinaryOperator<BE> + ToSimdBinaryOperator<BE>,
-          T: Copy {
+          P: BinaryOperator + ToSimdBinaryOperator<BE>,
+          T: Copy + 'static {
     type NativeOperator = <BE as SimdResolvePatrialBinaryOperator<P,ShrOperator<P,T>,Self::Lhs,Self::Rhs,T>>::NativeOperator;
     fn to_simd_operator(&self,backend:&BE) -> Self::NativeOperator {
         self.parent.to_simd_operator(backend).compose(|p| {
@@ -2407,17 +2402,14 @@ impl<P,T> DemoteOperator<P,T> {
         }
     }
 }
-impl<BE,P,T> BinaryOperator<BE> for DemoteOperator<P,T>
-    where BE: Backend + NativeBackend +
-              SimdReg<T> +
-              Clone,
-          P: BinaryOperator<BE>,
-          T: Copy {
+impl<P,T> BinaryOperator for DemoteOperator<P,T>
+    where P: BinaryOperator,
+          T: Copy + 'static {
     type Lhs = P::Lhs;
     type Rhs = P::Rhs;
     type Output = T;
     fn compose<F: Fn(Self) -> OP, OP>(self, f: F) -> OP
-        where OP: BinaryOperator<BE> {
+        where OP: BinaryOperator {
         f(self)
     }
 }
@@ -2426,8 +2418,8 @@ impl<BE,P,T> ToSimdBinaryOperator<BE> for DemoteOperator<P,T>
               SimdResolvePatrialBinaryOperator<P,DemoteOperator<P,T>,Self::Lhs,Self::Rhs,T> +
               SimdReg<T> +
               Clone,
-      P: BinaryOperator<BE> + ToSimdBinaryOperator<BE>,
-      T: Copy {
+      P: BinaryOperator + ToSimdBinaryOperator<BE>,
+      T: Copy + 'static {
     type NativeOperator = <BE as SimdResolvePatrialBinaryOperator<P,DemoteOperator<P,T>,Self::Lhs,Self::Rhs,T>>::NativeOperator;
     fn to_simd_operator(&self,backend:&BE) -> Self::NativeOperator {
         self.parent.to_simd_operator(backend).compose(|p| {

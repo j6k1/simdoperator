@@ -2287,7 +2287,7 @@ impl<'a,'b,SL,SR,SO,const N: usize> BinaryQuery<Vector<'b,SR,N,AutoSelect>,SL,SR
     type Output = AccVector<SO,N,AutoSelect>;
 
     fn query<OP>(self, rhs: Vector<'b,SR,N,AutoSelect>, op: OP) -> AccVector<SO,N,AutoSelect>
-        where OP: BinaryOperator<Avx2,Lhs=SL,Rhs=SR,Output=SO> + ToSimdBinaryOperator<Avx2>,
+        where OP: BinaryOperator<Lhs=SL,Rhs=SR,Output=SO> + ToSimdBinaryOperator<Avx2>,
               Avx2: SimdCombinationQueryVector<<OP as ToSimdBinaryOperator<Avx2>>::NativeOperator,SL,SR,SO> {
         let o = match self.backend.selected {
             SelectedBackend::Avx2(ref backend) => {
@@ -2305,7 +2305,7 @@ impl<'a,'b,SL,SR,SO,const N: usize> BinaryQuery<Vector<'b,SR,N,Avx2>,SL,SR,SO> f
     type Output = AccVector<SO,N,Avx2>;
 
     fn query<OP>(self, rhs: Vector<'b,SR,N,Avx2>, op: OP) -> AccVector<SO,N,Avx2>
-        where OP: BinaryOperator<Avx2,Lhs=SL,Rhs=SR,Output=SO> + ToSimdBinaryOperator<Avx2>,
+        where OP: BinaryOperator<Lhs=SL,Rhs=SR,Output=SO> + ToSimdBinaryOperator<Avx2>,
               Avx2: SimdCombinationQueryVector<<OP as ToSimdBinaryOperator<Avx2>>::NativeOperator,SL,SR,SO> {
         let o =  unsafe { self.backend.combination_query_vector((&self).into(), (&rhs).into(), op.to_simd_operator(&self.backend)) };
 
@@ -2315,12 +2315,12 @@ impl<'a,'b,SL,SR,SO,const N: usize> BinaryQuery<Vector<'b,SR,N,Avx2>,SL,SR,SO> f
 impl<'a,SL,SR,SO,const N: usize> BinaryQuery<Vector<'a,SR,N,AutoSelect>,SL,SR,SO> for AccVector<SL,N,AutoSelect>
     where SO: 'static,
           for<'b> Vector<'b,SL,N,AutoSelect>: From<&'b AccVector<SL,N,AutoSelect>>,
-          for<'b> Vector<'b,SL,N,AutoSelect>: BinaryQuery<Vector<'a,SR,N,AutoSelect>,SL,SR,SO,Output=AccVector<SO,N,AutoSelect>> {
+          for<'b> Vector<'b,SL,N,AutoSelect>: BinaryQuery<Vector<'b,SR,N,AutoSelect>,SL,SR,SO,Output=AccVector<SO,N,AutoSelect>> {
     type Output = AccVector<SO,N,AutoSelect>;
 
     fn query<OP>(self, rhs: Vector<'a,SR,N,AutoSelect>, op: OP) -> AccVector<SO,N,AutoSelect>
-        where OP: BinaryOperator<Avx2,Lhs=SL,Rhs=SR,Output=SO> + ToSimdBinaryOperator<Avx2>,
-          Avx2: SimdCombinationQueryVector<<OP as ToSimdBinaryOperator<Avx2>>::NativeOperator,SL,SR,SO> {
+        where OP: BinaryOperator<Lhs=SL,Rhs=SR,Output=SO> + ToSimdBinaryOperator<Avx2>,
+              Avx2: SimdCombinationQueryVector<<OP as ToSimdBinaryOperator<Avx2>>::NativeOperator,SL,SR,SO> {
         Vector::<SL,N,AutoSelect>::from(&self).query(rhs, op)
     }
 }
@@ -2331,7 +2331,7 @@ impl<'a,SL,SR,SO,const N: usize> BinaryQuery<Vector<'a,SR,N,Avx2>,SL,SR,SO> for 
     type Output = AccVector<SO,N,Avx2>;
 
     fn query<OP>(self, rhs: Vector<'a,SR,N,Avx2>, op: OP) -> AccVector<SO,N,Avx2>
-        where OP: BinaryOperator<Avx2,Lhs=SL,Rhs=SR,Output=SO> + ToSimdBinaryOperator<Avx2>,
+        where OP: BinaryOperator<Lhs=SL,Rhs=SR,Output=SO> + ToSimdBinaryOperator<Avx2>,
               Avx2: SimdCombinationQueryVector<<OP as ToSimdBinaryOperator<Avx2>>::NativeOperator,SL,SR,SO> {
         Vector::<SL,N,Avx2>::from(&self).query(rhs, op)
     }
