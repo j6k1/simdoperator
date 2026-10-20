@@ -498,22 +498,22 @@ impl<T,BE,OP> SimdQueryVector<T,OP> for BE
         }
     }
 }
-impl<BE,SL,SR,SO> SimdCombinationQueryVectorKernel<SL,SR,SO> for BE
+impl<BE,OP,SL,SR,SO> SimdCombinationQueryVectorKernel<OP,SL,SR,SO> for BE
     where BE: Backend + NativeBackend +
               SimdReg<SL> +
               SimdReg<SR> +
-              SimdReg<SO>,
+              SimdReg<SO> +
+              SimdLoadSeq<SL,<OP as SimdBinaryOperator<Self,SL,SR>>::Lhs> +
+              SimdLoadSeq<SR,<OP as SimdBinaryOperator<Self,SL,SR>>::Rhs> +
+              SimdStoreSeq<SO,<OP as SimdBinaryOperator<Self,SL,SR>>::Output>,
+          OP: SimdBinaryOperator<Self,SL,SR, ScalarOutput = SO>,
           SL: Copy,
           SR: Copy,
           SO: Default + Copy {
     #[inline(always)]
-    fn combination_query_vector<'a, 'b, OP, const N: usize, const LANES: usize>(
-        &self, l: VectorView<'a, SL, N>, r: VectorView<'b, SR, N>, operator: &OP
-    ) -> OwnedVector<SO, N> where
-        OP: SimdBinaryOperator<Self, SL, SR, ScalarOutput = SO>,
-        Self: SimdLoadSeq<SL, <OP as SimdBinaryOperator<Self, SL, SR>>::Lhs> +
-              SimdLoadSeq<SR, <OP as SimdBinaryOperator<Self, SL, SR>>::Rhs> +
-              SimdStoreSeq<SO, <OP as SimdBinaryOperator<Self, SL, SR>>::Output> {
+    fn combination_query_vector<'a, 'b, const N: usize, const LANES: usize>(
+        &self, l: VectorView<'a, SL, N>, r: VectorView<'b, SR, N>, operator: OP
+    ) -> OwnedVector<SO, N> {
         let mut rs = OwnedVector::from(Box::new([SO::default(); N]));
 
         unsafe {
@@ -2342,7 +2342,8 @@ impl<BE,SL,SR,SO> ToSimdBinaryOperator<BE> for AddOperator<SL,SR,SO>
               SimdResolveBinaryOperator<AddOperator<SL,SR,SO>,SL,SR,SO>,
           SL: Copy,
           SR: Copy,
-          SO: From<SL> + From<SR> + Add<SO,Output=SO> + Copy {
+          SO: From<SL> + From<SR> + Add<SO,Output=SO> + Copy,
+          Self: BinaryOperator<BE,Lhs=SL,Rhs=SR,Output=SO> {
     type NativeOperator = <BE as SimdResolveBinaryOperator<AddOperator<SL,SR,SO>,SL,SR,SO>>::NativeOperator;
     fn to_simd_operator(&self,backend:&BE) -> Self::NativeOperator {
         backend.resolve_operator(self)
@@ -2380,14 +2381,14 @@ impl<BE,P,T> BinaryOperator<BE> for ShrOperator<P,T>
 }
 impl<BE,P,T> ToSimdBinaryOperator<BE> for ShrOperator<P,T>
     where BE: Backend + NativeBackend +
-              SimdResolvePatrialBinaryOperator<P,ShrOperator<P,T>,Self::Lhs,Self::Rhs> +
+              SimdResolvePatrialBinaryOperator<P,ShrOperator<P,T>,Self::Lhs,Self::Rhs,T> +
               SimdReg<T> +
               SimdShiftWidth<T> +
               SimdShr<T> +
               Clone,
           P: BinaryOperator<BE> + ToSimdBinaryOperator<BE>,
           T: Copy {
-    type NativeOperator = <BE as SimdResolvePatrialBinaryOperator<P,ShrOperator<P,T>,Self::Lhs,Self::Rhs>>::NativeOperator;
+    type NativeOperator = <BE as SimdResolvePatrialBinaryOperator<P,ShrOperator<P,T>,Self::Lhs,Self::Rhs,T>>::NativeOperator;
     fn to_simd_operator(&self,backend:&BE) -> Self::NativeOperator {
         self.parent.to_simd_operator(backend).compose(|p| {
             backend.resolve_operator(p,self)
@@ -2423,12 +2424,12 @@ impl<BE,P,T> BinaryOperator<BE> for DemoteOperator<P,T>
 }
 impl<BE,P,T> ToSimdBinaryOperator<BE> for DemoteOperator<P,T>
     where BE: Backend + NativeBackend +
-              SimdResolvePatrialBinaryOperator<P,DemoteOperator<P,T>,Self::Lhs,Self::Rhs> +
+              SimdResolvePatrialBinaryOperator<P,DemoteOperator<P,T>,Self::Lhs,Self::Rhs,T> +
               SimdReg<T> +
               Clone,
       P: BinaryOperator<BE> + ToSimdBinaryOperator<BE>,
       T: Copy {
-    type NativeOperator = <BE as SimdResolvePatrialBinaryOperator<P,DemoteOperator<P,T>,Self::Lhs,Self::Rhs>>::NativeOperator;
+    type NativeOperator = <BE as SimdResolvePatrialBinaryOperator<P,DemoteOperator<P,T>,Self::Lhs,Self::Rhs,T>>::NativeOperator;
     fn to_simd_operator(&self,backend:&BE) -> Self::NativeOperator {
         self.parent.to_simd_operator(backend).compose(|p| {
             backend.resolve_operator(p,self)

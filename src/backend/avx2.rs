@@ -3,7 +3,7 @@
 use std::arch::x86_64::{__m256, __m256d, __m256i, _mm256_add_epi16, _mm256_add_epi32, _mm256_add_epi8, _mm256_add_pd, _mm256_add_ps, _mm256_and_pd, _mm256_and_ps, _mm256_and_si256, _mm256_andnot_si256, _mm256_blendv_epi8, _mm256_blendv_pd, _mm256_blendv_ps, _mm256_castpd256_pd128, _mm256_castpd_si256, _mm256_castps256_ps128, _mm256_castps_si256, _mm256_castsi256_pd, _mm256_castsi256_ps, _mm256_castsi256_si128, _mm256_cmp_pd, _mm256_cmp_ps, _mm256_cmpeq_epi16, _mm256_cmpeq_epi32, _mm256_cmpeq_epi8, _mm256_cmpgt_epi16, _mm256_cmpgt_epi32, _mm256_cmpgt_epi8, _mm256_cvtepi16_epi32, _mm256_cvtepi32_ps, _mm256_cvtepi8_epi16, _mm256_cvtps_epi32, _mm256_extractf128_pd, _mm256_extractf128_ps, _mm256_extracti128_si256, _mm256_fmadd_pd, _mm256_fmadd_ps, _mm256_loadu_pd, _mm256_loadu_ps, _mm256_loadu_si256, _mm256_madd_epi16, _mm256_mul_pd, _mm256_mul_ps, _mm256_mullo_epi16, _mm256_mullo_epi32, _mm256_or_si256, _mm256_packs_epi16, _mm256_packs_epi32, _mm256_permute4x64_epi64, _mm256_set1_epi16, _mm256_set1_epi32, _mm256_set1_epi64x, _mm256_set1_epi8, _mm256_set1_pd, _mm256_set1_ps, _mm256_setzero_pd, _mm256_setzero_ps, _mm256_setzero_si256, _mm256_sllv_epi32, _mm256_sllv_epi64, _mm256_srlv_epi32, _mm256_srlv_epi64, _mm256_storeu_pd, _mm256_storeu_ps, _mm256_storeu_si256, _mm256_sub_epi16, _mm256_sub_epi32, _mm256_sub_epi8, _mm256_sub_pd, _mm256_sub_ps, _mm256_unpackhi_epi32, _mm256_unpackhi_ps, _mm256_unpacklo_epi32, _mm256_unpacklo_ps, _mm256_xor_si256, _mm_add_epi32, _mm_add_pd, _mm_add_ps, _mm_add_sd, _mm_add_ss, _mm_cvtsd_f64, _mm_cvtsi128_si32, _mm_cvtss_f32, _mm_movehl_ps, _mm_shuffle_ps, _mm_srli_si128, _mm_unpackhi_pd, _CMP_EQ_OQ, _CMP_GT_OQ};
 use std::ops::{Add, AddAssign, Mul};
 use crate::backend::common::{mm_shuffle, Backend, Regs, SimdAddOperator, Extent, AddOperator, SimdQueryShrOperator, ShrOperator, SimdQueryAddOperator, DemoteOperator, SimdQueryDemoteOperator};
-use crate::traits::{SimdCols, SimdDot, SimdHSum, SimdLanes, SimdLoad, SimdMask, SimdMatMul, SimdMatVec, SimdMulAdd, SimdPartialDot, SimdReg, SimdRows, SimdStore, SimdTranspose, SimdVMat, SimdZero, SimdAdd, SimdSub, SimdMul, SimdPromote, SimdScalarMul, SimdSplat, SimdBitOr, SimdBitAnd, SimdReinterpret, SimdBitXor, SimdBitNot, BitsBitAnd, BitsBitOr, BitsBitXor, SimdShl, SimdShr, SimdDemote, SimdConvert, FoldRegs, SimdShiftWidth, NativeBackend, SimdDotKernel, SimdMatMulKernel, SimdAddVector, SimdQueryVector, SimdMapVMat, Mapper, SimdResolveBinaryOperator, ToSimdBinaryOperator, SimdResolvePatrialBinaryOperator, SimdBinaryOperator, SimdLoadSeq, SimdStoreSeq, SimdCombinationQueryVector};
+use crate::traits::{SimdCols, SimdDot, SimdHSum, SimdLanes, SimdLoad, SimdMask, SimdMatMul, SimdMatVec, SimdMulAdd, SimdPartialDot, SimdReg, SimdRows, SimdStore, SimdTranspose, SimdVMat, SimdZero, SimdAdd, SimdSub, SimdMul, SimdPromote, SimdScalarMul, SimdSplat, SimdBitOr, SimdBitAnd, SimdReinterpret, SimdBitXor, SimdBitNot, BitsBitAnd, BitsBitOr, BitsBitXor, SimdShl, SimdShr, SimdDemote, SimdConvert, FoldRegs, SimdShiftWidth, NativeBackend, SimdDotKernel, SimdMatMulKernel, SimdAddVector, SimdQueryVector, SimdMapVMat, Mapper, SimdResolveBinaryOperator, ToSimdBinaryOperator, SimdResolvePatrialBinaryOperator, SimdBinaryOperator, SimdCombinationQueryVector};
 use crate::{ColumnMajorMatrix, MatrixMutView, MatrixView, OwnedVector, VectorView};
 use crate::error::InstantiationError;
 use crate::traits::kernel::SimdCombinationQueryVectorKernel;
@@ -1594,23 +1594,20 @@ impl SimdMatMul<i32,i32,i32> for Avx2
         }
     }
 }
-impl<SL,SR,SO> SimdCombinationQueryVector<SL,SR,SO> for Avx2
-    where Avx2: Backend + NativeBackend +
+impl<OP,SL,SR,SO> SimdCombinationQueryVector<OP,SL,SR,SO> for Avx2
+    where Self: Backend + NativeBackend +
                 SimdReg<SL> +
                 SimdReg<SR> +
-                SimdReg<SO>,
+                SimdReg<SO> + SimdCombinationQueryVectorKernel<OP,SL,SR,SO>,
+          OP: SimdBinaryOperator<Self,SL,SR, ScalarOutput = SO>,
           SL: Copy,
           SR: Copy,
           SO: Default + Copy {
     #[target_feature(enable = "avx2")]
-    unsafe fn combination_query_vector<'a, 'b, OP, const N: usize>(
-        &self, l: VectorView<'a, SL, N>, r: VectorView<'b, SR, N>, operator: &OP
-    ) -> OwnedVector<SO, N> where
-        OP: SimdBinaryOperator<Self, SL, SR, ScalarOutput = SO>,
-        Self: SimdLoadSeq<SL, <OP as SimdBinaryOperator<Self, SL, SR>>::Lhs> +
-        SimdLoadSeq<SR, <OP as SimdBinaryOperator<Self, SL, SR>>::Rhs> +
-        SimdStoreSeq<SO, <OP as SimdBinaryOperator<Self, SL, SR>>::Output> {
-        <Self as SimdCombinationQueryVectorKernel<SL,SR,SO>>::combination_query_vector::<OP,N,{ <Self as SimdLanes<i8>>::LANES }>(self,l,r,operator)
+    unsafe fn combination_query_vector<'a, 'b, const N: usize>(
+        &self, l: VectorView<'a, SL, N>, r: VectorView<'b, SR, N>, operator: OP
+    ) -> OwnedVector<SO,N> {
+        <Self as SimdCombinationQueryVectorKernel<OP,SL,SR,SO>>::combination_query_vector::<N,{ <Self as SimdLanes<i8>>::LANES }>(self,l,r,operator)
     }
 }
 impl SimdMatMul<f32,f32,f32> for Avx2
@@ -1645,13 +1642,13 @@ impl<SL,SR,SO> SimdResolveBinaryOperator<AddOperator<SL,SR,SO>,SL,SR,SO> for Avx
                 SimdReg<SR> +
                 SimdReg<SO>,
           SO: From<SL> + From<SR> + Add<SO,Output=SO> + Copy,
-          SimdQueryAddOperator<SL,SR,SO,Self>: SimdBinaryOperator<Self,SL,SR> {
+          SimdQueryAddOperator<SL,SR,SO,Self>: SimdBinaryOperator<Self,SL,SR,ScalarOutput=SO> {
     type NativeOperator = SimdQueryAddOperator<SL,SR,SO,Self>;
     fn resolve_operator(&self,_: &AddOperator<SL,SR,SO>) -> Self::NativeOperator {
         SimdQueryAddOperator::new(self)
     }
 }
-impl<P,SL,SR,SO> SimdResolvePatrialBinaryOperator<P,ShrOperator<P,SO>,SL,SR> for Avx2
+impl<P,SL,SR> SimdResolvePatrialBinaryOperator<P,ShrOperator<P,i32>,SL,SR,i32> for Avx2
     where Self: Backend + NativeBackend +
                 SimdReg<i32> +
                 SimdShiftWidth<i32> +
@@ -1660,11 +1657,11 @@ impl<P,SL,SR,SO> SimdResolvePatrialBinaryOperator<P,ShrOperator<P,SO>,SL,SR> for
           P: ToSimdBinaryOperator<Self>,
           <P as ToSimdBinaryOperator<Self>>::NativeOperator: SimdBinaryOperator<Self,SL,SR,Output=Regs<<Self as SimdReg<i32>>::Reg,4>,ScalarOutput=i32> {
     type NativeOperator = SimdQueryShrOperator<Self,<P as ToSimdBinaryOperator<Self>>::NativeOperator,Regs<<Self as SimdReg<i32>>::Reg,4>,i32>;
-    fn resolve_operator(&self,parent_operator:<P as ToSimdBinaryOperator<Self>>::NativeOperator, operator: &ShrOperator<P, SO>) -> Self::NativeOperator {
+    fn resolve_operator(&self,parent_operator:<P as ToSimdBinaryOperator<Self>>::NativeOperator, operator: &ShrOperator<P,i32>) -> Self::NativeOperator {
         parent_operator.compose(|p| SimdQueryShrOperator::new(self, p, operator.width))
     }
 }
-impl<P,SL,SR,SO> SimdResolvePatrialBinaryOperator<P,DemoteOperator<P,SO>,SL,SR> for Avx2
+impl<P,SL,SR> SimdResolvePatrialBinaryOperator<P,DemoteOperator<P,i8>,SL,SR,i8> for Avx2
     where Self: Backend + NativeBackend +
                 SimdReg<i32> +
                 Clone,
@@ -1673,7 +1670,7 @@ impl<P,SL,SR,SO> SimdResolvePatrialBinaryOperator<P,DemoteOperator<P,SO>,SL,SR> 
           P: ToSimdBinaryOperator<Self>,
           <P as ToSimdBinaryOperator<Self>>::NativeOperator: SimdBinaryOperator<Self,SL,SR,Output=Regs<<Self as SimdReg<i32>>::Reg,4>,ScalarOutput=i32> {
     type NativeOperator = SimdQueryDemoteOperator<Self,<P as ToSimdBinaryOperator<Self>>::NativeOperator,Regs<<Self as SimdReg<i32>>::Reg,4>,Regs<<Self as SimdReg<i8>>::Reg,1>,i32,i8>;
-    fn resolve_operator(&self,parent_operator:<P as ToSimdBinaryOperator<Self>>::NativeOperator, _: &DemoteOperator<P, SO>) -> Self::NativeOperator {
+    fn resolve_operator(&self,parent_operator:<P as ToSimdBinaryOperator<Self>>::NativeOperator, _: &DemoteOperator<P,i8>) -> Self::NativeOperator {
         parent_operator.compose(|p| SimdQueryDemoteOperator::new(self, p))
     }
 }

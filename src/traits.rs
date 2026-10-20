@@ -1,6 +1,7 @@
 //! Trait and data type features for abstracting SIMD operations
 
 use crate::{ColumnMajorMatrix, MatrixMutView, MatrixView, OwnedVector, VectorMutView, VectorView};
+use crate::backend::avx2::Avx2;
 use crate::backend::common::{Backend, Extent};
 use crate::traits::private::BindBackendBase;
 
@@ -119,16 +120,16 @@ pub trait SimdPartialOperator<BE> where Self: Sized {
     fn compose<F: Fn(Self) -> OP,OP>(self, f: F) -> OP where OP: SimdPartialOperator<BE>;
 }
 /// A trait that converts operators in the abstract layer into operator types associated with specific backends
-pub trait SimdResolvePatrialBinaryOperator<P,OP,SL,SR>
+pub trait SimdResolvePatrialBinaryOperator<P,OP,SL,SR,SO>
     where Self: Backend + NativeBackend,
           P: ToSimdBinaryOperator<Self> {
-    type NativeOperator: SimdBinaryOperator<Self,SL,SR>;
+    type NativeOperator: SimdBinaryOperator<Self,SL,SR,ScalarOutput=SO>;
     fn resolve_operator(&self,parent_operator:<P as ToSimdBinaryOperator<Self>>::NativeOperator,operator:&OP) -> Self::NativeOperator;
 }
 /// A feature that converts binary operators in the abstract layer to operator types associated with specific backends
 pub trait SimdResolveBinaryOperator<OP,SL,SR,SO>
     where Self: Backend + NativeBackend {
-    type NativeOperator: SimdBinaryOperator<Self,SL,SR>;
+    type NativeOperator: SimdBinaryOperator<Self,SL,SR,ScalarOutput=SO>;
     fn resolve_operator(&self,operator:&OP) -> Self::NativeOperator;
 }
 /// The trait to apply operators to vectors
@@ -156,18 +157,16 @@ pub trait SimdQueryVectorStoreSeq<SL,SR,SO,OP> {
     unsafe fn query_vector_store_seq<'a,'b,const N: usize>(&self, l:VectorView<'a,SL,N>, r:VectorView<'b,SR,N>,operator:&OP) -> OwnedVector<SO,N>;
 }
 /// The trait to apply combination operators to vectors
-pub trait SimdCombinationQueryVector<SL,SR,SO>
-    where Self: Backend + NativeBackend {
+pub trait SimdCombinationQueryVector<OP,SL,SR,SO>
+    where OP: SimdBinaryOperator<Self,SL,SR, ScalarOutput = SO>,
+          Self: Backend + NativeBackend {
     ///
     /// # Arguments
     /// * `l` - Left hand side
     /// * `r` - Right hand side
-    unsafe fn combination_query_vector<'a,'b,OP,const N: usize>(
-        &self, l:VectorView<'a,SL,N>, r:VectorView<'b,SR,N>,operator:&OP
-    ) -> OwnedVector<SO,N> where OP: SimdBinaryOperator<Self,SL,SR, ScalarOutput = SO>,
-                                 Self: SimdLoadSeq<SL,<OP as SimdBinaryOperator<Self,SL,SR>>::Lhs> +
-                                       SimdLoadSeq<SR,<OP as SimdBinaryOperator<Self,SL,SR>>::Rhs> +
-                                       SimdStoreSeq<SO,<OP as SimdBinaryOperator<Self,SL,SR>>::Output>;
+    unsafe fn combination_query_vector<'a,'b,const N: usize>(
+        &self, l:VectorView<'a,SL,N>, r:VectorView<'b,SR,N>,operator:OP
+    ) -> OwnedVector<SO,N>;
 }
 /// Apply AddAssign to each element of a Vector
 pub trait SimdAddAssignVector<SL,SR> {
@@ -783,28 +782,34 @@ pub trait ToSimdBinaryOperator<BE>: BinaryOperator<BE>
     where Self: Sized,
           BE: Backend + NativeBackend {
 
-    type NativeOperator: SimdBinaryOperator<BE,Self::Lhs,Self::Rhs>;
+    type NativeOperator: SimdBinaryOperator<BE,Self::Lhs,Self::Rhs,ScalarOutput=Self::Output>;
 
     fn to_simd_operator(&self,backend:&BE) -> Self::NativeOperator;
 }
+/// A trait that represents the ability to perform an arbitrary binary operation and
+/// a subsequent operation on vectors and similar data types4
+pub trait BinaryQuery<R,SL,SR,SO> {
+    type Output;
+    fn query<OP>(self, rhs: R, op: OP) -> Self::Output
+        where OP: BinaryOperator<Avx2,Lhs=SL,Rhs=SR,Output=SO> + ToSimdBinaryOperator<Avx2>,
+              <OP as ToSimdBinaryOperator<Avx2>>::NativeOperator: SimdBinaryOperator<Avx2,SL,SR,ScalarOutput=SO>,
+              Avx2: SimdCombinationQueryVector<<OP as ToSimdBinaryOperator<Avx2>>::NativeOperator,SL,SR,SO>;
+}
 pub(crate) mod kernel {
     use crate::backend::common::Backend;
-    use crate::traits::{NativeBackend, SimdBinaryOperator, SimdLoadSeq, SimdStoreSeq};
+    use crate::traits::{NativeBackend, SimdBinaryOperator};
     use crate::{OwnedVector, VectorView};
 
     /// The trait to apply combination operators to vectors kernel
-    pub trait SimdCombinationQueryVectorKernel<SL, SR, SO>
-        where Self: Backend + NativeBackend {
+    pub trait SimdCombinationQueryVectorKernel<OP, SL, SR, SO>
+        where OP: SimdBinaryOperator<Self, SL, SR, ScalarOutput = SO>,
+              Self: Backend + NativeBackend {
         ///
         /// # Arguments
         /// * `l` - Left hand side
         /// * `r` - Right hand side
-        fn combination_query_vector<'a, 'b, OP, const N: usize, const LANES: usize>(
-            &self, l: VectorView<'a, SL, N>, r: VectorView<'b, SR, N>, operator: &OP
-        ) -> OwnedVector<SO, N> where
-            OP: SimdBinaryOperator<Self, SL, SR, ScalarOutput = SO>,
-            Self: SimdLoadSeq<SL, <OP as SimdBinaryOperator<Self, SL, SR>>::Lhs> +
-            SimdLoadSeq<SR, <OP as SimdBinaryOperator<Self, SL, SR>>::Rhs> +
-            SimdStoreSeq<SO, <OP as SimdBinaryOperator<Self, SL, SR>>::Output>;
+        fn combination_query_vector<'a, 'b, const N: usize, const LANES: usize>(
+            &self, l: VectorView<'a, SL, N>, r: VectorView<'b, SR, N>, operator: OP
+        ) -> OwnedVector<SO, N>;
     }
 }

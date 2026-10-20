@@ -7,7 +7,7 @@ use crate::backend::autoselect::{AutoSelect, SelectedBackend};
 use crate::backend::avx2::Avx2;
 use crate::error::{InstantiationError, TryFromSliceError};
 use crate::backend::common::{Backend, Extent};
-use crate::traits::{BindBackend, BitsBitAnd, BitsBitOr, BitsBitXor, Demote, MatrixSize, Dot, IsScaler, NativeBackend, Product, Promote, SimdAddAssignMatrix, SimdAddAssignVector, SimdAddVector, SimdBitAndVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdConvertMatrix, SimdConvertVector, SimdDemoteVector, SimdDot, SimdMatMul, SimdMatVec, SimdMulAssignVector, SimdMulVector, SimdOuterProduct, SimdPromoteVector, SimdReg, SimdScalarMulAssignMatrix, SimdScalarMulAssignVector, SimdScalarMulMatrix, SimdScalarMulVector, SimdShlVector, SimdShrVector, SimdSubAssignVector, SimdSubVector, SimdVMat, ToColumnMajor, Transpose, MapProduct, Mapper, SimdMapVMat};
+use crate::traits::{BindBackend, BitsBitAnd, BitsBitOr, BitsBitXor, Demote, MatrixSize, Dot, IsScaler, NativeBackend, Product, Promote, SimdAddAssignMatrix, SimdAddAssignVector, SimdAddVector, SimdBitAndVector, SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdConvertMatrix, SimdConvertVector, SimdDemoteVector, SimdDot, SimdMatMul, SimdMatVec, SimdMulAssignVector, SimdMulVector, SimdOuterProduct, SimdPromoteVector, SimdReg, SimdScalarMulAssignMatrix, SimdScalarMulAssignVector, SimdScalarMulMatrix, SimdScalarMulVector, SimdShlVector, SimdShrVector, SimdSubAssignVector, SimdSubVector, SimdVMat, ToColumnMajor, Transpose, MapProduct, Mapper, SimdMapVMat, BinaryQuery, BinaryOperator, SimdCombinationQueryVector, ToSimdBinaryOperator};
 use crate::traits::private::BindBackendBase;
 
 pub mod backend;
@@ -2278,5 +2278,37 @@ impl<'a,BE,SL,SR,SO,const N: usize,const M: usize,const K: usize> Product<Column
         }
 
         o.bind::<BE>().unwrap()
+    }
+}
+impl<'a,'b,SL,SR,SO,const N: usize> BinaryQuery<Vector<'b,SR,N,AutoSelect>,SL,SR,SO> for Vector<'a,SL,N,AutoSelect>
+    where SO: 'static,
+          for<'c> VectorView<'c,SL,N>: From<&'c Vector<'a,SL,N,AutoSelect>>,
+          for<'c> VectorView<'c,SR,N>: From<&'c Vector<'b,SR,N,AutoSelect>> {
+    type Output = AccVector<SO,N,AutoSelect>;
+
+    fn query<OP>(self, rhs: Vector<'b,SR,N,AutoSelect>, op: OP) -> AccVector<SO,N,AutoSelect>
+        where OP: BinaryOperator<Avx2,Lhs=SL,Rhs=SR,Output=SO> + ToSimdBinaryOperator<Avx2>,
+              Avx2: SimdCombinationQueryVector<<OP as ToSimdBinaryOperator<Avx2>>::NativeOperator,SL,SR,SO> {
+        let o = match self.backend.selected {
+            SelectedBackend::Avx2(ref backend) => {
+                unsafe { backend.combination_query_vector((&self).into(), (&rhs).into(), op.to_simd_operator(backend)) }
+            }
+        };
+
+        o.bind_auto().unwrap()
+    }
+}
+impl<'a,'b,SL,SR,SO,const N: usize> BinaryQuery<Vector<'b,SR,N,Avx2>,SL,SR,SO> for Vector<'a,SL,N,Avx2>
+    where SO: 'static,
+          for<'c> VectorView<'c,SL,N>: From<&'c Vector<'a,SL,N,Avx2>>,
+          for<'c> VectorView<'c,SR,N>: From<&'c Vector<'b,SR,N,Avx2>> {
+    type Output = AccVector<SO,N,Avx2>;
+
+    fn query<OP>(self, rhs: Vector<'b,SR,N,Avx2>, op: OP) -> AccVector<SO,N,Avx2>
+        where OP: BinaryOperator<Avx2,Lhs=SL,Rhs=SR,Output=SO> + ToSimdBinaryOperator<Avx2>,
+              Avx2: SimdCombinationQueryVector<<OP as ToSimdBinaryOperator<Avx2>>::NativeOperator,SL,SR,SO> {
+        let o =  unsafe { self.backend.combination_query_vector((&self).into(), (&rhs).into(), op.to_simd_operator(&self.backend)) };
+
+        o.bind::<Avx2>().unwrap()
     }
 }
