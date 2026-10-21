@@ -2281,11 +2281,10 @@ impl<'a,BE,SL,SR,SO,const N: usize,const M: usize,const K: usize> Product<Column
     }
 }
 impl<'a,'b,SL,SR,SO,const N: usize> BinaryQuery<Vector<'b,SR,N,AutoSelect>,SL,SR,SO> for Vector<'a,SL,N,AutoSelect>
-    where SO: 'static,
-          for<'c> VectorView<'c,SL,N>: From<&'c Vector<'a,SL,N,AutoSelect>>,
-          for<'c> VectorView<'c,SR,N>: From<&'c Vector<'b,SR,N,AutoSelect>> {
+    where SO: 'static {
     type Output = AccVector<SO,N,AutoSelect>;
 
+    #[inline(always)]
     fn query<OP>(self, rhs: Vector<'b,SR,N,AutoSelect>, op: OP) -> AccVector<SO,N,AutoSelect>
         where OP: BinaryOperator<Lhs=SL,Rhs=SR,Output=SO> + ToSimdBinaryOperator<Avx2>,
               Avx2: SimdCombinationQueryVector<<OP as ToSimdBinaryOperator<Avx2>>::NativeOperator,SL,SR,SO> {
@@ -2299,11 +2298,10 @@ impl<'a,'b,SL,SR,SO,const N: usize> BinaryQuery<Vector<'b,SR,N,AutoSelect>,SL,SR
     }
 }
 impl<'a,'b,SL,SR,SO,const N: usize> BinaryQuery<Vector<'b,SR,N,Avx2>,SL,SR,SO> for Vector<'a,SL,N,Avx2>
-    where SO: 'static,
-          for<'c> VectorView<'c,SL,N>: From<&'c Vector<'a,SL,N,Avx2>>,
-          for<'c> VectorView<'c,SR,N>: From<&'c Vector<'b,SR,N,Avx2>> {
+    where SO: 'static {
     type Output = AccVector<SO,N,Avx2>;
 
+    #[inline(always)]
     fn query<OP>(self, rhs: Vector<'b,SR,N,Avx2>, op: OP) -> AccVector<SO,N,Avx2>
         where OP: BinaryOperator<Lhs=SL,Rhs=SR,Output=SO> + ToSimdBinaryOperator<Avx2>,
               Avx2: SimdCombinationQueryVector<<OP as ToSimdBinaryOperator<Avx2>>::NativeOperator,SL,SR,SO> {
@@ -2318,6 +2316,7 @@ impl<'a,SL,SR,SO,const N: usize> BinaryQuery<Vector<'a,SR,N,AutoSelect>,SL,SR,SO
           for<'b> Vector<'b,SL,N,AutoSelect>: BinaryQuery<Vector<'b,SR,N,AutoSelect>,SL,SR,SO,Output=AccVector<SO,N,AutoSelect>> {
     type Output = AccVector<SO,N,AutoSelect>;
 
+    #[inline(always)]
     fn query<OP>(self, rhs: Vector<'a,SR,N,AutoSelect>, op: OP) -> AccVector<SO,N,AutoSelect>
         where OP: BinaryOperator<Lhs=SL,Rhs=SR,Output=SO> + ToSimdBinaryOperator<Avx2>,
               Avx2: SimdCombinationQueryVector<<OP as ToSimdBinaryOperator<Avx2>>::NativeOperator,SL,SR,SO> {
@@ -2330,6 +2329,7 @@ impl<'a,SL,SR,SO,const N: usize> BinaryQuery<Vector<'a,SR,N,Avx2>,SL,SR,SO> for 
           for<'b> Vector<'b,SL,N,Avx2>: BinaryQuery<Vector<'b,SR,N,Avx2>,SL,SR,SO,Output=AccVector<SO,N,Avx2>> {
     type Output = AccVector<SO,N,Avx2>;
 
+    #[inline(always)]
     fn query<OP>(self, rhs: Vector<'a,SR,N,Avx2>, op: OP) -> AccVector<SO,N,Avx2>
         where OP: BinaryOperator<Lhs=SL,Rhs=SR,Output=SO> + ToSimdBinaryOperator<Avx2>,
               Avx2: SimdCombinationQueryVector<<OP as ToSimdBinaryOperator<Avx2>>::NativeOperator,SL,SR,SO> {

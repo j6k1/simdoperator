@@ -1644,6 +1644,7 @@ impl<SL,SR,SO> SimdResolveBinaryOperator<AddOperator<SL,SR,SO>,SL,SR,SO> for Avx
           SO: From<SL> + From<SR> + Add<SO,Output=SO> + Copy,
           SimdQueryAddOperator<SL,SR,SO,Self>: SimdBinaryOperator<Self,SL,SR,ScalarOutput=SO> {
     type NativeOperator = SimdQueryAddOperator<SL,SR,SO,Self>;
+    #[inline(always)]
     fn resolve_operator(&self,_: &AddOperator<SL,SR,SO>) -> Self::NativeOperator {
         SimdQueryAddOperator::new(self)
     }
@@ -1657,6 +1658,7 @@ impl<P,SL,SR> SimdResolvePatrialBinaryOperator<P,ShrOperator<P,i32>,SL,SR,i32> f
           P: ToSimdBinaryOperator<Self>,
           <P as ToSimdBinaryOperator<Self>>::NativeOperator: SimdBinaryOperator<Self,SL,SR,Output=Regs<<Self as SimdReg<i32>>::Reg,4>,ScalarOutput=i32> {
     type NativeOperator = SimdQueryShrOperator<Self,<P as ToSimdBinaryOperator<Self>>::NativeOperator,Regs<<Self as SimdReg<i32>>::Reg,4>,i32>;
+    #[inline(always)]
     fn resolve_operator(&self,parent_operator:<P as ToSimdBinaryOperator<Self>>::NativeOperator, operator: &ShrOperator<P,i32>) -> Self::NativeOperator {
         parent_operator.compose(|p| SimdQueryShrOperator::new(self, p, operator.width))
     }
@@ -1670,6 +1672,7 @@ impl<P,SL,SR> SimdResolvePatrialBinaryOperator<P,DemoteOperator<P,i8>,SL,SR,i8> 
           P: ToSimdBinaryOperator<Self>,
           <P as ToSimdBinaryOperator<Self>>::NativeOperator: SimdBinaryOperator<Self,SL,SR,Output=Regs<<Self as SimdReg<i32>>::Reg,4>,ScalarOutput=i32> {
     type NativeOperator = SimdQueryDemoteOperator<Self,<P as ToSimdBinaryOperator<Self>>::NativeOperator,Regs<<Self as SimdReg<i32>>::Reg,4>,Regs<<Self as SimdReg<i8>>::Reg,1>,i32,i8>;
+    #[inline(always)]
     fn resolve_operator(&self,parent_operator:<P as ToSimdBinaryOperator<Self>>::NativeOperator, _: &DemoteOperator<P,i8>) -> Self::NativeOperator {
         parent_operator.compose(|p| SimdQueryDemoteOperator::new(self, p))
     }
