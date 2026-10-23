@@ -99,20 +99,14 @@ impl<BE,SL,SR,SO> SimdPartialOperator<BE> for SimdAddOperator<SL,SR,SO,BE>
 /// A version that combines multiple operators of a type representing operators
 /// that perform addition within SIMD registers
 pub struct SimdQueryAddOperator<SL,SR,SO,BE>
-    where BE: Backend + NativeBackend +
-              SimdReg<SL> +
-              SimdReg<SR> +
-              SimdReg<SO> {
+    where BE: Backend + NativeBackend {
     sl:PhantomData<SL>,
     sr:PhantomData<SR>,
     so:PhantomData<SO>,
     backend: BE
 }
 impl<SL,SR,SO,BE> SimdQueryAddOperator<SL,SR,SO,BE>
-    where BE: Backend + NativeBackend + Clone +
-              SimdReg<SL> +
-              SimdReg<SR> +
-              SimdReg<SO> {
+    where BE: Backend + NativeBackend + Clone {
     #[inline(always)]
     pub fn new(backend:&BE) -> Self {
         Self {
@@ -166,11 +160,8 @@ impl<BE> SimdBinaryOperator<BE,i32,i8> for SimdQueryAddOperator<i32,i8,i32,BE>
     }
 }
 impl<BE,SL,SR,SO> SimdPartialOperator<BE> for SimdQueryAddOperator<SL,SR,SO,BE>
-    where BE: Backend + NativeBackend +
-              SimdReg<SL> +
-              SimdReg<SR> +
-              SimdReg<SO>,
-      SO: From<SL> + From<SR> + Add<SO,Output=SO> {
+    where BE: Backend + NativeBackend,
+          SO: From<SL> + From<SR> + Add<SO,Output=SO> {
     #[inline(always)]
     fn compose<F: Fn(Self) -> OP,OP>(self, f: F) -> OP {
         f(self)
@@ -256,9 +247,7 @@ impl<BE,P,SL,SR> SimdBinaryOperator<BE,SL,SR> for SimdQueryShrOperator<BE,P,Regs
 /// A version consisting of multiple operators combined from a type
 /// that represents an operator for downcasting data types within SIMD registers
 pub struct SimdQueryDemoteOperator<BE,P,I,O,SI,SO>
-    where BE: Backend + NativeBackend +
-              SimdReg<SI> +
-              SimdReg<SO>,
+    where BE: Backend + NativeBackend,
           I: Copy,
           O: Copy,
           SI: Copy,
@@ -271,9 +260,7 @@ pub struct SimdQueryDemoteOperator<BE,P,I,O,SI,SO>
     so: PhantomData<SO>,
 }
 impl<BE,P,I,O,SI,SO> SimdQueryDemoteOperator<BE,P,I,O,SI,SO>
-    where BE: Backend + NativeBackend + Clone +
-              SimdReg<SI> +
-              SimdReg<SO>,
+    where BE: Backend + NativeBackend + Clone,
           I: Copy,
           O: Copy,
           SI: Copy,
