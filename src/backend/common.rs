@@ -2,7 +2,7 @@
 
 use std::marker::PhantomData;
 use std::ops::{Add, AddAssign, Mul, Sub};
-use crate::traits::{SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportMul, FoldRegs, SimdOuterProduct, SimdMulAssignVector, SimdAddAssignVector, SimdSubAssignVector, SimdShiftWidth, SimdScalarMulAssignVector, SimdAddAssignMatrix, SimdScalarMulAssignMatrix, SimdScalarMulMatrix, SimdConvertMatrix, SimdLoadSeq, SimdScalarMulVectorInto, SimdHSum, SimdZero, SimdPartialDot, SimdDotKernel, IsScaler, SimdMatMulKernel, SimdQueryVector, SimdBinaryOperator, NativeBackend, Dim, DimOne, Loader, Mapper, SimdPartialOperator, BinaryOperator, ToSimdBinaryOperator, SimdResolvePatrialBinaryOperator, SimdResolveBinaryOperator};
+use crate::traits::{SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportMul, FoldRegs, SimdOuterProduct, SimdMulAssignVector, SimdAddAssignVector, SimdSubAssignVector, SimdShiftWidth, SimdScalarMulAssignVector, SimdAddAssignMatrix, SimdScalarMulAssignMatrix, SimdScalarMulMatrix, SimdConvertMatrix, SimdLoadSeq, SimdScalarMulVectorInto, SimdHSum, SimdZero, SimdPartialDot, SimdDotKernel, IsScaler, SimdMatMulKernel, SimdQueryVector, SimdBinaryOperator, NativeBackend, Dim, DimOne, Loader, Mapper, SimdPartialOperator, BinaryOperator, ToSimdBinaryOperator, SimdResolvePatrialBinaryOperator, SimdResolveBinaryOperator, SimdPartialLoadSeq, SimdPartialStoreSeq, SimdPartialLoad, SimdRegBuf, SimdPartialStore};
 use crate::{ColumnMajorMatrix, MatrixMutView, MatrixView, OwnedVector, VectorMutView, VectorView};
 use crate::error::InstantiationError;
 use crate::traits::kernel::SimdCombinationQueryVectorKernel;
@@ -10,6 +10,14 @@ use crate::traits::kernel::SimdCombinationQueryVectorKernel;
 /// A trait that defines the instantiation of a SIMD arithmetic backend
 pub trait Backend: Sized + Send + Sync + 'static {
     fn new() -> Result<Self,InstantiationError>;
+}
+/// Calculate the number of registers actually used
+pub const fn used_regs<BE,T,const REGS: usize, const N: usize>() -> usize where BE: SimdLanes<T> {
+    (N % (REGS * <BE as SimdLanes<T>>::LANES)) / <BE as SimdLanes<T>>::LANES
+}
+/// Calculate a size that does not fit within the SIMD register size
+pub const fn remaining<BE,T,const N: usize>() -> usize where BE: SimdLanes<T> {
+    N % <BE as SimdLanes<T>>::LANES
 }
 /// A set of one or more registers
 #[derive(Clone,Copy)]
@@ -401,20 +409,140 @@ impl<T,BE> SimdLoadSeq<T,Regs<<Self as SimdReg<T>>::Reg,4>> for BE
         Regs::new([a,b,c,d])
     }
 }
-impl<T,BE> SimdStoreSeq<T,Regs<<Self as SimdReg<T>>::Reg,4>> for BE
+impl<T,BE> SimdPartialLoadSeq<T,Regs<<Self as SimdReg<T>>::Reg,1>> for BE
     where BE: Backend +
+              SimdLanes<T> +
+              SimdReg<T> +
+              SimdLoad<T> +
+              SimdPartialLoad<T>,
+          T: Default + Copy {
+    #[inline(always)]
+    unsafe fn partial_load_seq<const N: usize>(&self, input: &[T]) -> Regs<<Self as SimdReg<T>>::Reg,1> {
+        let rem = remaining::<Self,T,N>();
+
+        unsafe {
+            Regs::new([self.partial_load(input, rem)])
+        }
+    }
+}
+impl<T,BE> SimdPartialLoadSeq<T,Regs<<Self as SimdReg<T>>::Reg,2>> for BE
+    where BE: Backend +
+              SimdLanes<T> +
+              SimdReg<T> +
+              SimdLoad<T> +
+              SimdZero<T> +
+              SimdPartialLoad<T>,
+          T: Default + Copy {
+    #[inline(always)]
+    unsafe fn partial_load_seq<const N: usize>(&self, input: &[T]) -> Regs<<Self as SimdReg<T>>::Reg,2> {
+        let rem = remaining::<Self,T,N>();
+        let used_regs = used_regs::<Self,T,2,N>();
+
+        let preg = if rem == 0 {
+            <BE as SimdZero<T>>::zero()
+        } else {
+            unsafe {
+                self.partial_load(input,rem)
+            }
+        };
+
+        match used_regs {
+            0 => {
+                Regs::new([preg, <BE as SimdZero<T>>::zero()])
+            },
+            1 => {
+                unsafe {
+                    Regs::new([self.load(input.as_ptr()), preg])
+                }
+            },
+            _ => {
+                Regs::new([<BE as SimdZero<T>>::zero(), <BE as SimdZero<T>>::zero()])
+            }
+        }
+    }
+}
+impl<T,BE> SimdPartialLoadSeq<T,Regs<<Self as SimdReg<T>>::Reg,4>> for BE
+    where BE: Backend +
+              SimdLanes<T> +
+              SimdReg<T> +
+              SimdLoad<T> +
+              SimdZero<T> +
+              SimdPartialLoad<T>,
+          T: Default + Copy {
+    #[inline(always)]
+    unsafe fn partial_load_seq<const N: usize>(&self, input: &[T]) -> Regs<<Self as SimdReg<T>>::Reg,4> {
+        let rem = remaining::<Self,T,N>();
+        let used_regs = used_regs::<Self,T,4,N>();
+
+        let preg = if rem == 0 {
+            <BE as SimdZero<T>>::zero()
+        } else {
+            unsafe {
+            self.partial_load(input,rem)
+            }
+        };
+
+        match used_regs {
+            0 => {
+                Regs::new([
+                    preg,
+                    <BE as SimdZero<T>>::zero(),
+                    <BE as SimdZero<T>>::zero(),
+                    <BE as SimdZero<T>>::zero()])
+            },
+            1 => {
+                unsafe {
+                    Regs::new([
+                        self.load(input.as_ptr()),
+                        preg,
+                        <BE as SimdZero<T>>::zero(),
+                        <BE as SimdZero<T>>::zero()])
+                }
+            },
+            2 => {
+                unsafe {
+                    Regs::new([
+                        self.load(input.as_ptr()),
+                        self.load(input[<Self as SimdLanes<T>>::LANES..].as_ptr()),
+                        preg,
+                        <BE as SimdZero<T>>::zero()])
+                }
+            },
+            3 => {
+                unsafe {
+                    Regs::new([
+                        self.load(input.as_ptr()),
+                        self.load(input[<Self as SimdLanes<T>>::LANES..].as_ptr()),
+                        self.load(input[(<Self as SimdLanes<T>>::LANES * 2)..].as_ptr()),
+                        preg
+                    ])
+                }
+            },
+            _ => {
+                Regs::new([
+                    <BE as SimdZero<T>>::zero(),
+                    <BE as SimdZero<T>>::zero(),
+                    <BE as SimdZero<T>>::zero(),
+                    <BE as SimdZero<T>>::zero()
+                ])
+            }
+        }
+    }
+}
+impl<T,BE> SimdStoreSeq<T,Regs<<Self as SimdReg<T>>::Reg,1>> for BE
+    where BE: Backend +
+              SimdLanes<T> +
+              SimdReg<T> +
+              SimdStore<T> +
               SimdLanes<T> +
               SimdReg<T> +
               SimdStore<T> {
     #[inline(always)]
-    unsafe fn store_seq(&self, ptr: *mut T, regs: Regs<<Self as SimdReg<T>>::Reg,4>) {
-        let &[a,b,c,d] = regs.as_ref();
+    unsafe fn store_seq(&self, ptr: *mut T, regs: Regs<<Self as SimdReg<T>>::Reg,1>) {
+        let &[reg] = regs.as_ref();
 
         unsafe {
-            self.store(ptr, a);
-            self.store(ptr.add(1 * <Self as SimdLanes<T>>::LANES),b);
-            self.store(ptr.add(2 * <Self as SimdLanes<T>>::LANES), c);
-            self.store(ptr.add(3 * <Self as SimdLanes<T>>::LANES),d);
+            self.store(ptr, reg);
         }
     }
 }
@@ -436,20 +564,138 @@ impl<T,BE> SimdStoreSeq<T,Regs<<Self as SimdReg<T>>::Reg,2>> for BE
         }
     }
 }
-impl<T,BE> SimdStoreSeq<T,Regs<<Self as SimdReg<T>>::Reg,1>> for BE
+impl<T,BE> SimdStoreSeq<T,Regs<<Self as SimdReg<T>>::Reg,4>> for BE
+    where BE: Backend +
+              SimdLanes<T> +
+              SimdReg<T> +
+              SimdStore<T> {
+    #[inline(always)]
+    unsafe fn store_seq(&self, ptr: *mut T, regs: Regs<<Self as SimdReg<T>>::Reg,4>) {
+        let &[a,b,c,d] = regs.as_ref();
+
+        unsafe {
+            self.store(ptr, a);
+            self.store(ptr.add(1 * <Self as SimdLanes<T>>::LANES),b);
+            self.store(ptr.add(2 * <Self as SimdLanes<T>>::LANES), c);
+            self.store(ptr.add(3 * <Self as SimdLanes<T>>::LANES),d);
+        }
+    }
+}
+impl<T,BE> SimdPartialStoreSeq<T,Regs<<Self as SimdReg<T>>::Reg,1>> for BE
     where BE: Backend +
               SimdLanes<T> +
               SimdReg<T> +
               SimdStore<T> +
               SimdLanes<T> +
               SimdReg<T> +
-              SimdStore<T> {
+              SimdStore<T> +
+              SimdPartialStore<T> +
+              SimdRegBuf,
+          T: Default + Copy  {
     #[inline(always)]
-    unsafe fn store_seq(&self, ptr: *mut T, regs: Regs<<Self as SimdReg<T>>::Reg,1>) {
+    unsafe fn partial_store_seq<const N: usize>(&self, output: &mut [T], regs: Regs<<Self as SimdReg<T>>::Reg,1>) {
+        let rem = remaining::<Self,T,N>();
+
         let &[reg] = regs.as_ref();
 
         unsafe {
-            self.store(ptr, reg);
+            self.partial_store(output,reg,rem)
+        }
+    }
+}
+impl<T,BE> SimdPartialStoreSeq<T,Regs<<Self as SimdReg<T>>::Reg,2>> for BE
+    where BE: Backend +
+              SimdLanes<T> +
+              SimdReg<T> +
+              SimdStore<T> +
+              SimdLanes<T> +
+              SimdReg<T> +
+              SimdStore<T> +
+              SimdZero<T> +
+              SimdPartialStore<T> +
+              SimdRegBuf,
+          T: Default + Copy  {
+    #[inline(always)]
+    unsafe fn partial_store_seq<const N: usize>(&self, output: &mut [T], regs: Regs<<Self as SimdReg<T>>::Reg,2>) {
+        let used_regs = used_regs::<Self,T,2,N>();
+        let rem = remaining::<Self,T,N>();
+
+        let &[a,b] = regs.as_ref();
+
+        match used_regs {
+            1 => unsafe { self.store(output.as_mut_ptr(),a) },
+            _ => ()
+        }
+
+        if rem > 0 {
+            let r = match used_regs {
+                0 => a,
+                1 => b,
+                _ => <BE as SimdZero<T>>::zero(),
+            };
+            let offset = used_regs * <Self as SimdLanes<T>>::LANES;
+
+            unsafe {
+                self.partial_store(&mut output[offset..],r,rem)
+            }
+        }
+    }
+}
+impl<T,BE> SimdPartialStoreSeq<T,Regs<<Self as SimdReg<T>>::Reg,4>> for BE
+    where BE: Backend +
+              SimdLanes<T> +
+              SimdReg<T> +
+              SimdStore<T> +
+              SimdLanes<T> +
+              SimdReg<T> +
+              SimdStore<T> +
+              SimdZero<T> +
+              SimdPartialStore<T> +
+              SimdRegBuf,
+          T: Default + Copy  {
+    #[inline(always)]
+    unsafe fn partial_store_seq<const N: usize>(&self, output: &mut [T], regs: Regs<<Self as SimdReg<T>>::Reg,4>) {
+        let used_regs = used_regs::<Self,T,4,N>();
+        let rem = remaining::<Self,T,N>();
+
+        let &[a,b,c,d] = regs.as_ref();
+
+        match used_regs {
+            1 => {
+                unsafe {
+                    self.store(output.as_mut_ptr(),a);
+                }
+            },
+            2 => {
+                unsafe {
+                    self.store(output.as_mut_ptr(),a);
+                    self.store(output[<Self as SimdLanes<T>>::LANES..].as_mut_ptr(),b);
+                }
+            },
+            3 => {
+                unsafe {
+                    self.store(output.as_mut_ptr(), a);
+                    self.store(output[<Self as SimdLanes<T>>::LANES..].as_mut_ptr(), b);
+                    self.store(output[(<Self as SimdLanes<T>>::LANES * 2)..].as_mut_ptr(), c)
+                }
+            },
+            _ => ()
+        }
+
+        if rem > 0 {
+            let r = match used_regs {
+                0 => a,
+                1 => b,
+                2 => c,
+                3 => d,
+                _ => <BE as SimdZero<T>>::zero(),
+            };
+
+            let offset = used_regs * <Self as SimdLanes<T>>::LANES;
+
+            unsafe {
+                self.partial_store(&mut output[offset..],r,rem)
+            }
         }
     }
 }
@@ -504,7 +750,10 @@ impl<BE,OP,SL,SR,SO> SimdCombinationQueryVectorKernel<OP,SL,SR,SO> for BE
               SimdReg<SO> +
               SimdLoadSeq<SL,<OP as SimdBinaryOperator<Self,SL,SR>>::Lhs> +
               SimdLoadSeq<SR,<OP as SimdBinaryOperator<Self,SL,SR>>::Rhs> +
-              SimdStoreSeq<SO,<OP as SimdBinaryOperator<Self,SL,SR>>::Output>,
+              SimdStoreSeq<SO,<OP as SimdBinaryOperator<Self,SL,SR>>::Output> +
+              SimdPartialLoadSeq<SL,<OP as SimdBinaryOperator<Self,SL,SR>>::Lhs> +
+              SimdPartialLoadSeq<SR,<OP as SimdBinaryOperator<Self,SL,SR>>::Rhs> +
+              SimdPartialStoreSeq<SO,<OP as SimdBinaryOperator<Self,SL,SR>>::Output>,
           OP: SimdBinaryOperator<Self,SL,SR, ScalarOutput = SO>,
           SL: Copy,
           SR: Copy,
@@ -538,9 +787,12 @@ impl<BE,OP,SL,SR,SO> SimdCombinationQueryVectorKernel<OP,SL,SR,SO> for BE
             let chuks_o_remainder = ref_o.chunks_exact_mut(LANES).into_remainder();
 
             if N % LANES != 0 {
-                for (o,(l,r)) in chuks_o_remainder.iter_mut().zip(chuks_l_remainder.iter().zip(chuks_r_remainder.iter())) {
-                    *o = operator.apply_scalar(*l,*r);
-                }
+                let ra = self.partial_load_seq::<N>(chuks_l_remainder);
+                let rb = self.partial_load_seq::<N>(chuks_r_remainder);
+
+                let rr = operator.apply_lanes(ra,rb);
+
+                self.partial_store_seq::<N>(chuks_o_remainder,rr);
             }
 
             rs

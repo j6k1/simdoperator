@@ -1,9 +1,12 @@
 //! Implementation of SIMD Operations Using AVX2
 
-use std::arch::x86_64::{__m256, __m256d, __m256i, _mm256_add_epi16, _mm256_add_epi32, _mm256_add_epi8, _mm256_add_pd, _mm256_add_ps, _mm256_and_pd, _mm256_and_ps, _mm256_and_si256, _mm256_andnot_si256, _mm256_blendv_epi8, _mm256_blendv_pd, _mm256_blendv_ps, _mm256_castpd256_pd128, _mm256_castpd_si256, _mm256_castps256_ps128, _mm256_castps_si256, _mm256_castsi256_pd, _mm256_castsi256_ps, _mm256_castsi256_si128, _mm256_cmp_pd, _mm256_cmp_ps, _mm256_cmpeq_epi16, _mm256_cmpeq_epi32, _mm256_cmpeq_epi8, _mm256_cmpgt_epi16, _mm256_cmpgt_epi32, _mm256_cmpgt_epi8, _mm256_cvtepi16_epi32, _mm256_cvtepi32_ps, _mm256_cvtepi8_epi16, _mm256_cvtps_epi32, _mm256_extractf128_pd, _mm256_extractf128_ps, _mm256_extracti128_si256, _mm256_fmadd_pd, _mm256_fmadd_ps, _mm256_loadu_pd, _mm256_loadu_ps, _mm256_loadu_si256, _mm256_madd_epi16, _mm256_mul_pd, _mm256_mul_ps, _mm256_mullo_epi16, _mm256_mullo_epi32, _mm256_or_si256, _mm256_packs_epi16, _mm256_packs_epi32, _mm256_permute4x64_epi64, _mm256_set1_epi16, _mm256_set1_epi32, _mm256_set1_epi64x, _mm256_set1_epi8, _mm256_set1_pd, _mm256_set1_ps, _mm256_setzero_pd, _mm256_setzero_ps, _mm256_setzero_si256, _mm256_sllv_epi32, _mm256_sllv_epi64, _mm256_srlv_epi32, _mm256_srlv_epi64, _mm256_storeu_pd, _mm256_storeu_ps, _mm256_storeu_si256, _mm256_sub_epi16, _mm256_sub_epi32, _mm256_sub_epi8, _mm256_sub_pd, _mm256_sub_ps, _mm256_unpackhi_epi32, _mm256_unpackhi_ps, _mm256_unpacklo_epi32, _mm256_unpacklo_ps, _mm256_xor_si256, _mm_add_epi32, _mm_add_pd, _mm_add_ps, _mm_add_sd, _mm_add_ss, _mm_cvtsd_f64, _mm_cvtsi128_si32, _mm_cvtss_f32, _mm_movehl_ps, _mm_shuffle_ps, _mm_srli_si128, _mm_unpackhi_pd, _CMP_EQ_OQ, _CMP_GT_OQ};
+use std::arch::x86_64::{__m256, __m256d, __m256i, _mm256_add_epi16, _mm256_add_epi32, _mm256_add_epi8, _mm256_add_pd, _mm256_add_ps, _mm256_and_pd, _mm256_and_ps, _mm256_and_si256, _mm256_andnot_si256, _mm256_blendv_epi8, _mm256_blendv_pd, _mm256_blendv_ps, _mm256_castpd256_pd128, _mm256_castpd_si256, _mm256_castps256_ps128, _mm256_castps_si256, _mm256_castsi256_pd, _mm256_castsi256_ps, _mm256_castsi256_si128, _mm256_cmp_pd, _mm256_cmp_ps, _mm256_cmpeq_epi16, _mm256_cmpeq_epi32, _mm256_cmpeq_epi8, _mm256_cmpgt_epi16, _mm256_cmpgt_epi32, _mm256_cmpgt_epi8, _mm256_cvtepi16_epi32, _mm256_cvtepi32_ps, _mm256_cvtepi8_epi16, _mm256_cvtps_epi32, _mm256_extractf128_pd, _mm256_extractf128_ps, _mm256_extracti128_si256, _mm256_fmadd_pd, _mm256_fmadd_ps, _mm256_loadu_pd, _mm256_loadu_ps, _mm256_loadu_si256, _mm256_madd_epi16, _mm256_mul_pd, _mm256_mul_ps, _mm256_mullo_epi16, _mm256_mullo_epi32, _mm256_or_si256, _mm256_packs_epi16, _mm256_packs_epi32, _mm256_permute4x64_epi64, _mm256_set1_epi16, _mm256_set1_epi32, _mm256_set1_epi64x, _mm256_set1_epi8, _mm256_set1_pd, _mm256_set1_ps, _mm256_setzero_pd, _mm256_setzero_ps, _mm256_setzero_si256, _mm256_sllv_epi32, _mm256_sllv_epi64, _mm256_srlv_epi32, _mm256_srlv_epi64, _mm256_storeu_pd, _mm256_storeu_ps, _mm256_storeu_si256, _mm256_sub_epi16, _mm256_sub_epi32, _mm256_sub_epi8, _mm256_sub_pd, _mm256_sub_ps, _mm256_unpackhi_epi32, _mm256_unpackhi_ps, _mm256_unpacklo_epi32, _mm256_unpacklo_ps, _mm256_xor_si256, _mm_add_epi32, _mm_add_pd, _mm_add_ps, _mm_add_sd, _mm_add_ss, _mm_cvtsd_f64, _mm_cvtsi128_si32, _mm_cvtss_f32, _mm_movehl_ps, _mm_shuffle_ps, _mm_srli_si128, _mm_unpackhi_pd, _CMP_EQ_OQ, _CMP_GT_OQ, _mm256_srav_epi32, _mm256_srav_epi64, _mm256_load_si256, _mm256_load_ps, _mm256_load_pd, _mm256_store_si256, _mm256_store_ps, _mm256_store_pd};
+use std::mem;
+use std::mem::MaybeUninit;
 use std::ops::{Add, AddAssign, Mul};
+use std::ptr::copy_nonoverlapping;
 use crate::backend::common::{mm_shuffle, Backend, Regs, SimdAddOperator, Extent, AddOperator, SimdQueryShrOperator, ShrOperator, SimdQueryAddOperator, DemoteOperator, SimdQueryDemoteOperator};
-use crate::traits::{SimdCols, SimdDot, SimdHSum, SimdLanes, SimdLoad, SimdMask, SimdMatMul, SimdMatVec, SimdMulAdd, SimdPartialDot, SimdReg, SimdRows, SimdStore, SimdTranspose, SimdVMat, SimdZero, SimdAdd, SimdSub, SimdMul, SimdPromote, SimdScalarMul, SimdSplat, SimdBitOr, SimdBitAnd, SimdReinterpret, SimdBitXor, SimdBitNot, BitsBitAnd, BitsBitOr, BitsBitXor, SimdShl, SimdShr, SimdDemote, SimdConvert, FoldRegs, SimdShiftWidth, NativeBackend, SimdDotKernel, SimdMatMulKernel, SimdAddVector, SimdQueryVector, SimdMapVMat, Mapper, SimdResolveBinaryOperator, ToSimdBinaryOperator, SimdResolvePatrialBinaryOperator, SimdBinaryOperator, SimdCombinationQueryVector, SimdLoadSeq, SimdStoreSeq};
+use crate::traits::{SimdCols, SimdDot, SimdHSum, SimdLanes, SimdLoad, SimdMask, SimdMatMul, SimdMatVec, SimdMulAdd, SimdPartialDot, SimdReg, SimdRows, SimdStore, SimdTranspose, SimdVMat, SimdZero, SimdAdd, SimdSub, SimdMul, SimdPromote, SimdScalarMul, SimdSplat, SimdBitOr, SimdBitAnd, SimdReinterpret, SimdBitXor, SimdBitNot, BitsBitAnd, BitsBitOr, BitsBitXor, SimdShl, SimdShr, SimdDemote, SimdConvert, FoldRegs, SimdShiftWidth, NativeBackend, SimdDotKernel, SimdMatMulKernel, SimdAddVector, SimdQueryVector, SimdMapVMat, Mapper, SimdResolveBinaryOperator, ToSimdBinaryOperator, SimdResolvePatrialBinaryOperator, SimdBinaryOperator, SimdCombinationQueryVector, SimdLoadSeq, SimdStoreSeq, SimdLoadAligned, SimdStoreAligned, SimdRegBuf, SimdPartialLoad, SimdPartialStore};
 use crate::{ColumnMajorMatrix, MatrixMutView, MatrixView, OwnedVector, VectorView};
 use crate::error::InstantiationError;
 use crate::traits::kernel::SimdCombinationQueryVectorKernel;
@@ -119,6 +122,41 @@ impl SimdReg<f64> for Avx2 {
     type Bits = i64;
     type ShiftWidth = __m256i;
 }
+const BS: usize = 32;
+#[repr(align(32))]
+pub struct AlignedAvx2Buffer([MaybeUninit<u8>; BS]);
+impl AsRef<[MaybeUninit<u8>]> for AlignedAvx2Buffer {
+    fn as_ref(&self) -> &[MaybeUninit<u8>] {
+        &self.0
+    }
+}
+impl AsMut<[MaybeUninit<u8>]> for AlignedAvx2Buffer {
+    fn as_mut(&mut self) -> &mut [MaybeUninit<u8>] {
+        &mut self.0
+    }
+}
+impl SimdRegBuf for Avx2 {
+    type Buffer = AlignedAvx2Buffer;
+
+    fn uninit() -> Self::Buffer {
+        let buf: [MaybeUninit<u8>; BS] = unsafe { MaybeUninit::<[MaybeUninit<u8>; BS]>::uninit().assume_init() };
+
+        AlignedAvx2Buffer(buf)
+    }
+
+    fn initialized<T>(input: &[T], rem: usize) -> Self::Buffer {
+        let mut buf: [MaybeUninit<u8>; BS] = unsafe { MaybeUninit::<[MaybeUninit<u8>; BS]>::uninit().assume_init() };
+
+        let ptr = buf.as_mut_ptr() as *mut u8;
+
+        unsafe {
+            copy_nonoverlapping(input.as_ptr(), buf.as_mut_ptr() as *mut u8 as *mut T, rem);
+            std::ptr::write_bytes(ptr.add(rem * mem::size_of::<T>()), 0, BS - rem * mem::size_of::<T>());
+        }
+
+        AlignedAvx2Buffer(buf)
+    }
+}
 impl SimdLoad<i8> for Avx2 {
     #[inline(always)]
     unsafe fn load(&self, ptr: *const i8) -> Self::Reg {
@@ -183,6 +221,90 @@ impl SimdLoad<f64> for Avx2 {
         }
     }
 }
+impl SimdLoadAligned<i8> for Avx2 {
+    #[inline(always)]
+    unsafe fn load_aligned(&self, ptr: *const i8) -> Self::Reg {
+        unsafe {
+            _mm256_load_si256(ptr as *const __m256i)
+        }
+    }
+}
+impl SimdLoadAligned<i16> for Avx2 {
+    #[inline(always)]
+    unsafe fn load_aligned(&self, ptr: *const i16) -> Self::Reg {
+        unsafe {
+            _mm256_load_si256(ptr as *const __m256i)
+        }
+    }
+}
+impl SimdLoadAligned<i32> for Avx2 {
+    #[inline(always)]
+    unsafe fn load_aligned(&self, ptr: *const i32) -> Self::Reg {
+        unsafe {
+            _mm256_load_si256(ptr as *const __m256i)
+        }
+    }
+}
+impl SimdLoadAligned<i64> for Avx2 {
+    #[inline(always)]
+    unsafe fn load_aligned(&self, ptr: *const i64) -> Self::Reg {
+        unsafe {
+            _mm256_load_si256(ptr as *const __m256i)
+        }
+    }
+}
+impl SimdLoadAligned<u32> for Avx2 {
+    #[inline(always)]
+    unsafe fn load_aligned(&self, ptr: *const u32) -> Self::Reg {
+        unsafe {
+            _mm256_load_si256(ptr as *const __m256i)
+        }
+    }
+}
+impl SimdLoadAligned<u64> for Avx2 {
+    #[inline(always)]
+    unsafe fn load_aligned(&self, ptr: *const u64) -> Self::Reg {
+        unsafe {
+            _mm256_load_si256(ptr as *const __m256i)
+        }
+    }
+}
+impl SimdLoadAligned<f32> for Avx2 {
+    #[inline(always)]
+    unsafe fn load_aligned(&self, ptr: *const f32) -> Self::Reg {
+        unsafe {
+            _mm256_load_ps(ptr)
+        }
+    }
+}
+impl SimdLoadAligned<f64> for Avx2 {
+    #[inline(always)]
+    unsafe fn load_aligned(&self, ptr: *const f64) -> Self::Reg {
+        unsafe {
+            _mm256_load_pd(ptr)
+        }
+    }
+}
+impl<T> SimdPartialLoad<T> for Avx2 where Self: SimdLoadAligned<T> + SimdReg<T> {
+    unsafe fn partial_load(&self, input: &[T], rem: usize) -> Self::Reg {
+        let tmp = <Self as SimdRegBuf>::initialized(input,rem);
+
+        unsafe { self.load_aligned(tmp.as_ref().as_ptr() as *const u8 as *const T) }
+    }
+}
+impl<T> SimdPartialStore<T> for Avx2
+    where Self: SimdStoreAligned<T> + SimdReg<T>,
+          T: Copy {
+    unsafe fn partial_store(&self, output: &mut [T], reg: Self::Reg, rem: usize) {
+        let mut tmp = <Self as SimdRegBuf>::uninit();
+
+        unsafe { self.store_aligned(tmp.as_mut().as_mut_ptr() as *mut u8 as *mut T, reg) };
+
+        let src: &[T] = unsafe { std::slice::from_raw_parts(tmp.as_ref().as_ptr() as *const u8 as*const T, rem) };
+
+        output[..rem].copy_from_slice(src);
+    }
+}
 impl SimdStore<i8> for Avx2 {
     #[inline(always)]
     unsafe fn store(&self, ptr: *mut i8, a: Self::Reg) {
@@ -220,6 +342,46 @@ impl SimdStore<f64> for Avx2 {
     unsafe fn store(&self, ptr: *mut f64, a: Self::Reg) {
         unsafe {
             _mm256_storeu_pd(ptr, a);
+        }
+    }
+}
+impl SimdStoreAligned<i8> for Avx2 {
+    #[inline(always)]
+    unsafe fn store_aligned(&self, ptr: *mut i8, a: Self::Reg) {
+        unsafe {
+            _mm256_store_si256(ptr as *mut __m256i, a);
+        }
+    }
+}
+impl SimdStoreAligned<i16> for Avx2 {
+    #[inline(always)]
+    unsafe fn store_aligned(&self, ptr: *mut i16, a: Self::Reg) {
+        unsafe {
+            _mm256_store_si256(ptr as *mut __m256i, a);
+        }
+    }
+}
+impl SimdStoreAligned<i32> for Avx2 {
+    #[inline(always)]
+    unsafe fn store_aligned(&self, ptr: *mut i32, a: Self::Reg) {
+        unsafe {
+            _mm256_store_si256(ptr as *mut __m256i, a);
+        }
+    }
+}
+impl SimdStoreAligned<f32> for Avx2 {
+    #[inline(always)]
+    unsafe fn store_aligned(&self, ptr: *mut f32, a: Self::Reg) {
+        unsafe {
+            _mm256_store_ps(ptr, a);
+        }
+    }
+}
+impl SimdStoreAligned<f64> for Avx2 {
+    #[inline(always)]
+    unsafe fn store_aligned(&self, ptr: *mut f64, a: Self::Reg) {
+        unsafe {
+            _mm256_store_pd(ptr, a);
         }
     }
 }
@@ -1129,7 +1291,7 @@ impl SimdShr<i32> for Avx2 where Self: SimdReg<i32> {
     #[inline(always)]
     fn shr(&self, v: <Self as SimdReg<i32>>::Reg, w: <Self as SimdReg<i32>>::ShiftWidth) -> <Self as SimdReg<i32>>::Reg {
         unsafe {
-            _mm256_srlv_epi32(v, w)
+            _mm256_srav_epi32(v, w)
         }
     }
 }
@@ -1138,7 +1300,7 @@ impl SimdShr<i64> for Avx2 where Self: SimdReg<i64> {
     #[inline(always)]
     fn shr(&self, v: <Self as SimdReg<i64>>::Reg, w: <Self as SimdReg<i64>>::ShiftWidth) -> <Self as SimdReg<i64>>::Reg {
         unsafe {
-            _mm256_srlv_epi64(v, w)
+            _mm256_srav_epi64(v, w)
         }
     }
 }

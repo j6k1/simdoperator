@@ -1,5 +1,6 @@
 //! Trait and data type features for abstracting SIMD operations
 
+use std::mem::MaybeUninit;
 use crate::{ColumnMajorMatrix, MatrixMutView, MatrixView, OwnedVector, VectorMutView, VectorView};
 use crate::backend::avx2::Avx2;
 use crate::backend::common::{Backend, Extent};
@@ -491,6 +492,19 @@ pub trait SimdStore<S>: SimdReg<S> {
     /// * `reg`: Value to store
     unsafe fn store(&self, ptr: *mut S, reg: Self::Reg);
 }
+/// Load a value from aligned memory into a SIMD register
+pub trait SimdLoadAligned<S>: SimdReg<S> {
+    /// # Arguments
+    /// * `ptr`: Pointer to the memory location to load from
+    unsafe fn load_aligned(&self,ptr: *const S) -> Self::Reg;
+}
+/// Store the values of the SIMD registers in aligned memory
+pub trait SimdStoreAligned<S>: SimdReg<S> {
+    /// # Arguments
+    /// * `ptr`: Pointer to the memory location to store to
+    /// * `reg`: Value to store
+    unsafe fn store_aligned(&self, ptr: *mut S, reg: Self::Reg);
+}
 /// Load a value from memory into a multi-element SIMD register
 pub trait SimdLoadSeq<S,R>
     where R: Copy {
@@ -505,6 +519,44 @@ pub trait SimdStoreSeq<S,R>
     /// * `ptr` - Pointer to the memory location to store to
     /// * `reg` - Value to store
     unsafe fn store_seq(&self, ptr: *mut S, reg: R);
+}
+/// Load values from memory into SIMD registers in parts
+pub trait SimdPartialLoad<S>: SimdReg<S> {
+    /// # Arguments
+    /// * `ptr`: Pointer to the memory location to load from
+    unsafe fn partial_load(&self,input: &[S], rem: usize) -> Self::Reg;
+}
+/// Store part of the SIMD register values in memory
+pub trait SimdPartialStore<S>: SimdReg<S> {
+    /// # Arguments
+    /// * `ptr`: Pointer to the memory location to store to
+    /// * `reg`: Value to store
+    unsafe fn partial_store(&self, output: &mut [S], reg: Self::Reg, rem: usize);
+}
+/// A trait that returns an aligned temporary area used in partial load/store implementations
+pub trait SimdRegBuf {
+    /// Temporary buffer
+    type Buffer: AsRef<[MaybeUninit<u8>]> + AsMut<[MaybeUninit<u8>]>;
+    /// Returns uninitialized memory
+    fn uninit() -> Self::Buffer;
+    /// Returns initialized memory
+    fn initialized<T>(input: &[T], rem: usize) -> Self::Buffer;
+}
+/// Read values from memory that are smaller than the size of the multi-element SIMD register
+/// to which they are to be loaded, and store them in the multi-element SIMD register.
+pub trait SimdPartialLoadSeq<S,R>
+    where R: Copy {
+    /// # Arguments
+    /// * `input`: A slice starting at the memory location being read
+    unsafe fn partial_load_seq<const N: usize>(&self, input: &[S]) -> R;
+}
+///Writes a multi-element register that is larger than the size of the target memory range to that memory range.
+pub trait SimdPartialStoreSeq<S,R>
+    where R: Copy {
+    /// # Arguments
+    /// * `output` - A mutable slice starting at the memory location being written to
+    /// * `reg` - Value to store
+    unsafe fn partial_store_seq<const N: usize>(&self, output: &mut [S], reg: R);
 }
 /// Generating Mask Registers
 pub trait SimdMask<S>: SimdReg<S> {
