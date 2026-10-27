@@ -2,7 +2,7 @@
 
 use std::marker::PhantomData;
 use std::ops::{Add, AddAssign, Mul, Sub};
-use crate::traits::{SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportMul, FoldRegs, SimdOuterProduct, SimdMulAssignVector, SimdAddAssignVector, SimdSubAssignVector, SimdShiftWidth, SimdScalarMulAssignVector, SimdAddAssignMatrix, SimdScalarMulAssignMatrix, SimdScalarMulMatrix, SimdConvertMatrix, SimdLoadSeq, SimdScalarMulVectorInto, SimdHSum, SimdZero, SimdPartialDot, SimdDotKernel, IsScaler, SimdMatMulKernel, SimdQueryVector, SimdBinaryOperator, NativeBackend, Dim, DimOne, Loader, Mapper, SimdPartialOperator, BinaryOperator, ToSimdBinaryOperator, SimdResolvePatrialBinaryOperator, SimdResolveBinaryOperator, SimdPartialLoadSeq, SimdPartialStoreSeq, SimdPartialLoad, SimdRegBuf, SimdPartialStore};
+use crate::traits::{SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportMul, FoldRegs, SimdOuterProduct, SimdMulAssignVector, SimdAddAssignVector, SimdSubAssignVector, SimdShiftWidth, SimdScalarMulAssignVector, SimdAddAssignMatrix, SimdScalarMulAssignMatrix, SimdScalarMulMatrix, SimdConvertMatrix, SimdLoadSeq, SimdScalarMulVectorInto, SimdHSum, SimdZero, SimdPartialDot, SimdDotKernel, IsScaler, SimdMatMulKernel, SimdQueryVector, SimdBinaryOperator, NativeBackend, Dim, DimOne, Loader, Mapper, SimdPartialOperator, BinaryOperator, ToSimdBinaryOperator, SimdResolvePatrialBinaryOperator, SimdResolveBinaryOperator, SimdPartialLoadSeq, SimdPartialStoreSeq, SimdPartialLoad, SimdRegBuf, SimdPartialStore, SimdLoadAligned, SimdStoreAligned};
 use crate::{ColumnMajorMatrix, MatrixMutView, MatrixView, OwnedVector, VectorMutView, VectorView};
 use crate::error::InstantiationError;
 use crate::traits::kernel::SimdCombinationQueryVectorKernel;
@@ -372,6 +372,29 @@ impl IsScaler for f64 {}
 pub const fn mm_shuffle(z: i32, y: i32, x: i32, w: i32) -> i32 {
     (z << 6) | (y << 4) | (x << 2) | w
 }
+impl<T,BE> SimdPartialLoad<T> for BE
+    where Self: SimdLoadAligned<T> + SimdReg<T> + SimdRegBuf {
+    #[inline(always)]
+    unsafe fn partial_load(&self, input: &[T], rem: usize) -> Self::Reg {
+        let tmp = <Self as SimdRegBuf>::initialized(input,rem);
+
+        unsafe { self.load_aligned(tmp.as_ref().as_ptr() as *const u8 as *const T) }
+    }
+}
+impl<T,BE> SimdPartialStore<T> for BE
+    where Self: SimdStoreAligned<T> + SimdReg<T> + SimdRegBuf,
+          T: Copy {
+    #[inline(always)]
+    unsafe fn partial_store(&self, output: &mut [T], reg: Self::Reg, rem: usize) {
+        let mut tmp = <Self as SimdRegBuf>::uninit();
+
+        unsafe { self.store_aligned(tmp.as_mut().as_mut_ptr() as *mut u8 as *mut T, reg) };
+
+        let src: &[T] = unsafe { std::slice::from_raw_parts(tmp.as_ref().as_ptr() as *const u8 as *const T, rem) };
+
+        output[..rem].copy_from_slice(src);
+    }
+}
 impl<T,BE> SimdLoadSeq<T,Regs<<Self as SimdReg<T>>::Reg,1>> for BE
     where BE: Backend +
               SimdLanes<T> +
@@ -637,7 +660,7 @@ impl<T,BE> SimdPartialStoreSeq<T,Regs<<Self as SimdReg<T>>::Reg,2>> for BE
                 1 => b,
                 _ => <BE as SimdZero<T>>::zero(),
             };
-            
+
             let offset = used_regs * <Self as SimdLanes<T>>::LANES;
 
             unsafe {

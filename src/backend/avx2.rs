@@ -6,7 +6,7 @@ use std::mem::MaybeUninit;
 use std::ops::{Add, AddAssign, Mul};
 use std::ptr::copy_nonoverlapping;
 use crate::backend::common::{mm_shuffle, Backend, Regs, SimdAddOperator, Extent, AddOperator, SimdQueryShrOperator, ShrOperator, SimdQueryAddOperator, DemoteOperator, SimdQueryDemoteOperator};
-use crate::traits::{SimdCols, SimdDot, SimdHSum, SimdLanes, SimdLoad, SimdMask, SimdMatMul, SimdMatVec, SimdMulAdd, SimdPartialDot, SimdReg, SimdRows, SimdStore, SimdTranspose, SimdVMat, SimdZero, SimdAdd, SimdSub, SimdMul, SimdPromote, SimdScalarMul, SimdSplat, SimdBitOr, SimdBitAnd, SimdReinterpret, SimdBitXor, SimdBitNot, BitsBitAnd, BitsBitOr, BitsBitXor, SimdShl, SimdShr, SimdDemote, SimdConvert, FoldRegs, SimdShiftWidth, NativeBackend, SimdDotKernel, SimdMatMulKernel, SimdAddVector, SimdQueryVector, SimdMapVMat, Mapper, SimdResolveBinaryOperator, ToSimdBinaryOperator, SimdResolvePatrialBinaryOperator, SimdBinaryOperator, SimdCombinationQueryVector, SimdLoadSeq, SimdStoreSeq, SimdLoadAligned, SimdStoreAligned, SimdRegBuf, SimdPartialLoad, SimdPartialStore};
+use crate::traits::{SimdCols, SimdDot, SimdHSum, SimdLanes, SimdLoad, SimdMask, SimdMatMul, SimdMatVec, SimdMulAdd, SimdPartialDot, SimdReg, SimdRows, SimdStore, SimdTranspose, SimdVMat, SimdZero, SimdAdd, SimdSub, SimdMul, SimdPromote, SimdScalarMul, SimdSplat, SimdBitOr, SimdBitAnd, SimdReinterpret, SimdBitXor, SimdBitNot, BitsBitAnd, BitsBitOr, BitsBitXor, SimdShl, SimdShr, SimdDemote, SimdConvert, FoldRegs, SimdShiftWidth, NativeBackend, SimdDotKernel, SimdMatMulKernel, SimdAddVector, SimdQueryVector, SimdMapVMat, Mapper, SimdResolveBinaryOperator, ToSimdBinaryOperator, SimdResolvePatrialBinaryOperator, SimdBinaryOperator, SimdCombinationQueryVector, SimdLoadSeq, SimdStoreSeq, SimdLoadAligned, SimdStoreAligned, SimdRegBuf};
 use crate::{ColumnMajorMatrix, MatrixMutView, MatrixView, OwnedVector, VectorView};
 use crate::error::InstantiationError;
 use crate::traits::kernel::SimdCombinationQueryVectorKernel;
@@ -283,26 +283,6 @@ impl SimdLoadAligned<f64> for Avx2 {
         unsafe {
             _mm256_load_pd(ptr)
         }
-    }
-}
-impl<T> SimdPartialLoad<T> for Avx2 where Self: SimdLoadAligned<T> + SimdReg<T> {
-    unsafe fn partial_load(&self, input: &[T], rem: usize) -> Self::Reg {
-        let tmp = <Self as SimdRegBuf>::initialized(input,rem);
-
-        unsafe { self.load_aligned(tmp.as_ref().as_ptr() as *const u8 as *const T) }
-    }
-}
-impl<T> SimdPartialStore<T> for Avx2
-    where Self: SimdStoreAligned<T> + SimdReg<T>,
-          T: Copy {
-    unsafe fn partial_store(&self, output: &mut [T], reg: Self::Reg, rem: usize) {
-        let mut tmp = <Self as SimdRegBuf>::uninit();
-
-        unsafe { self.store_aligned(tmp.as_mut().as_mut_ptr() as *mut u8 as *mut T, reg) };
-
-        let src: &[T] = unsafe { std::slice::from_raw_parts(tmp.as_ref().as_ptr() as *const u8 as *const T, rem) };
-
-        output[..rem].copy_from_slice(src);
     }
 }
 impl SimdStore<i8> for Avx2 {
