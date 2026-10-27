@@ -1994,7 +1994,8 @@ impl<SS,SD,BE> SimdConvertMatrix<SS,SD> for BE
 }
 impl<SL,SR,SO,BE> SimdDotKernel<SL,SR,SO> for BE
     where Self: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> + SimdAdd<SO,SO,SO> + SimdHSum<SO> +
-                SimdLoad<SL> + SimdLoad<SR> + SimdZero<SO> +
+                SimdLoad<SL> + SimdLoad<SR> +
+                SimdPartialLoad<SL> + SimdPartialLoad<SR> + SimdZero<SO> +
                 SimdLanes<SL> + SimdLanes<SR> + SimdLanes<SO> +
                 SimdPartialDot<SL,SR,SO>,
           SL: Clone + Copy,
@@ -2012,15 +2013,15 @@ impl<SL,SR,SO,BE> SimdDotKernel<SL,SR,SO> for BE
         let r_chuncks = ref_r.chunks_exact(<Self as SimdLanes<SL>>::LANES * COLS);
 
         unsafe {
-            for (lc,rc) in l_chuncks.zip(r_chuncks) {
+            for (lc, rc) in l_chuncks.zip(r_chuncks) {
                 let lc = lc.chunks_exact(<Self as SimdLanes<SL>>::LANES);
                 let rc = rc.chunks_exact(<Self as SimdLanes<SL>>::LANES);
 
-                for ((lc,rc),acc) in lc.zip(rc).zip(acc.iter_mut()) {
+                for ((lc, rc), acc) in lc.zip(rc).zip(acc.iter_mut()) {
                     let lr = self.load(lc.as_ptr());
                     let rr = self.load(rc.as_ptr());
 
-                    *acc = self.partial_dot(lr,rr,*acc);
+                    *acc = self.partial_dot(lr, rr, *acc);
                 }
             }
 
@@ -2028,34 +2029,35 @@ impl<SL,SR,SO,BE> SimdDotKernel<SL,SR,SO> for BE
                 let lc = ref_l.chunks_exact(<Self as SimdLanes<SL>>::LANES * COLS).remainder().chunks_exact(<Self as SimdLanes<SL>>::LANES);
                 let rc = ref_r.chunks_exact(<Self as SimdLanes<SL>>::LANES * COLS).remainder().chunks_exact(<Self as SimdLanes<SL>>::LANES);
 
-                for ((lc,rc),acc) in lc.zip(rc).zip(acc.iter_mut()) {
+                for ((lc, rc), acc) in lc.zip(rc).zip(acc.iter_mut()) {
                     let lr = self.load(lc.as_ptr());
                     let rr = self.load(rc.as_ptr());
 
-                    *acc = self.partial_dot(lr,rr,*acc);
+                    *acc = self.partial_dot(lr, rr, *acc);
                 }
             }
-        }
 
-        let mut sum = SO::default();
+            if N % <Self as SimdLanes<SL>>::LANES != 0 {
+                let lc = ref_l.chunks_exact(<Self as SimdLanes<SL>>::LANES).remainder();
+                let rc = ref_r.chunks_exact(<Self as SimdLanes<SL>>::LANES).remainder();
 
-        for acc in acc.iter() {
-            sum += <Self as SimdHSum<SO>>::hsum(self, acc.fold(self));
-        }
+                let lr = self.partial_load(lc, N % <Self as SimdLanes<SL>>::LANES);
+                let rr = self.partial_load(rc, N % <Self as SimdLanes<SL>>::LANES);
 
-        if N % <Self as SimdLanes<SL>>::LANES != 0 {
-            let lc = ref_l.chunks_exact(<Self as SimdLanes<SL>>::LANES).remainder();
-            let rc = ref_r.chunks_exact(<Self as SimdLanes<SL>>::LANES).remainder();
-
-            for (&ls,&rs) in lc.iter().zip(rc.iter()) {
-                sum += SO::from(ls) * SO::from(rs);
+                acc[0] = self.partial_dot(lr, rr, acc[0]);
             }
-        }
 
-        sum
+            let mut sum = SO::default();
+
+            for acc in acc.iter() {
+                sum += <Self as SimdHSum<SO>>::hsum(self, acc.fold(self));
+            }
+
+            sum
+        }
     }
 }
-impl<SL,SR,SO,BE> SimdOuterProduct<SL,SR,SO> for BE
+impl<SL, SR, SO,BE> SimdOuterProduct<SL,SR,SO> for BE
     where BE: Backend +
               SimdScalarMulVectorInto<SL,SR,SO>,
           SL: Copy {
