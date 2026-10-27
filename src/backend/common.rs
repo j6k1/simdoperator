@@ -441,8 +441,10 @@ impl<T,BE> SimdPartialLoadSeq<T,Regs<<Self as SimdReg<T>>::Reg,2>> for BE
         let preg = if rem == 0 {
             <BE as SimdZero<T>>::zero()
         } else {
+            let offset = used_regs * <Self as SimdLanes<T>>::LANES;
+
             unsafe {
-                self.partial_load(input,rem)
+                self.partial_load(&input[offset..],rem)
             }
         };
 
@@ -477,8 +479,10 @@ impl<T,BE> SimdPartialLoadSeq<T,Regs<<Self as SimdReg<T>>::Reg,4>> for BE
         let preg = if rem == 0 {
             <BE as SimdZero<T>>::zero()
         } else {
+            let offset = used_regs * <Self as SimdLanes<T>>::LANES;
+
             unsafe {
-            self.partial_load(input,rem)
+                self.partial_load(&input[offset..],rem)
             }
         };
 
@@ -633,6 +637,7 @@ impl<T,BE> SimdPartialStoreSeq<T,Regs<<Self as SimdReg<T>>::Reg,2>> for BE
                 1 => b,
                 _ => <BE as SimdZero<T>>::zero(),
             };
+            
             let offset = used_regs * <Self as SimdLanes<T>>::LANES;
 
             unsafe {

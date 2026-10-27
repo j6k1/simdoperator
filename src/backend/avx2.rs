@@ -300,7 +300,7 @@ impl<T> SimdPartialStore<T> for Avx2
 
         unsafe { self.store_aligned(tmp.as_mut().as_mut_ptr() as *mut u8 as *mut T, reg) };
 
-        let src: &[T] = unsafe { std::slice::from_raw_parts(tmp.as_ref().as_ptr() as *const u8 as*const T, rem) };
+        let src: &[T] = unsafe { std::slice::from_raw_parts(tmp.as_ref().as_ptr() as *const u8 as *const T, rem) };
 
         output[..rem].copy_from_slice(src);
     }
