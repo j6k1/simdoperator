@@ -29,7 +29,7 @@ impl Backend for AutoSelect {
     }
 }
 impl AutoSelect {
-    pub fn backend(&self) -> SelectedBackend {
+    pub fn selected_backend(&self) -> SelectedBackend {
         self.selected.clone()
     }
 }

@@ -456,8 +456,8 @@ pub trait SimdLinearCombination<SL,SR,C> {
     /// * `lines` - Lines to combine
     /// * `acc` - Accumulator
     unsafe fn linear_combination<'a,'b,const N: usize>(&self,
-                                                       lines: &'a [(VectorView<'a,SL,N>,C)],
-                                                       acc: VectorMutView<'b,SR,N>
+                                                       acc: VectorMutView<'b,SL,N>,
+                                                       lines: &'a [(VectorView<'a,SR,N>,C)]
     );
 }
 /// LinearCombinationKernel
@@ -467,8 +467,8 @@ pub trait SimdLinearCombinationKernel<SL,SR,C> {
     /// * `lines` - Lines to combine
     /// * `acc` - Accumulator
     unsafe fn linear_combination<'a,'b,const N: usize>(&self,
-                                                       lines: &'a [(VectorView<'a,SL,N>,C)],
-                                                       acc: VectorMutView<'b,SR,N>
+                                                       acc: VectorMutView<'b,SL,N>,
+                                                       lines: &'a [(VectorView<'a,SR,N>,C)]
     );
 }
 /// Sums each element in the SIMD register as a single scalar value and returns the result

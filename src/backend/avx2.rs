@@ -782,22 +782,22 @@ impl SimdAdd<f64,f64,f64> for Avx2 where Self: SimdReg<f64> {
         _mm256_add_pd(l, r)
     }
 }
-impl SimdAdd<i8,i16,i16> for Avx2
+impl SimdAdd<i16,i8,i16> for Avx2
     where Self: SimdReg<i8> +
                 SimdReg<i16> +
                 SimdAdd<i16,i16,i16> +
                 SimdPromote<i8,i16> {
-    type Lhs = Regs<<Self as SimdReg<i8>>::Reg,1>;
-    type Rhs = Regs<<Self as SimdReg<i16>>::Reg,2>;
+    type Lhs = Regs<<Self as SimdReg<i16>>::Reg,2>;
+    type Rhs = Regs<<Self as SimdReg<i8>>::Reg,1>;
     type Output = Regs<<Self as SimdReg<i16>>::Reg,2>;
 
     #[target_feature(enable = "avx2")]
-    unsafe fn add(&self, l: Regs<<Self as SimdReg<i8>>::Reg,1>, r: Regs<<Self as SimdReg<i16>>::Reg,2>)
+    unsafe fn add(&self, l: Regs<<Self as SimdReg<i16>>::Reg,2>, r: Regs<<Self as SimdReg<i8>>::Reg,1>)
         -> Regs<<Self as SimdReg<i16>>::Reg,2> {
-        let &[l] = l.as_ref();
-        let &[la,lb] = <Self as SimdPromote<i8,i16>>::promotion(self,l).as_ref();
+        let &[la,lb] = l.as_ref();
 
-        let &[ra,rb] = r.as_ref();
+        let &[r] = r.as_ref();
+        let &[ra,rb] = <Self as SimdPromote<i8,i16>>::promotion(self,r).as_ref();
 
         unsafe {
             Regs::new([
@@ -1634,8 +1634,8 @@ impl<T> SimdAddVector<T,T,T> for Avx2
 }
 impl<SL,SR,C> SimdLinearCombination<SL,SR,C> for Avx2 where Self: SimdLinearCombinationKernel<SL,SR,C> {
     #[target_feature(enable = "avx2")]
-    unsafe fn linear_combination<'a, 'b, const N: usize>(&self, lines: &'a [(VectorView<'a, SL, N>, C)], acc: VectorMutView<'b,SR,N>) {
-        unsafe { <Self as SimdLinearCombinationKernel<SL,SR,C>>::linear_combination(self,lines,acc) }
+    unsafe fn linear_combination<'a, 'b, const N: usize>(&self, acc: VectorMutView<'b,SL,N>, lines: &'a [(VectorView<'a, SR, N>, C)]) {
+        unsafe { <Self as SimdLinearCombinationKernel<SL,SR,C>>::linear_combination(self,acc,lines) }
     }
 }
 impl SimdDot<i8,i8,i32> for Avx2

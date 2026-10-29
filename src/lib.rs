@@ -1515,7 +1515,7 @@ impl<'a,const N: usize> MulAssign<i32> for VectorMut<'a,i32,N,AutoSelect>
     where Avx2: Backend + SimdScalarMulAssignVector<i32,i32> {
     #[inline(always)]
     fn mul_assign(&mut self, rhs: i32) {
-        let selected = self.backend.backend();
+        let selected = self.backend.selected_backend();
 
         match selected {
             SelectedBackend::Avx2(ref backend) => unsafe {
@@ -1536,7 +1536,7 @@ impl<'a,const N: usize> MulAssign<Vector<'a,f32,N,AutoSelect>> for VectorMut<'a,
     where Avx2: Backend + SimdMulAssignVector<f32,f32> {
     #[inline(always)]
     fn mul_assign(&mut self, rhs: Vector<'a,f32,N,AutoSelect>) {
-        let selected = self.backend.backend();
+        let selected = self.backend.selected_backend();
 
         match selected {
             SelectedBackend::Avx2(ref backend) => unsafe {
@@ -1558,7 +1558,7 @@ impl<'a,const N: usize> MulAssign<f32> for VectorMut<'a,f32,N,AutoSelect>
     where Avx2: Backend + SimdScalarMulAssignVector<f32,f32> {
     #[inline(always)]
     fn mul_assign(&mut self, rhs: f32) {
-        let selected = self.backend.backend();
+        let selected = self.backend.selected_backend();
 
         match selected {
             SelectedBackend::Avx2(ref backend) => unsafe {
@@ -1580,7 +1580,7 @@ impl<'a,const N: usize> MulAssign<Vector<'a,f64,N,AutoSelect>> for VectorMut<'a,
     where Avx2: Backend + SimdMulAssignVector<f64,f64> {
     #[inline(always)]
     fn mul_assign(&mut self, rhs: Vector<'a,f64,N,AutoSelect>) {
-        let selected = self.backend.backend();
+        let selected = self.backend.selected_backend();
 
         match selected {
             SelectedBackend::Avx2(ref backend) => unsafe {
@@ -1602,7 +1602,7 @@ impl<'a,const N: usize> MulAssign<f64> for VectorMut<'a,f64,N,AutoSelect>
     where Avx2: Backend + SimdScalarMulAssignVector<f64,f64> {
     #[inline(always)]
     fn mul_assign(&mut self, rhs: f64) {
-        let selected = self.backend.backend();
+        let selected = self.backend.selected_backend();
 
         match selected {
             SelectedBackend::Avx2(ref backend) => unsafe {
@@ -1643,7 +1643,7 @@ impl<'a,SL,SR,const N: usize> MulAssign<SR> for AccVector<SL,N,AutoSelect>
           Avx2: Backend + SimdScalarMulAssignVector<SR,SL> {
     #[inline(always)]
     fn mul_assign(&mut self, rhs: SR) {
-        let selected = self.backend.backend();
+        let selected = self.backend.selected_backend();
 
         match selected {
             SelectedBackend::Avx2(ref backend) => unsafe {
@@ -2340,27 +2340,60 @@ impl<'a,SL,SR,SO,const N: usize> BinaryQuery<Vector<'a,SR,N,Avx2>,SL,SR,SO> for 
         Vector::<SL,N,Avx2>::from(&self).query(rhs, op)
     }
 }
-impl<'b,BE,SL,SR,S,const N: usize> LinearCombination<VectorView<'b,SR,N>,S> for VectorMut<'_,SL,N,BE>
-    where BE: Backend + NativeBackend + Clone +
-              SimdLinearCombination<SR,SL,S>,
+impl<'b,SL,SR,S,const N: usize> LinearCombination<VectorView<'b,SR,N>,S> for VectorMut<'_,SL,N,AutoSelect>
+    where Avx2: Backend + SimdLinearCombination<SL,SR,S> + Clone,
           S: Sign {
     #[inline(always)]
     fn linear_combination<'v>(&mut self, lines: &'v [(VectorView<'b,SR,N>,S)]) {
         unsafe {
+            let backend = self.backend.selected_backend();
+
+            match backend {
+                SelectedBackend::Avx2(backend) => {
+                    backend.linear_combination(self.into(), lines)
+                },
+            }
+        }
+    }
+}
+impl<'b,BE,SL,SR,S,const N: usize> LinearCombination<VectorView<'b,SR,N>,S> for VectorMut<'_,SL,N,BE>
+    where BE: Backend + NativeBackend + Clone +
+              SimdLinearCombination<SL,SR,S>,
+          S: Sign
+{
+    #[inline(always)]
+    fn linear_combination<'v>(&mut self, lines: &'v [(VectorView<'b, SR, N>, S)]) {
+        unsafe {
             let backend = self.backend.clone();
 
-            backend.linear_combination(lines, self.into())
+            backend.linear_combination(self.into(), lines)
+        }
+    }
+}
+impl<'b,SL,SR,S,const N: usize> LinearCombination<VectorView<'b,SR,N>,S> for AccVector<SL,N,AutoSelect>
+    where Avx2: Backend + SimdLinearCombination<SL,SR,S> + Clone,
+          S: Sign {
+    #[inline(always)]
+    fn linear_combination<'v>(&mut self, lines: &'v [(VectorView<'b,SR,N>,S)]) {
+        unsafe {
+            let backend = self.backend.selected_backend();
+
+            match backend {
+                SelectedBackend::Avx2(backend) => {
+                    backend.linear_combination(self.into(), lines)
+                },
+            }
         }
     }
 }
 impl<'b,BE,SL,SR,S,const N: usize> LinearCombination<VectorView<'b,SR,N>,S> for AccVector<SL,N,BE>
     where BE: Backend + NativeBackend + Clone +
-              SimdLinearCombination<SR,SL,S>,
+              SimdLinearCombination<SL,SR,S>,
           S: Sign {
     #[inline(always)]
     fn linear_combination<'v>(&mut self, lines: &'v [(VectorView<'b,SR,N>,S)]) {
         let backend = self.backend.clone();
 
-        unsafe { backend.linear_combination(lines, self.into()) }
+        unsafe { backend.linear_combination(self.into(),lines) }
     }
 }

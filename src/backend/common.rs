@@ -2261,55 +2261,56 @@ impl<BE,SL,SR,S> SimdLinearCombinationKernel<SL,SR,S> for BE
               SimdReg<SL> +
               SimdReg<SR> +
               SimdAdd<SL,SR,SR> +
-              SimdSign<SL,Input=<Self as SimdAdd<SL,SR,SR>>::Lhs,Output=<Self as SimdAdd<SL,SR,SR>>::Lhs> +
+              SimdSign<SR,Input=<Self as SimdAdd<SL,SR,SR>>::Rhs,Output=<Self as SimdAdd<SL,SR,SR>>::Rhs> +
               SimdSplat<<S as Sign>::Mask> +
               SimdLoadSeq<SL,<Self as SimdAdd<SL,SR,SR>>::Lhs> +
               SimdLoadSeq<SR,<Self as SimdAdd<SL,SR,SR>>::Rhs> +
               SimdPartialLoadSeq<SL,<Self as SimdAdd<SL,SR,SR>>::Lhs> +
               SimdPartialLoadSeq<SR,<Self as SimdAdd<SL,SR,SR>>::Rhs> +
-              SimdStoreSeq<SR,<Self as SimdAdd<SL,SR,SR>>::Output> +
-              SimdPartialStoreSeq<SR,<Self as SimdAdd<SL,SR,SR>>::Output> +
-              SimdLanes<SL>,
-          SL: BitsBitXor + Copy,
+              SimdStoreSeq<SL,<Self as SimdAdd<SL,SR,SR>>::Output> +
+              SimdPartialStoreSeq<SL,<Self as SimdAdd<SL,SR,SR>>::Output> +
+              SimdLanes<SR>,
+          SR: BitsBitXor + Copy,
           SL: Copy,
-          S: Sign<Mask=<SL as BitsBitXor>::Bits> {
+          S: Sign<Mask=<SR as BitsBitXor>::Bits> {
     #[inline(always)]
-    unsafe fn linear_combination<'a, 'b, const N: usize>(&self, lines: &[(VectorView<'a, SL, N>, S)],
-                                                         mut acc: VectorMutView<'b,SR,N>,
+    unsafe fn linear_combination<'a, 'b, const N: usize>(&self,
+                                                         mut acc: VectorMutView<'b,SL,N>,
+                                                         lines: &[(VectorView<'a, SR, N>, S)],
     ) {
         unsafe {
             let ref_o = acc.as_mut();
 
             for (line,sign) in lines {
                 let mask = self.splat(sign.mask());
-                let ref_l = line.as_ref();
+                let ref_r = line.as_ref();
 
                 {
-                    let chunks_l = ref_l.chunks_exact(<Self as SimdLanes<SL>>::LANES);
-                    let chunks_o = ref_o.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES);
+                    let chunks_r = ref_r.chunks_exact(<Self as SimdLanes<SR>>::LANES);
+                    let chunks_o = ref_o.chunks_exact_mut(<Self as SimdLanes<SR>>::LANES);
 
-                    for (co, cl) in chunks_o.zip(chunks_l) {
-                        let ra = self.load_seq(cl.as_ptr());
-                        let rb = self.load_seq(co.as_ptr());
+                    for (co, cr) in chunks_o.zip(chunks_r) {
+                        let ra = self.load_seq(co.as_ptr());
+                        let rb = self.load_seq(cr.as_ptr());
 
-                        let rr = self.sign(ra, mask);
+                        let rr = self.sign(rb, mask);
 
-                        let rr = self.add(rr, rb);
+                        let rr = self.add(ra,rr);
 
                         self.store_seq(co.as_mut_ptr(), rr);
                     }
                 }
 
-                if N % <Self as SimdLanes<SL>>::LANES != 0 {
-                    let cl = ref_l.chunks_exact(<Self as SimdLanes<SL>>::LANES).remainder();
-                    let co = ref_o.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES).into_remainder();
+                if N % <Self as SimdLanes<SR>>::LANES != 0 {
+                    let cr = ref_r.chunks_exact(<Self as SimdLanes<SR>>::LANES).remainder();
+                    let co = ref_o.chunks_exact_mut(<Self as SimdLanes<SR>>::LANES).into_remainder();
 
-                    let ra = self.partial_load_seq::<N>(cl);
+                    let ra = self.partial_load_seq::<N>(cr);
                     let rb = self.partial_load_seq::<N>(co);
 
                     let rr = self.sign(ra, mask);
 
-                    let rr = self.add(rr, rb);
+                    let rr = self.add(rb,rr);
 
                     self.partial_store_seq::<N>(co, rr);
                 }
