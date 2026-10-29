@@ -450,25 +450,25 @@ pub trait SimdMatMul<SL,SR,SO> {
                                                                o:MatrixMutView<'a,SO,N,M>);
 }
 /// LinearCombination
-pub trait SimdLinearCombination<SI,SO,S> {
+pub trait SimdLinearCombination<SL,SR,C> {
     /// LinearCombination
     /// # Arguments
     /// * `lines` - Lines to combine
     /// * `acc` - Accumulator
     unsafe fn linear_combination<'a,'b,const N: usize>(&self,
-                                                    lines: &[(VectorView<'a,SI,N>,S)],
-                                                    acc:&mut VectorMutView<'b,SO,N>
+                                                       lines: &'a [(VectorView<'a,SL,N>,C)],
+                                                       acc: VectorMutView<'b,SR,N>
     );
 }
 /// LinearCombinationKernel
-pub trait SimdLinearCombinationKernel<SL,SR,S> {
+pub trait SimdLinearCombinationKernel<SL,SR,C> {
     /// LinearCombination kernel
     /// # Arguments
     /// * `lines` - Lines to combine
     /// * `acc` - Accumulator
     unsafe fn linear_combination<'a,'b,const N: usize>(&self,
-                                                    lines: &[(VectorView<'a,SL,N>,S)],
-                                                    acc:&mut VectorMutView<'b,SR,N>
+                                                       lines: &'a [(VectorView<'a,SL,N>,C)],
+                                                       acc: VectorMutView<'b,SR,N>
     );
 }
 /// Sums each element in the SIMD register as a single scalar value and returns the result
@@ -731,6 +731,9 @@ pub trait BindBackend: BindBackendBase {
 }
 /// Trait Implemented when multiplication is supported
 pub trait SupportMul<K> {}
+pub trait LinearCombination<R,C> {
+    fn linear_combination<'b>(&mut self, lines: &'b [(R,C)]);
+}
 /// A trait that defines the calculation of Dot Product
 pub trait Dot<R,O> {
     /// Returns the dot product of two vectors

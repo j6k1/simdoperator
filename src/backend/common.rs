@@ -2271,30 +2271,47 @@ impl<BE,SL,SR,S> SimdLinearCombinationKernel<SL,SR,S> for BE
               SimdPartialStoreSeq<SR,<Self as SimdAdd<SL,SR,SR>>::Output> +
               SimdLanes<SL>,
           SL: BitsBitXor + Copy,
-          SR: Copy,
+          SL: Copy,
           S: Sign<Mask=<SL as BitsBitXor>::Bits> {
     #[inline(always)]
     unsafe fn linear_combination<'a, 'b, const N: usize>(&self, lines: &[(VectorView<'a, SL, N>, S)],
-                                                         acc: &mut VectorMutView<'b, SR, N>) {
+                                                         mut acc: VectorMutView<'b,SR,N>,
+    ) {
         unsafe {
+            let ref_o = acc.as_mut();
+
             for (line,sign) in lines {
                 let mask = self.splat(sign.mask());
-
                 let ref_l = line.as_ref();
-                let ref_o = acc.as_mut();
 
-                let chunks_l = ref_l.chunks_exact(<Self as SimdLanes<SL>>::LANES);
-                let chunks_o = ref_o.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES);
+                {
+                    let chunks_l = ref_l.chunks_exact(<Self as SimdLanes<SL>>::LANES);
+                    let chunks_o = ref_o.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES);
 
-                for (co,cl) in chunks_o.zip(chunks_l) {
-                    let ra = self.load_seq(cl.as_ptr());
-                    let rb = self.load_seq(co.as_ptr());
+                    for (co, cl) in chunks_o.zip(chunks_l) {
+                        let ra = self.load_seq(cl.as_ptr());
+                        let rb = self.load_seq(co.as_ptr());
 
-                    let rr = self.sign(ra,mask);
+                        let rr = self.sign(ra, mask);
 
-                    let rr = self.add(rr,rb);
+                        let rr = self.add(rr, rb);
 
-                    self.store_seq(co.as_mut_ptr(),rr);
+                        self.store_seq(co.as_mut_ptr(), rr);
+                    }
+                }
+
+                if N % <Self as SimdLanes<SL>>::LANES != 0 {
+                    let cl = ref_l.chunks_exact(<Self as SimdLanes<SL>>::LANES).remainder();
+                    let co = ref_o.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES).into_remainder();
+
+                    let ra = self.partial_load_seq::<N>(cl);
+                    let rb = self.partial_load_seq::<N>(co);
+
+                    let rr = self.sign(ra, mask);
+
+                    let rr = self.add(rr, rb);
+
+                    self.partial_store_seq::<N>(co, rr);
                 }
             }
         }

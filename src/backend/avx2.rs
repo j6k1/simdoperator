@@ -6,8 +6,8 @@ use std::mem::MaybeUninit;
 use std::ops::{Add, AddAssign, Mul};
 use std::ptr::copy_nonoverlapping;
 use crate::backend::common::{mm_shuffle, Backend, Regs, SimdAddOperator, Extent, AddOperator, SimdQueryShrOperator, ShrOperator, SimdQueryAddOperator, DemoteOperator, SimdQueryDemoteOperator};
-use crate::traits::{SimdCols, SimdDot, SimdHSum, SimdLanes, SimdLoad, SimdMask, SimdMatMul, SimdMatVec, SimdMulAdd, SimdPartialDot, SimdReg, SimdRows, SimdStore, SimdTranspose, SimdVMat, SimdZero, SimdAdd, SimdSub, SimdMul, SimdPromote, SimdScalarMul, SimdSplat, SimdBitOr, SimdBitAnd, SimdReinterpret, SimdBitXor, SimdBitNot, BitsBitAnd, BitsBitOr, BitsBitXor, SimdShl, SimdShr, SimdDemote, SimdConvert, FoldRegs, SimdShiftWidth, NativeBackend, SimdDotKernel, SimdMatMulKernel, SimdAddVector, SimdQueryVector, SimdMapVMat, Mapper, SimdResolveBinaryOperator, ToSimdBinaryOperator, SimdResolvePatrialBinaryOperator, SimdBinaryOperator, SimdCombinationQueryVector, SimdLoadSeq, SimdStoreSeq, SimdLoadAligned, SimdStoreAligned, SimdRegBuf};
-use crate::{ColumnMajorMatrix, MatrixMutView, MatrixView, OwnedVector, VectorView};
+use crate::traits::{SimdCols, SimdDot, SimdHSum, SimdLanes, SimdLoad, SimdMask, SimdMatMul, SimdMatVec, SimdMulAdd, SimdPartialDot, SimdReg, SimdRows, SimdStore, SimdTranspose, SimdVMat, SimdZero, SimdAdd, SimdSub, SimdMul, SimdPromote, SimdScalarMul, SimdSplat, SimdBitOr, SimdBitAnd, SimdReinterpret, SimdBitXor, SimdBitNot, BitsBitAnd, BitsBitOr, BitsBitXor, SimdShl, SimdShr, SimdDemote, SimdConvert, FoldRegs, SimdShiftWidth, NativeBackend, SimdDotKernel, SimdMatMulKernel, SimdAddVector, SimdQueryVector, SimdMapVMat, Mapper, SimdResolveBinaryOperator, ToSimdBinaryOperator, SimdResolvePatrialBinaryOperator, SimdBinaryOperator, SimdCombinationQueryVector, SimdLoadSeq, SimdStoreSeq, SimdLoadAligned, SimdStoreAligned, SimdRegBuf, SimdLinearCombination, SimdLinearCombinationKernel};
+use crate::{ColumnMajorMatrix, MatrixMutView, MatrixView, OwnedVector, VectorMutView, VectorView};
 use crate::error::InstantiationError;
 use crate::traits::kernel::SimdCombinationQueryVectorKernel;
 
@@ -780,6 +780,31 @@ impl SimdAdd<f64,f64,f64> for Avx2 where Self: SimdReg<f64> {
     #[target_feature(enable = "avx2")]
     unsafe fn add(&self, l: <Self as SimdReg<f64>>::Reg, r: <Self as SimdReg<f64>>::Reg) -> <Self as SimdReg<f64>>::Reg {
         _mm256_add_pd(l, r)
+    }
+}
+impl SimdAdd<i8,i16,i16> for Avx2
+    where Self: SimdReg<i8> +
+                SimdReg<i16> +
+                SimdAdd<i16,i16,i16> +
+                SimdPromote<i8,i16> {
+    type Lhs = Regs<<Self as SimdReg<i8>>::Reg,1>;
+    type Rhs = Regs<<Self as SimdReg<i16>>::Reg,2>;
+    type Output = Regs<<Self as SimdReg<i16>>::Reg,2>;
+
+    #[target_feature(enable = "avx2")]
+    unsafe fn add(&self, l: Regs<<Self as SimdReg<i8>>::Reg,1>, r: Regs<<Self as SimdReg<i16>>::Reg,2>)
+        -> Regs<<Self as SimdReg<i16>>::Reg,2> {
+        let &[l] = l.as_ref();
+        let &[la,lb] = <Self as SimdPromote<i8,i16>>::promotion(self,l).as_ref();
+
+        let &[ra,rb] = r.as_ref();
+
+        unsafe {
+            Regs::new([
+                <Self as SimdAdd<i16,i16,i16>>::add(self,la,ra),
+                <Self as SimdAdd<i16,i16,i16>>::add(self,lb,rb)
+            ])
+        }
     }
 }
 impl SimdSub<i8,i8,i8> for Avx2 where Self: SimdReg<i8> {
@@ -1605,6 +1630,12 @@ impl<T> SimdAddVector<T,T,T> for Avx2
     unsafe fn add_vector<'a,'b,const N: usize>(&self, l: VectorView<'a,T,N>, r: VectorView<'b,T,N>)
         -> OwnedVector<T,N> {
         unsafe { <Self as SimdQueryVector<T,SimdAddOperator<T,T,T,Avx2>>>::query_vector(self,l,r,&SimdAddOperator::new(self)) }
+    }
+}
+impl<SL,SR,C> SimdLinearCombination<SL,SR,C> for Avx2 where Self: SimdLinearCombinationKernel<SL,SR,C> {
+    #[target_feature(enable = "avx2")]
+    unsafe fn linear_combination<'a, 'b, const N: usize>(&self, lines: &'a [(VectorView<'a, SL, N>, C)], acc: VectorMutView<'b,SR,N>) {
+        unsafe { <Self as SimdLinearCombinationKernel<SL,SR,C>>::linear_combination(self,lines,acc) }
     }
 }
 impl SimdDot<i8,i8,i32> for Avx2
