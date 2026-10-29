@@ -1,5 +1,6 @@
 //! Trait and data type features for abstracting SIMD operations
 
+use std::fmt::Debug;
 use std::mem::MaybeUninit;
 use crate::{ColumnMajorMatrix, MatrixMutView, MatrixView, OwnedVector, VectorMutView, VectorView};
 use crate::backend::avx2::Avx2;
@@ -8,11 +9,17 @@ use crate::traits::private::BindBackendBase;
 
 /// Addition at the SIMD register level
 pub trait SimdAdd<SL,SR,SO>: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> {
+    /// Register Type on the Left-Hand Side
+    type Lhs: Copy;
+    /// Register Type on the Right-Hand Side
+    type Rhs: Copy;
+    /// Type of the Output SIMD Register
+    type Output: Copy;
     ///
     /// # Arguments
     /// * `l` - Left hand side of the addition
     /// * `r` - Right hand side of the addition
-    unsafe fn add(&self,l:<Self as SimdReg<SL>>::Reg,r:<Self as SimdReg<SR>>::Reg) -> <Self as SimdReg<SO>>::Reg;
+    unsafe fn add(&self,l:Self::Lhs,r:Self::Rhs) -> Self::Output;
 }
 /// Subtract at the SIMD register level
 pub trait SimdSub<SL,SR,SO>: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> {
@@ -29,7 +36,7 @@ pub trait SimdMul<SL,SR,SO>: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> + SimdAdd<S
     /// # Arguments
     /// * `l` - Left hand side of the Multiply
     /// * `r` - Right hand side of the Multiply
-    fn mul(&self,l:<Self as SimdReg<SL>>::Reg,r:<Self as SimdReg<SR>>::Reg) -> Self::Output;
+    fn mul(&self,l:<Self as SimdReg<SL>>::Reg,r:<Self as SimdReg<SR>>::Reg) -> <Self as SimdMul<SL,SR,SO>>::Output;
 }
 /// Multiply a scalar by a SIMD register
 pub trait SimdScalarMul<SL,SR,SO>: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> + SimdMul<SL,SR,SO> {
@@ -38,6 +45,19 @@ pub trait SimdScalarMul<SL,SR,SO>: SimdReg<SL> + SimdReg<SR> + SimdReg<SO> + Sim
     /// * `l` - Left hand side of the Multiply
     /// * `r` - Right hand side of the Multiply
     fn scalarmul(&self,l:SL,r:<Self as SimdReg<SR>>::Reg) -> <Self as SimdMul<SL,SR,SO>>::Output;
+}
+/// Apply the sign to each element of the register
+pub trait SimdSign<S>: SimdReg<S>
+    where S: BitsBitXor,
+          Self: SimdReg<<S as BitsBitXor>::Bits> + SimdBitXor<S> {
+    /// Input type of the sign operation
+    type Input: Copy;
+    /// Output type of the sign operation
+    type Output: Copy;
+    /// # Arguments
+    /// * `l` - Left hand side of the sign operation
+    /// * `mask` - Sign mask
+    fn sign(&self,l:Self::Input,mask:<Self as SimdReg<<S as BitsBitXor>::Bits>>::Reg) -> Self::Output;
 }
 /// Bitwise OR at the SIMD register level
 pub trait SimdBitOr<S>: SimdReg<S>
@@ -429,6 +449,28 @@ pub trait SimdMatMul<SL,SR,SO> {
                                                                r:ColumnMajorMatrix<'a,SR,K,M>,
                                                                o:MatrixMutView<'a,SO,N,M>);
 }
+/// LinearCombination
+pub trait SimdLinearCombination<SI,SO,S> {
+    /// LinearCombination
+    /// # Arguments
+    /// * `lines` - Lines to combine
+    /// * `acc` - Accumulator
+    unsafe fn linear_combination<'a,'b,const N: usize>(&self,
+                                                    lines: &[(VectorView<'a,SI,N>,S)],
+                                                    acc:&mut VectorMutView<'b,SO,N>
+    );
+}
+/// LinearCombinationKernel
+pub trait SimdLinearCombinationKernel<SL,SR,S> {
+    /// LinearCombination kernel
+    /// # Arguments
+    /// * `lines` - Lines to combine
+    /// * `acc` - Accumulator
+    unsafe fn linear_combination<'a,'b,const N: usize>(&self,
+                                                    lines: &[(VectorView<'a,SL,N>,S)],
+                                                    acc:&mut VectorMutView<'b,SR,N>
+    );
+}
 /// Sums each element in the SIMD register as a single scalar value and returns the result
 pub trait SimdHSum<S>: SimdReg<S> {
     ///
@@ -579,7 +621,7 @@ pub trait SimdPromote<SS,SD>: SimdReg<SS> +
     type Output: FoldRegs<SD,Self>;
     /// # Arguments
     /// * `reg` - SIMD register to promote
-    fn promotion(&self, reg:<Self as SimdReg<SS>>::Reg) -> Self::Output;
+    fn promotion(&self, reg:<Self as SimdReg<SS>>::Reg) -> <Self as SimdPromote<SS,SD>>::Output;
 }
 /// Downcasting the Type of a SIMD Register
 pub trait SimdDemote<SS,SD>: SimdReg<SS> +
@@ -598,7 +640,7 @@ pub trait SimdConvert<SS,SD>: SimdReg<SS> +
     type Output: FoldRegs<SD,Self>;
     /// # Arguments
     /// * `reg` - SIMD register to convert
-    fn convert(&self,reg:Self::Input) -> Self::Output;
+    fn convert(&self,reg:Self::Input) -> <Self as SimdConvert<SS,SD>>::Output;
 }
 /// Upcast the registers for each element of a vector
 pub trait SimdPromoteVector<SS,SD> {
@@ -649,13 +691,14 @@ pub trait SimdPartialDot<SL,SR,SO>: SimdReg<SL> +
                                     SimdAdd<SO,SO,SO> + Backend + Sized {
     type Output: FoldRegs<SO,Self>;
     /// Returns an accumulator initialized to zero
-    fn zero_acc(&self) -> Self::Output;
+    fn zero_acc(&self) -> <Self as SimdPartialDot<SL,SR,SO>>::Output;
     /// Returns a partial dot product using SIMD registers
     /// # Arguments
     /// * `l` - Left-hand side
     /// * `r` - Right-hand side
     /// * `acc` - Accumulator
-    fn partial_dot(&self,l:<Self as SimdReg<SL>>::Reg,r:<Self as SimdReg<SR>>::Reg,acc:Self::Output) -> Self::Output;
+    fn partial_dot(&self,l:<Self as SimdReg<SL>>::Reg,r:<Self as SimdReg<SR>>::Reg,
+                   acc:<Self as SimdPartialDot<SL,SR,SO>>::Output) -> <Self as SimdPartialDot<SL,SR,SO>>::Output;
 }
 /// Returns a zero-initialized SIMD register
 pub trait SimdZero<S>: SimdReg<S> {
@@ -814,6 +857,14 @@ pub trait Promote<SD> {
 /// A trait that defines type downcasts
 pub trait Demote<SD> {
     fn demotion(self) -> SD;
+}
+/// Trait for Representing Signs
+pub trait Sign: Debug + Clone + Copy {
+    /// Type of mask used for sign inversion
+    type Mask: Copy;
+    fn plus() -> Self;
+    fn minus() -> Self;
+    fn mask(&self) -> Self::Mask;
 }
 /// A type that represents an abstract operator for combining and applying arbitrary operations
 pub trait BinaryOperator: 'static

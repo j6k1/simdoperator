@@ -539,7 +539,7 @@ impl SimdPromote<i8,i16> for Avx2 where Self: SimdReg<i8> + SimdReg<i16> {
     type Output = Regs<<Self as SimdReg<i16>>::Reg,2>;
 
     #[inline(always)]
-    fn promotion(&self, reg: <Self as SimdReg<i8>>::Reg) -> Self::Output {
+    fn promotion(&self, reg: <Self as SimdReg<i8>>::Reg) -> <Self as SimdPromote<i8,i16>>::Output {
         unsafe {
             let lo = _mm256_castsi256_si128(reg);
             let hi = _mm256_extracti128_si256(reg,1);
@@ -552,7 +552,7 @@ impl SimdPromote<i16,i32> for Avx2 where Self: SimdReg<i16> + SimdReg<i32> {
     type Output = Regs<<Self as SimdReg<i32>>::Reg,2>;
 
     #[inline(always)]
-    fn promotion(&self, reg: <Self as SimdReg<i16>>::Reg) -> Self::Output {
+    fn promotion(&self, reg: <Self as SimdReg<i16>>::Reg) -> <Self as SimdPromote<i16,i32>>::Output {
         unsafe {
             let lo = _mm256_castsi256_si128(reg);
             let hi = _mm256_extracti128_si256(reg,1);
@@ -573,7 +573,7 @@ impl SimdPromote<i8,i32> for Avx2
     type Output = Regs<<Self as SimdReg<i32>>::Reg,4>;
 
     #[inline(always)]
-    fn promotion(&self, reg: <Self as SimdReg<i8>>::Reg) -> Self::Output {
+    fn promotion(&self, reg: <Self as SimdReg<i8>>::Reg) -> <Self as SimdPromote<i8,i32>>::Output {
         let regs = <Self as SimdPromote<i8,i16>>::promotion(self, reg);
 
         let &[lo,hi] = regs.as_ref();
@@ -636,7 +636,7 @@ impl SimdConvert<i16,f32> for Avx2 where Self: SimdReg<i16> + SimdReg<f32> {
     type Output = Regs<<Self as SimdReg<f32>>::Reg,2>;
 
     #[inline(always)]
-    fn convert(&self, reg: Regs<<Self as SimdReg<i16>>::Reg,1>) -> Self::Output {
+    fn convert(&self, reg: Regs<<Self as SimdReg<i16>>::Reg,1>) -> <Self as SimdConvert<i16,f32>>::Output {
         unsafe {
             let &[reg] = reg.as_ref();
 
@@ -658,7 +658,7 @@ impl SimdConvert<i32,f32> for Avx2 where Self: SimdReg<i32> + SimdReg<f32> {
     type Output = Regs<<Self as SimdReg<f32>>::Reg,1>;
 
     #[inline(always)]
-    fn convert(&self, reg: Regs<<Self as SimdReg<i32>>::Reg,1>) -> Self::Output {
+    fn convert(&self, reg: Regs<<Self as SimdReg<i32>>::Reg,1>) -> <Self as SimdConvert<i32,f32>>::Output {
         unsafe {
             let &[reg] = reg.as_ref();
 
@@ -671,7 +671,7 @@ impl SimdConvert<f32,i32> for Avx2 where Self: SimdReg<i32> + SimdReg<f32> {
     type Output = Regs<<Self as SimdReg<i32>>::Reg,1>;
 
     #[inline(always)]
-    fn convert(&self, reg: Regs<<Self as SimdReg<f32>>::Reg,1>) -> Self::Output {
+    fn convert(&self, reg: Regs<<Self as SimdReg<f32>>::Reg,1>) -> <Self as SimdConvert<f32,i32>>::Output {
         unsafe {
             let &[reg] = reg.as_ref();
 
@@ -691,7 +691,7 @@ impl SimdConvert<i8,f32> for Avx2
     type Output = Regs<<Self as SimdReg<f32>>::Reg,4>;
 
     #[inline(always)]
-    fn convert(&self, reg: Regs<<Self as SimdReg<i8>>::Reg,1>) -> Self::Output {
+    fn convert(&self, reg: Regs<<Self as SimdReg<i8>>::Reg,1>) -> <Self as SimdConvert<i8,f32>>::Output {
         let &[reg] = reg.as_ref();
 
         let &[lo16,hi16] = <Self as SimdPromote<i8,i16>>::promotion(self,reg).as_ref();
@@ -719,7 +719,7 @@ impl SimdConvert<f32,i8> for Avx2
     type Output = Regs<<Self as SimdReg<i8>>::Reg,1>;
 
     #[inline(always)]
-    fn convert(&self, reg: Regs<<Self as SimdReg<f32>>::Reg,4>) -> Self::Output {
+    fn convert(&self, reg: Regs<<Self as SimdReg<f32>>::Reg,4>) -> <Self as SimdConvert<f32,i8>>::Output {
         let &[lo_lo_f32,lo_hi_f32,hi_lo_f32,hi_hi_f32] = reg.as_ref();
 
         let &[lo_lo_i32] = <Self as SimdConvert<f32,i32>>::convert(self,Regs::new([lo_lo_f32])).as_ref();
@@ -734,6 +734,9 @@ impl SimdConvert<f32,i8> for Avx2
     }
 }
 impl SimdAdd<i8,i8,i8> for Avx2 where Self: SimdReg<i8> {
+    type Lhs = <Self as SimdReg<i8>>::Reg;
+    type Rhs = <Self as SimdReg<i8>>::Reg;
+    type Output = <Self as SimdReg<i8>>::Reg;
 
     #[target_feature(enable = "avx2")]
     unsafe fn add(&self, l: <Self as SimdReg<i8>>::Reg, r: <Self as SimdReg<i8>>::Reg) -> <Self as SimdReg<i8>>::Reg {
@@ -741,12 +744,18 @@ impl SimdAdd<i8,i8,i8> for Avx2 where Self: SimdReg<i8> {
     }
 }
 impl SimdAdd<i16,i16,i16> for Avx2 where Self: SimdReg<i16> {
+    type Lhs = <Self as SimdReg<i16>>::Reg;
+    type Rhs = <Self as SimdReg<i16>>::Reg;
+    type Output = <Self as SimdReg<i16>>::Reg;
     #[target_feature(enable = "avx2")]
     unsafe fn add(&self, l: <Self as SimdReg<i16>>::Reg, r: <Self as SimdReg<i16>>::Reg) -> <Self as SimdReg<i16>>::Reg {
         _mm256_add_epi16(l, r)
     }
 }
 impl SimdAdd<i32,i32,i32> for Avx2 where Self: SimdReg<i32> {
+    type Lhs = <Self as SimdReg<i32>>::Reg;
+    type Rhs = <Self as SimdReg<i32>>::Reg;
+    type Output = <Self as SimdReg<i32>>::Reg;
 
     #[target_feature(enable = "avx2")]
     unsafe fn add(&self, l: <Self as SimdReg<i32>>::Reg, r: <Self as SimdReg<i32>>::Reg) -> <Self as SimdReg<i32>>::Reg {
@@ -754,6 +763,9 @@ impl SimdAdd<i32,i32,i32> for Avx2 where Self: SimdReg<i32> {
     }
 }
 impl SimdAdd<f32,f32,f32> for Avx2 where Self: SimdReg<f32> {
+    type Lhs = <Self as SimdReg<f32>>::Reg;
+    type Rhs = <Self as SimdReg<f32>>::Reg;
+    type Output = <Self as SimdReg<f32>>::Reg;
 
     #[target_feature(enable = "avx2")]
     unsafe fn add(&self, l: <Self as SimdReg<f32>>::Reg, r: <Self as SimdReg<f32>>::Reg) -> <Self as SimdReg<f32>>::Reg {
@@ -761,6 +773,9 @@ impl SimdAdd<f32,f32,f32> for Avx2 where Self: SimdReg<f32> {
     }
 }
 impl SimdAdd<f64,f64,f64> for Avx2 where Self: SimdReg<f64> {
+    type Lhs = <Self as SimdReg<f64>>::Reg;
+    type Rhs = <Self as SimdReg<f64>>::Reg;
+    type Output = <Self as SimdReg<f64>>::Reg;
 
     #[target_feature(enable = "avx2")]
     unsafe fn add(&self, l: <Self as SimdReg<f64>>::Reg, r: <Self as SimdReg<f64>>::Reg) -> <Self as SimdReg<f64>>::Reg {
@@ -1529,13 +1544,13 @@ impl<SL,SR,SO> SimdPartialDot<SL,SR,SO> for Avx2
                 SimdMulAdd<SL,SR,SO> {
     type Output = <Self as SimdMulAdd<SL,SR,SO>>::Acc;
     #[inline(always)]
-    fn zero_acc(&self) -> Self::Output {
+    fn zero_acc(&self) -> <Self as SimdPartialDot<SL,SR,SO>>::Output {
         <Self as SimdMulAdd<SL,SR,SO>>::zero_acc(self)
     }
     #[inline(always)]
     fn partial_dot(&self, l: <Self as SimdReg<SL>>::Reg, r: <Self as SimdReg<SR>>::Reg,
-                   acc: Self::Output)
-        -> Self::Output {
+                   acc: <Self as SimdPartialDot<SL,SR,SO>>::Output)
+        -> <Self as SimdPartialDot<SL,SR,SO>>::Output {
         self.mul_add(l, r, acc)
     }
 }
@@ -1584,7 +1599,7 @@ impl<T> SimdAddVector<T,T,T> for Avx2
                 SimdLoad<T> +
                 SimdStore<T> +
                 SimdLanes<T> +
-                SimdAdd<T,T,T>,
+                SimdAdd<T,T,T,Lhs=<Self as SimdReg<T>>::Reg,Rhs=<Self as SimdReg<T>>::Reg,Output=<Self as SimdReg<T>>::Reg>,
           T: Add<T,Output=T> + Default + Copy {
     #[target_feature(enable = "avx2")]
     unsafe fn add_vector<'a,'b,const N: usize>(&self, l: VectorView<'a,T,N>, r: VectorView<'b,T,N>)

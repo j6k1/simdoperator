@@ -1,8 +1,9 @@
 //! Common Backend Implementation
 
+use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::ops::{Add, AddAssign, Mul, Sub};
-use crate::traits::{SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportMul, FoldRegs, SimdOuterProduct, SimdMulAssignVector, SimdAddAssignVector, SimdSubAssignVector, SimdShiftWidth, SimdScalarMulAssignVector, SimdAddAssignMatrix, SimdScalarMulAssignMatrix, SimdScalarMulMatrix, SimdConvertMatrix, SimdLoadSeq, SimdScalarMulVectorInto, SimdHSum, SimdZero, SimdPartialDot, SimdDotKernel, IsScaler, SimdMatMulKernel, SimdQueryVector, SimdBinaryOperator, NativeBackend, Dim, DimOne, Loader, Mapper, SimdPartialOperator, BinaryOperator, ToSimdBinaryOperator, SimdResolvePatrialBinaryOperator, SimdResolveBinaryOperator, SimdPartialLoadSeq, SimdPartialStoreSeq, SimdPartialLoad, SimdRegBuf, SimdPartialStore, SimdLoadAligned, SimdStoreAligned};
+use crate::traits::{SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportMul, FoldRegs, SimdOuterProduct, SimdMulAssignVector, SimdAddAssignVector, SimdSubAssignVector, SimdShiftWidth, SimdScalarMulAssignVector, SimdAddAssignMatrix, SimdScalarMulAssignMatrix, SimdScalarMulMatrix, SimdConvertMatrix, SimdLoadSeq, SimdScalarMulVectorInto, SimdHSum, SimdZero, SimdPartialDot, SimdDotKernel, IsScaler, SimdMatMulKernel, SimdQueryVector, SimdBinaryOperator, NativeBackend, Dim, DimOne, Loader, Mapper, SimdPartialOperator, BinaryOperator, ToSimdBinaryOperator, SimdResolvePatrialBinaryOperator, SimdResolveBinaryOperator, SimdPartialLoadSeq, SimdPartialStoreSeq, SimdPartialLoad, SimdRegBuf, SimdPartialStore, SimdLoadAligned, SimdStoreAligned, Sign, SimdSign, SimdLinearCombinationKernel};
 use crate::{ColumnMajorMatrix, MatrixMutView, MatrixView, OwnedVector, VectorMutView, VectorView};
 use crate::error::InstantiationError;
 use crate::traits::kernel::SimdCombinationQueryVectorKernel;
@@ -70,7 +71,7 @@ impl<BE,SL,SR,SO> SimdBinaryOperator<BE,SL,SR> for SimdAddOperator<SL,SR,SO,BE>
               SimdReg<SL> +
               SimdReg<SR> +
               SimdReg<SO> +
-              SimdAdd<SL,SR,SO>,
+              SimdAdd<SL,SR,SO,Lhs=<BE as SimdReg<SL>>::Reg,Rhs=<BE as SimdReg<SR>>::Reg,Output=<BE as SimdReg<SO>>::Reg>,
           SO: From<SL> + From<SR> + Add<SO,Output=SO> + Copy {
     type Lhs = <BE as SimdReg<SL>>::Reg;
     type Rhs = <BE as SimdReg<SR>>::Reg;
@@ -133,7 +134,7 @@ impl<BE> SimdBinaryOperator<BE,i32,i8> for SimdQueryAddOperator<i32,i8,i32,BE>
               SimdPromote<i8,i16> +
               SimdPromote<i16,i32> +
               SimdPromote<i8,i32,Output=Regs<<BE as SimdReg<i32>>::Reg,4>> +
-              SimdAdd<i32,i32,i32> {
+              SimdAdd<i32,i32,i32,Lhs=<BE as SimdReg<i32>>::Reg,Rhs=<BE as SimdReg<i32>>::Reg,Output=<BE as SimdReg<i32>>::Reg> {
     type Lhs = Regs<<BE as SimdReg<i32>>::Reg,4>;
     type Rhs = Regs<<BE as SimdReg<i8>>::Reg,1>;
     type Output = Regs<<BE as SimdReg<i32>>::Reg,4>;
@@ -338,8 +339,10 @@ impl<S,BE: SimdReg<S> + SimdAdd<S,S,S>> FoldRegs<S,BE> for Regs<<BE as SimdReg<S
         self.regs[0]
     }
 }
-impl<S,BE: SimdReg<S> + SimdAdd<S,S,S>> FoldRegs<S,BE> for Regs<<BE as SimdReg<S>>::Reg,2>
-    where <BE as SimdReg<S>>::Reg: Copy {
+impl<S,BE> FoldRegs<S,BE> for Regs<<BE as SimdReg<S>>::Reg,2>
+    where BE: SimdReg<S> +
+              SimdAdd<S,S,S,Lhs=<BE as SimdReg<S>>::Reg,Rhs=<BE as SimdReg<S>>::Reg,Output=<BE as SimdReg<S>>::Reg>,
+          <BE as SimdReg<S>>::Reg: Copy {
     #[inline(always)]
     fn fold(&self,backend: &BE) -> <BE as SimdReg<S>>::Reg {
         unsafe {
@@ -347,8 +350,10 @@ impl<S,BE: SimdReg<S> + SimdAdd<S,S,S>> FoldRegs<S,BE> for Regs<<BE as SimdReg<S
         }
     }
 }
-impl<S,BE: SimdReg<S> + SimdAdd<S,S,S>> FoldRegs<S,BE> for Regs<<BE as SimdReg<S>>::Reg,4>
-    where <BE as SimdReg<S>>::Reg: Copy {
+impl<S,BE> FoldRegs<S,BE> for Regs<<BE as SimdReg<S>>::Reg,4>
+    where BE: SimdReg<S> +
+          SimdAdd<S,S,S,Lhs=<BE as SimdReg<S>>::Reg,Rhs=<BE as SimdReg<S>>::Reg,Output=<BE as SimdReg<S>>::Reg>,
+          <BE as SimdReg<S>>::Reg: Copy {
     #[inline(always)]
     fn fold(&self,backend: &BE) -> <BE as SimdReg<S>>::Reg {
         unsafe {
@@ -727,6 +732,74 @@ impl<T,BE> SimdPartialStoreSeq<T,Regs<<Self as SimdReg<T>>::Reg,4>> for BE
         }
     }
 }
+impl<BE> SimdSign<i8> for BE
+    where BE: Backend + NativeBackend +
+              SimdReg<i8> +
+              SimdBitXor<i8> +
+              SimdSub<i8,i8,i8> {
+    type Input = <Self as SimdReg<i8>>::Reg;
+    type Output = <Self as SimdReg<i8>>::Reg;
+    fn sign(&self, l: <Self as SimdReg<i8>>::Reg, mask: <Self as SimdReg<i8>>::Reg) -> <Self as SimdReg<i8>>::Reg {
+        self.sub(self.bitxor(l,mask),mask)
+    }
+}
+impl<BE> SimdSign<i16> for BE
+    where BE: Backend + NativeBackend +
+              SimdReg<i16> +
+              SimdBitXor<i16> +
+              SimdSub<i16,i16,i16> {
+    type Input = <Self as SimdReg<i16>>::Reg;
+    type Output = <Self as SimdReg<i16>>::Reg;
+    fn sign(&self, l: <Self as SimdReg<i16>>::Reg, mask: <Self as SimdReg<i16>>::Reg) -> <Self as SimdReg<i16>>::Reg {
+        self.sub(self.bitxor(l,mask),mask)
+    }
+}
+impl<BE> SimdSign<i32> for BE
+    where BE: Backend + NativeBackend +
+              SimdReg<i32> +
+              SimdBitXor<i32> +
+              SimdSub<i32,i32,i32> {
+    type Input = <Self as SimdReg<i32>>::Reg;
+    type Output = <Self as SimdReg<i32>>::Reg;
+    fn sign(&self, l: <Self as SimdReg<i32>>::Reg, mask: <Self as SimdReg<i32>>::Reg) -> <Self as SimdReg<i32>>::Reg {
+        self.sub(self.bitxor(l,mask),mask)
+    }
+}
+impl<BE> SimdSign<i64> for BE
+    where BE: Backend + NativeBackend +
+              SimdReg<i64> +
+              SimdBitXor<i64> +
+              SimdSub<i64,i64,i64> {
+    type Input = <Self as SimdReg<i64>>::Reg;
+    type Output = <Self as SimdReg<i64>>::Reg;
+    fn sign(&self, l: <Self as SimdReg<i64>>::Reg, mask: <Self as SimdReg<i64>>::Reg) -> <Self as SimdReg<i64>>::Reg {
+        self.sub(self.bitxor(l,mask),mask)
+    }
+}
+impl<BE> SimdSign<f32> for BE
+    where BE: Backend + NativeBackend +
+              SimdReg<f32> +
+              SimdBitXor<f32> +
+              SimdSub<f32,f32,f32>,
+          f32: BitsBitXor<Bits=u32> {
+    type Input = <Self as SimdReg<f32>>::Reg;
+    type Output = <Self as SimdReg<f32>>::Reg;
+    fn sign(&self, l: <Self as SimdReg<f32>>::Reg, mask: <Self as SimdReg<u32>>::Reg) -> <Self as SimdReg<f32>>::Reg {
+        self.bitxor(l,mask)
+    }
+}
+impl<BE> SimdSign<f64> for BE
+    where BE: Backend + NativeBackend +
+              SimdReg<f64> +
+              SimdBitXor<f64> +
+              SimdSub<f64,f64,f64>,
+              f64: BitsBitXor<Bits=u64> {
+    type Input = <Self as SimdReg<f64>>::Reg;
+    type Output = <Self as SimdReg<f64>>::Reg;
+    fn sign(&self, l: <Self as SimdReg<f64>>::Reg, mask: <Self as SimdReg<u64>>::Reg) -> <Self as SimdReg<f64>>::Reg {
+        self.bitxor(l,mask)
+    }
+}
 impl<T,BE,OP> SimdQueryVector<T,OP> for BE
     where BE: Backend + NativeBackend +
               SimdReg<T> +
@@ -833,7 +906,7 @@ impl<T,BE> SimdAddAssignVector<T,T> for BE
               SimdLanes<T> +
               SimdRows<T> +
               SimdMask<T> +
-              SimdAdd<T,T,T> +
+              SimdAdd<T,T,T,Lhs=<Self as SimdReg<T>>::Reg,Rhs=<Self as SimdReg<T>>::Reg,Output=<Self as SimdReg<T>>::Reg> +
               SimdLoad<T> +
               SimdStore<T>,
           T: Default + Add<Output=T> + Copy {
@@ -1807,7 +1880,7 @@ impl<T,BE> SimdAddAssignMatrix<T,T> for BE
               SimdLanes<T> +
               SimdRows<T> +
               SimdMask<T> +
-              SimdAdd<T,T,T> +
+              SimdAdd<T,T,T,Lhs=<Self as SimdReg<T>>::Reg,Rhs=<Self as SimdReg<T>>::Reg,Output=<Self as SimdReg<T>>::Reg> +
               SimdLoad<T> +
               SimdStore<T>,
           T: Default + Add<Output=T> + Copy {
@@ -2183,6 +2256,50 @@ impl<SL,SR,SO,BE> SimdMatMulKernel<SL,SR,SO> for BE
         }
     }
 }
+impl<BE,SL,SR,S> SimdLinearCombinationKernel<SL,SR,S> for BE
+    where BE: Backend + NativeBackend +
+              SimdReg<SL> +
+              SimdReg<SR> +
+              SimdAdd<SL,SR,SR> +
+              SimdSign<SL,Input=<Self as SimdAdd<SL,SR,SR>>::Lhs,Output=<Self as SimdAdd<SL,SR,SR>>::Lhs> +
+              SimdSplat<<S as Sign>::Mask> +
+              SimdLoadSeq<SL,<Self as SimdAdd<SL,SR,SR>>::Lhs> +
+              SimdLoadSeq<SR,<Self as SimdAdd<SL,SR,SR>>::Rhs> +
+              SimdPartialLoadSeq<SL,<Self as SimdAdd<SL,SR,SR>>::Lhs> +
+              SimdPartialLoadSeq<SR,<Self as SimdAdd<SL,SR,SR>>::Rhs> +
+              SimdStoreSeq<SR,<Self as SimdAdd<SL,SR,SR>>::Output> +
+              SimdPartialStoreSeq<SR,<Self as SimdAdd<SL,SR,SR>>::Output> +
+              SimdLanes<SL>,
+          SL: BitsBitXor + Copy,
+          SR: Copy,
+          S: Sign<Mask=<SL as BitsBitXor>::Bits> {
+    #[inline(always)]
+    unsafe fn linear_combination<'a, 'b, const N: usize>(&self, lines: &[(VectorView<'a, SL, N>, S)],
+                                                         acc: &mut VectorMutView<'b, SR, N>) {
+        unsafe {
+            for (line,sign) in lines {
+                let mask = self.splat(sign.mask());
+
+                let ref_l = line.as_ref();
+                let ref_o = acc.as_mut();
+
+                let chunks_l = ref_l.chunks_exact(<Self as SimdLanes<SL>>::LANES);
+                let chunks_o = ref_o.chunks_exact_mut(<Self as SimdLanes<SL>>::LANES);
+
+                for (co,cl) in chunks_o.zip(chunks_l) {
+                    let ra = self.load_seq(cl.as_ptr());
+                    let rb = self.load_seq(co.as_ptr());
+
+                    let rr = self.sign(ra,mask);
+
+                    let rr = self.add(rr,rb);
+
+                    self.store_seq(co.as_mut_ptr(),rr);
+                }
+            }
+        }
+    }
+}
 impl BitsBitAnd for i8 {
     type Bits = i8;
 
@@ -2508,6 +2625,136 @@ impl Assume<i8> for i32 {
     #[inline(always)]
     fn assume(self) -> i8 {
         self as i8
+    }
+}
+#[derive(Debug,Clone,Copy)]
+pub struct SignInt<T> where T: Debug + Clone + Copy {
+    mask: T
+}
+impl<T> SignInt<T> where T: Debug + Clone + Copy {
+    pub fn mask(&self) -> T {
+        self.mask
+    }
+}
+impl Sign for SignInt<i64> {
+    type Mask = i64;
+    fn plus() -> Self {
+        Self {
+            mask: 0
+        }
+    }
+
+    fn minus() -> Self {
+        Self {
+            mask: !0
+        }
+    }
+
+    fn mask(&self) -> Self::Mask {
+        self.mask
+    }
+}
+impl Sign for SignInt<i32> {
+    type Mask = i32;
+    fn plus() -> Self {
+        Self {
+            mask: 0
+        }
+    }
+
+    fn minus() -> Self {
+        Self {
+            mask: !0
+        }
+    }
+
+    fn mask(&self) -> Self::Mask {
+        self.mask
+    }
+}
+impl Sign for SignInt<i16> {
+    type Mask = i16;
+    fn plus() -> Self {
+        Self {
+            mask: 0
+        }
+    }
+
+    fn minus() -> Self {
+        Self {
+            mask: !0
+        }
+    }
+
+    fn mask(&self) -> Self::Mask {
+        self.mask
+    }
+}
+impl Sign for SignInt<i8> {
+    type Mask = i8;
+    fn plus() -> Self {
+        Self {
+            mask: 0
+        }
+    }
+
+    fn minus() -> Self {
+        Self {
+            mask: !0
+        }
+    }
+
+    fn mask(&self) -> Self::Mask {
+        self.mask
+    }
+}
+#[derive(Debug,Clone,Copy)]
+pub struct SignFloat<T>
+    where T: BitsBitXor + Debug + Clone + Copy,
+          <T as BitsBitXor>::Bits: Debug + Clone + Copy {
+    mask: <T as BitsBitXor>::Bits
+}
+impl<T> SignFloat<T>
+    where T: BitsBitXor + Debug + Clone + Copy,
+          <T as BitsBitXor>::Bits: Debug + Clone + Copy {
+    pub fn mask(&self) -> <T as BitsBitXor>::Bits {
+        self.mask
+    }
+}
+impl Sign for SignFloat<f64> {
+    type Mask = u64;
+    fn plus() -> Self {
+        Self {
+            mask: 0
+        }
+    }
+
+    fn minus() -> Self {
+        Self {
+            mask: 1 << 63
+        }
+    }
+
+    fn mask(&self) -> Self::Mask {
+        self.mask
+    }
+}
+impl Sign for SignFloat<f32> {
+    type Mask = u32;
+    fn plus() -> Self {
+        Self {
+            mask: 0
+        }
+    }
+
+    fn minus() -> Self {
+        Self {
+            mask: 1 << 31
+        }
+    }
+
+    fn mask(&self) -> Self::Mask {
+        self.mask
     }
 }
 /// Operations Between Elements of the Same Type
