@@ -41,23 +41,6 @@ fn test_vector_scalar_mul_auto() {
     
     assert_eq!(c.as_ref(), &[4.0, 6.0, 8.0]);
 }
-
-/*
-#[test]
-fn test_matrix_mul_auto() {
-    // Matrix multiplication is not yet implemented, so this remains commented out.
-    let data_m1: [f64; 9] = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]; 
-    let m1: Matrix<f64, 3, 3> = <Matrix<f64, 3, 3>>::try_from(data_m1.as_ref()).unwrap();
-
-    let data_m2: [f64; 9] = [2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0];
-    let m2: Matrix<f64, 3, 3> = <Matrix<f64, 3, 3>>::try_from(data_m2.as_ref()).unwrap();
-
-    // Multiply Identity by M2 -> Result should be M2
-    let res = m1 * m2;
-
-    assert_eq!(res, &data_m2);
-}
-*/
 #[test]
 fn test_demote_i32_to_i16_layout() {
     let data: [i32; 16] = [
