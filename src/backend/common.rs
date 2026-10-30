@@ -2307,12 +2307,12 @@ impl<BE,SL,SR,S> SimdLinearCombinationKernel<SL,SR,S> for BE
                     let cr = ref_r.chunks_exact(<Self as SimdLanes<SR>>::LANES).remainder();
                     let co = ref_o.chunks_exact_mut(<Self as SimdLanes<SR>>::LANES).into_remainder();
 
-                    let ra = self.partial_load(cr,rem);
-                    let rb = self.partial_load_seq::<N>(co);
+                    let ra = self.partial_load_seq::<N>(co);
+                    let rb = self.partial_load(cr,rem);
 
-                    let rr = Regs::new([self.sign(ra, mask)]);
+                    let rr = Regs::new([self.sign(rb, mask)]);
 
-                    let rr = self.add(rb,rr);
+                    let rr = self.add(ra,rr);
                     self.partial_store_seq::<N>(co, rr);
                 }
             }
