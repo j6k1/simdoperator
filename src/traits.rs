@@ -730,7 +730,7 @@ pub(crate) mod private {
 pub trait BindBackend: BindBackendBase {
 }
 /// Trait Implemented when multiplication is supported
-pub trait SupportMul<K> {}
+pub trait SupportOperation<K> {}
 pub trait LinearCombination<R,C> {
     fn linear_combination<'b>(&mut self, lines: &'b [(R,C)]);
 }

@@ -3,7 +3,7 @@
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::ops::{Add, AddAssign, Mul, Sub};
-use crate::traits::{SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportMul, FoldRegs, SimdOuterProduct, SimdMulAssignVector, SimdAddAssignVector, SimdSubAssignVector, SimdShiftWidth, SimdScalarMulAssignVector, SimdAddAssignMatrix, SimdScalarMulAssignMatrix, SimdScalarMulMatrix, SimdConvertMatrix, SimdLoadSeq, SimdScalarMulVectorInto, SimdHSum, SimdZero, SimdPartialDot, SimdDotKernel, IsScaler, SimdMatMulKernel, SimdQueryVector, SimdBinaryOperator, NativeBackend, Dim, DimOne, Loader, Mapper, SimdPartialOperator, BinaryOperator, ToSimdBinaryOperator, SimdResolvePatrialBinaryOperator, SimdResolveBinaryOperator, SimdPartialLoadSeq, SimdPartialStoreSeq, SimdPartialLoad, SimdRegBuf, SimdPartialStore, SimdLoadAligned, SimdStoreAligned, Sign, SimdSign, SimdLinearCombinationKernel};
+use crate::traits::{SimdBitNotVector, SimdBitOrVector, SimdBitXorVector, SimdMulVector, SimdSubVector, SimdMask, SimdScalarMulVector, SimdLoad, SimdStore, SimdReg, SimdLanes, SimdRows, SimdAdd, SimdSub, SimdMul, SimdStoreSeq, SimdSplat, SimdCols, BitsBitAnd, BitsBitOr, BitsBitXor, BitsBitNot, SimdBitAndVector, SimdBitAnd, SimdBitOr, SimdBitXor, SimdBitNot, BitsShl, BitsShr, SimdShlVector, SimdShl, SimdShrVector, SimdShr, SimdPromote, SimdPromoteVector, Assume, SimdDemoteVector, SimdDemote, SimdConvertVector, SimdConvert, SupportOperation, FoldRegs, SimdOuterProduct, SimdMulAssignVector, SimdAddAssignVector, SimdSubAssignVector, SimdShiftWidth, SimdScalarMulAssignVector, SimdAddAssignMatrix, SimdScalarMulAssignMatrix, SimdScalarMulMatrix, SimdConvertMatrix, SimdLoadSeq, SimdScalarMulVectorInto, SimdHSum, SimdZero, SimdPartialDot, SimdDotKernel, IsScaler, SimdMatMulKernel, SimdQueryVector, SimdBinaryOperator, NativeBackend, Dim, DimOne, Loader, Mapper, SimdPartialOperator, BinaryOperator, ToSimdBinaryOperator, SimdResolvePatrialBinaryOperator, SimdResolveBinaryOperator, SimdPartialLoadSeq, SimdPartialStoreSeq, SimdPartialLoad, SimdRegBuf, SimdPartialStore, SimdLoadAligned, SimdStoreAligned, Sign, SimdSign, SimdLinearCombinationKernel};
 use crate::{ColumnMajorMatrix, MatrixMutView, MatrixView, OwnedVector, VectorMutView, VectorView};
 use crate::error::InstantiationError;
 use crate::traits::kernel::SimdCombinationQueryVectorKernel;
@@ -1030,7 +1030,7 @@ impl<SL,SR,SO,BE> SimdMulVector<SL,SR,SO> for BE
               SL: Copy,
               SR: Copy,
               <Self as SimdMul<SL,SR,SO>>::Output: Copy,
-              (SL,SO): SupportMul<Heterogeneous> {
+              (SL,SR,SO): SupportOperation<Heterogeneous> {
     #[target_feature(enable = "avx2")]
     unsafe fn mul_vector<'a,const N: usize>(&self, l: VectorView<'a,SL,N>, r: VectorView<'a,SR,N>)
         -> OwnedVector<SO,N> {
@@ -1081,7 +1081,7 @@ impl<SL,SR,BE> SimdMulAssignVector<SL,SR> for BE
           SL: Mul<SR,Output=SL> + Copy,
           SR: Copy,
           <Self as SimdMul<SL,SR,SL>>::Output: Copy,
-          (SL,SL): SupportMul<Homogeneous> {
+          (SL,SR,SL): SupportOperation<Homogeneous> {
     #[target_feature(enable = "avx2")]
     unsafe fn mul_assign_vector<'a,'b,const N: usize>(&self, l: VectorMutView<'a,SL,N>, r: VectorView<'b,SR,N>) {
         unsafe {
@@ -1127,7 +1127,7 @@ impl<SL,SR,SO,BE> SimdMulVector<SL,SR,SO> for BE
               SL: Mul<SR,Output=SO> + Copy,
               SR: Copy,
               <Self as SimdMul<SL,SR,SO>>::Output: Copy,
-              (SL,SO): SupportMul<Homogeneous> {
+              (SL,SR,SO): SupportOperation<Homogeneous> {
     #[target_feature(enable = "avx2")]
     unsafe fn mul_vector<'a,'b,const N: usize>(&self, l: VectorView<'a,SL,N>, r: VectorView<'b,SR,N>)
         -> OwnedVector<SO,N> {
@@ -1182,7 +1182,7 @@ impl<SL,SR,SO,BE> SimdScalarMulVector<SL,SR,SO> for BE
               SR: Copy,
               <Self as SimdReg<SL>>::Reg: Copy,
               <Self as SimdMul<SL,SR,SO>>::Output: Copy,
-              (SL,SO): SupportMul<Heterogeneous> {
+              (SL,SR,SO): SupportOperation<Heterogeneous> {
     #[target_feature(enable = "avx2")]
     unsafe fn scalarmul_vector<'a,'b,const N: usize>(&self, l:SL, r: VectorView<'b, SR, N>) -> OwnedVector<SO, N> {
         let mut rs = OwnedVector::from(Box::new([SO::default(); N]));
@@ -1246,7 +1246,7 @@ impl<SL,SR,BE> SimdScalarMulAssignVector<SL,SR> for BE
       SR: Copy,
       <Self as SimdReg<SR>>::Reg: Copy,
       <Self as SimdMul<SL,SR,SR>>::Output: Copy,
-      (SL,SR): SupportMul<Homogeneous> {
+      (SL,SR,SL): SupportOperation<Homogeneous> {
     #[target_feature(enable = "avx2")]
     unsafe fn scalarmul_assign_vector<'a,'b,const N: usize>(&self, l:SL, r: VectorMutView<'b, SR, N>) {
         unsafe {
@@ -1304,7 +1304,7 @@ impl<SL,SR,SO,BE> SimdScalarMulVector<SL,SR,SO> for BE
           SR: Copy,
           <Self as SimdReg<SL>>::Reg: Copy,
           <Self as SimdMul<SL,SR,SO>>::Output: Copy,
-          (SL,SO): SupportMul<Homogeneous> {
+          (SL,SR,SO): SupportOperation<Homogeneous> {
     #[target_feature(enable = "avx2")]
     unsafe fn scalarmul_vector<'a, const N: usize>(&self, l:SL, r: VectorView<'a, SR, N>) -> OwnedVector<SO, N> {
         let mut rs = OwnedVector::from(Box::new([SO::default(); N]));
@@ -1371,7 +1371,7 @@ impl<SL,SR,SO,BE> SimdScalarMulVectorInto<SL,SR,SO> for BE
           SR: Copy,
           <Self as SimdReg<SL>>::Reg: Copy,
           <Self as SimdMul<SL,SR,SO>>::Output: Copy,
-          (SL,SO): SupportMul<Heterogeneous> {
+          (SL,SR,SO): SupportOperation<Heterogeneous> {
     #[target_feature(enable = "avx2")]
     unsafe fn scalarmul_vector_into<'a, const N: usize>(&self, l:SL, r: &VectorView<'a, SR, N>, o: VectorMutView<'a, SO, N>) {
         unsafe {
@@ -1434,7 +1434,7 @@ impl<SL,SR,SO,BE> SimdScalarMulVectorInto<SL,SR,SO> for BE
           SR: Copy,
           <Self as SimdReg<SL>>::Reg: Copy,
           <Self as SimdMul<SL,SR,SO>>::Output: Copy,
-          (SL,SO): SupportMul<Homogeneous> {
+          (SL,SR,SO): SupportOperation<Homogeneous> {
     #[target_feature(enable = "avx2")]
     unsafe fn scalarmul_vector_into<'a, const N: usize>(&self, l:SL, r: &VectorView<'a, SR, N>, o: VectorMutView<'a, SO, N>) {
         unsafe {
@@ -1931,7 +1931,7 @@ impl<T,BE> SimdScalarMulAssignMatrix<T,T> for BE
               SimdStoreSeq<T,<Self as SimdMul<T,T,T>>::Output>,
           T: Default + Mul<Output=T> + Copy,
           <Self as SimdMul<T,T,T>>::Output: Copy,
-          (T,T): SupportMul<Homogeneous> {
+          (T,T,T): SupportOperation<Homogeneous> {
     #[target_feature(enable = "avx2")]
     unsafe fn scalar_mul_assign_matrix<'a,const N: usize,const M: usize>(&self, l: T, r: MatrixMutView<'a,T,N,M>) {
         unsafe {
@@ -1981,7 +1981,7 @@ impl<SL,SR,SO,BE> SimdScalarMulMatrix<SL,SR> for BE
           SR: Copy,
           <Self as SimdReg<SL>>::Reg: Copy,
           <Self as SimdMul<SL,SR,SO>>::Output: Copy,
-          (SL,SO): SupportMul<Homogeneous> {
+          (SL,SR,SO): SupportOperation<Homogeneous> {
     type OutputScalar = SO;
     #[target_feature(enable = "avx2")]
     unsafe fn scalar_mul_matrix<'a,const N: usize,const M: usize>(&self, l: SL, r: MatrixView<'a,SR,N,M>, acc:MatrixMutView<'a,SO,N,M>) {
@@ -2780,9 +2780,9 @@ impl Sign for SignFloat<f32> {
 pub enum Homogeneous {}
 /// Operations Between Different Types
 pub enum Heterogeneous {}
-impl SupportMul<Heterogeneous> for (i8,i32) {}
-impl SupportMul<Heterogeneous> for (i16,i32) {}
-impl<T> SupportMul<Homogeneous> for (T,T) {}
+impl SupportOperation<Heterogeneous> for (i8, i8, i32) {}
+impl SupportOperation<Heterogeneous> for (i16, i16, i32) {}
+impl<T> SupportOperation<Homogeneous> for (T, T, T) {}
 /// Number of elements in a vector
 pub enum Extent<const N: usize> {}
 /// The size of each dimension of a multidimensional array
