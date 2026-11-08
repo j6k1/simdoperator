@@ -1164,10 +1164,10 @@ impl<'a,T,BE,const N: usize> Add<AccVector<T,N,BE>> for AccVector<T,N,BE>
         self + Vector::<T,N,BE>::from(&rhs)
     }
 }
-impl<'a,'b,T,const N: usize> AddAssign<Vector<'b,T,N,AutoSelect>> for VectorMut<'a,T,N,AutoSelect>
-    where Avx2: Backend + SimdAddAssignVector<T,T> {
+impl<'a,'b,SL,SR,const N: usize> AddAssign<Vector<'b,SR,N,AutoSelect>> for VectorMut<'a,SL,N,AutoSelect>
+    where Avx2: Backend + SimdAddAssignVector<SL,SR> {
     #[inline(always)]
-    fn add_assign(&mut self, rhs: Vector<'b,T,N,AutoSelect>) {
+    fn add_assign(&mut self, rhs: Vector<'b,SR,N,AutoSelect>) {
         match rhs.backend.selected {
             SelectedBackend::Avx2(ref backend) => unsafe {
                 backend.add_assign_vector(self.into(), (&rhs).into())
@@ -1175,17 +1175,17 @@ impl<'a,'b,T,const N: usize> AddAssign<Vector<'b,T,N,AutoSelect>> for VectorMut<
         }
     }
 }
-impl<'a,'b,BE,T,const N: usize> AddAssign<Vector<'b,T,N,BE>> for VectorMut<'a,T,N,BE>
-    where BE: Backend + NativeBackend + SimdAddAssignVector<T,T> {
+impl<'a,'b,BE,SL,SR,const N: usize> AddAssign<Vector<'b,SR,N,BE>> for VectorMut<'a,SL,N,BE>
+    where BE: Backend + NativeBackend + SimdAddAssignVector<SL,SR> {
     #[inline(always)]
-    fn add_assign(&mut self, rhs: Vector<'b,T,N,BE>) {
+    fn add_assign(&mut self, rhs: Vector<'b,SR,N,BE>) {
         unsafe { rhs.backend.add_assign_vector(self.into(), (&rhs).into()) }
     }
 }
-impl<'a,'b,T,const N: usize> AddAssign<Vector<'b,T,N,AutoSelect>> for AccVector<T,N,AutoSelect>
-    where Avx2: Backend + SimdAddAssignVector<T,T> {
+impl<'a,'b,SL,SR,const N: usize> AddAssign<Vector<'b,SR,N,AutoSelect>> for AccVector<SL,N,AutoSelect>
+    where Avx2: Backend + SimdAddAssignVector<SL,SR> {
     #[inline(always)]
-    fn add_assign(&mut self, rhs: Vector<'b,T,N,AutoSelect>) {
+    fn add_assign(&mut self, rhs: Vector<'b,SR,N,AutoSelect>) {
         match rhs.backend.selected {
             SelectedBackend::Avx2(ref backend) => unsafe {
                 backend.add_assign_vector(self.into(), (&rhs).into())
@@ -1193,10 +1193,10 @@ impl<'a,'b,T,const N: usize> AddAssign<Vector<'b,T,N,AutoSelect>> for AccVector<
         }
     }
 }
-impl<'a,BE,T,const N: usize> AddAssign<Vector<'a,T,N,BE>> for AccVector<T,N,BE>
-    where BE: Backend + NativeBackend + SimdAddAssignVector<T,T> {
+impl<'a,BE,SL,SR,const N: usize> AddAssign<Vector<'a,SR,N,BE>> for AccVector<SL,N,BE>
+    where BE: Backend + NativeBackend + SimdAddAssignVector<SL,SR> {
     #[inline(always)]
-    fn add_assign(&mut self, rhs: Vector<'a,T,N,BE>) {
+    fn add_assign(&mut self, rhs: Vector<'a,SR,N,BE>) {
         unsafe { rhs.backend.add_assign_vector(self.into(), (&rhs).into()) }
     }
 }

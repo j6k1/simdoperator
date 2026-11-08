@@ -6,7 +6,7 @@ use std::mem::MaybeUninit;
 use std::ops::{Add, AddAssign, Mul};
 use std::ptr::copy_nonoverlapping;
 use crate::backend::common::{mm_shuffle, Backend, Regs, SimdAddOperator, Extent, AddOperator, SimdQueryShrOperator, ShrOperator, SimdQueryAddOperator, DemoteOperator, SimdQueryDemoteOperator};
-use crate::traits::{SimdCols, SimdDot, SimdHSum, SimdLanes, SimdLoad, SimdMask, SimdMatMul, SimdMatVec, SimdMulAdd, SimdPartialDot, SimdReg, SimdRows, SimdStore, SimdTranspose, SimdVMat, SimdZero, SimdAdd, SimdSub, SimdMul, SimdPromote, SimdScalarMul, SimdSplat, SimdBitOr, SimdBitAnd, SimdReinterpret, SimdBitXor, SimdBitNot, BitsBitAnd, BitsBitOr, BitsBitXor, SimdShl, SimdShr, SimdDemote, SimdConvert, FoldRegs, SimdShiftWidth, NativeBackend, SimdDotKernel, SimdMatMulKernel, SimdAddVector, SimdQueryVector, SimdMapVMat, Mapper, SimdResolveBinaryOperator, ToSimdBinaryOperator, SimdResolvePatrialBinaryOperator, SimdBinaryOperator, SimdCombinationQueryVector, SimdLoadSeq, SimdStoreSeq, SimdLoadAligned, SimdStoreAligned, SimdRegBuf, SimdLinearCombination, SimdLinearCombinationKernel};
+use crate::traits::{SimdCols, SimdDot, SimdHSum, SimdLanes, SimdLoad, SimdMask, SimdMatMul, SimdMatVec, SimdMulAdd, SimdPartialDot, SimdReg, SimdRows, SimdStore, SimdTranspose, SimdVMat, SimdZero, SimdAdd, SimdSub, SimdMul, SimdPromote, SimdScalarMul, SimdSplat, SimdBitOr, SimdBitAnd, SimdReinterpret, SimdBitXor, SimdBitNot, BitsBitAnd, BitsBitOr, BitsBitXor, SimdShl, SimdShr, SimdDemote, SimdConvert, FoldRegs, SimdShiftWidth, NativeBackend, SimdDotKernel, SimdMatMulKernel, SimdAddVector, SimdQueryVector, SimdMapVMat, Mapper, SimdResolveBinaryOperator, ToSimdBinaryOperator, SimdResolvePatrialBinaryOperator, SimdBinaryOperator, SimdCombinationQueryVector, SimdLoadSeq, SimdStoreSeq, SimdLoadAligned, SimdStoreAligned, SimdRegBuf, SimdLinearCombination, SimdLinearCombinationKernel, SimdAddAssignVector, SimdQueryAssignVector};
 use crate::{ColumnMajorMatrix, MatrixMutView, MatrixView, OwnedVector, VectorMutView, VectorView};
 use crate::error::InstantiationError;
 use crate::traits::kernel::SimdCombinationQueryVectorKernel;
@@ -1630,6 +1630,14 @@ impl<T> SimdAddVector<T,T,T> for Avx2
     unsafe fn add_vector<'a,'b,const N: usize>(&self, l: VectorView<'a,T,N>, r: VectorView<'b,T,N>)
         -> OwnedVector<T,N> {
         unsafe { <Self as SimdQueryVector<T,SimdAddOperator<T,T,T,Avx2>>>::query_vector(self,l,r,&SimdAddOperator::new(self)) }
+    }
+}
+impl<SL,SR> SimdAddAssignVector<SL,SR> for Avx2
+    where Self: SimdAdd<SL,SR,SL> +
+                SimdQueryAssignVector<SL,SR,SimdAddOperator<SL,SR,SL,Avx2>> {
+    #[target_feature(enable = "avx2")]
+    unsafe fn add_assign_vector<'a,'b,const N: usize>(&self, l: VectorMutView<'a,SL,N>, r: VectorView<'b,SR,N>) {
+        unsafe { <Self as SimdQueryAssignVector<SL,SR,SimdAddOperator<SL,SR,SL,Avx2>>>::query_assign_vector(self,l,r,&SimdAddOperator::new(self)) }
     }
 }
 impl<SL,SR,C> SimdLinearCombination<SL,SR,C> for Avx2 where Self: SimdLinearCombinationKernel<SL,SR,C> {

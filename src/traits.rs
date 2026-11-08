@@ -132,6 +132,7 @@ pub trait SimdBinaryOperator<BE,SL,SR>
     type Rhs: Copy;
     type Output: Copy;
     type ScalarOutput: Copy;
+
     fn apply_lanes(&self, l:Self::Lhs, r:Self::Rhs) -> Self::Output;
     fn apply_scalar(&self,l:SL,r:SR) -> Self::ScalarOutput;
     fn compose<F: Fn(Self) -> OP,OP>(self, f: F) -> OP where OP: SimdBinaryOperator<BE,SL,SR>;
@@ -160,6 +161,14 @@ pub trait SimdQueryVector<T,OP> {
     /// * `l` - Left hand side
     /// * `r` - Right hand side
     unsafe fn query_vector<'a,'b,const N: usize>(&self, l:VectorView<'a,T,N>, r:VectorView<'b,T,N>,operator:&OP) -> OwnedVector<T,N>;
+}
+/// A trait that applies operators to vectors in-place
+pub trait SimdQueryAssignVector<SL,SR,OP> {
+    ///
+    /// # Arguments
+    /// * `l` - Left hand side
+    /// * `r` - Right hand side
+    unsafe fn query_assign_vector<'a,'b,const N: usize>(&self, l:VectorMutView<'a,SL,N>, r:VectorView<'b,SR,N>,operator:&OP);
 }
 /// The trait of applying operators to vectors loaded with LoadSeqThe trait of applying operators to vectors loaded with LoadSeq
 pub trait SimdQueryVectorLoadSeq<SL,SR,SO,OP> {
@@ -730,7 +739,9 @@ pub(crate) mod private {
 pub trait BindBackend: BindBackendBase {
 }
 /// Trait Implemented when multiplication is supported
-pub trait SupportOperation<K> {}
+pub trait SupportMul<K> {}
+/// Trait Implemented when addition is supported
+pub trait SupportAdd<K> {}
 pub trait LinearCombination<R,C> {
     fn linear_combination<'b>(&mut self, lines: &'b [(R,C)]);
 }
@@ -845,6 +856,10 @@ pub trait BitsShr {
 /// A trait that defines operations to force a type cast using `as`
 pub trait Assume<T> {
     fn assume(self) -> T;
+}
+/// A trait that represents the number of SIMD registers owned by `Regs`
+pub trait RegsCount {
+    const COUNT: usize;
 }
 /// A trait that defines an operation to fold multiple registers into a single register
 pub trait FoldRegs<S,BE: SimdReg<S> + SimdAdd<S,S,S>>
