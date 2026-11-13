@@ -218,6 +218,16 @@ impl<T,const N: usize> AsRef<[T;N]> for VectorView<'_,T,N> {
         self.data
     }
 }
+impl<'a,'b,T,BE,const N: usize> From<Vector<'a,T,N,BE>> for VectorView<'b,T,N>
+where BE: Backend,
+      'a: 'b {
+    #[inline(always)]
+    fn from(value: Vector<'a,T,N,BE>) -> VectorView<'b,T,N> {
+        VectorView {
+            data: value.data
+        }
+    }
+}
 impl<'a,'b,T,BE,const N: usize> From<&'b Vector<'a,T,N,BE>> for VectorView<'b,T,N>
     where BE: Backend,
           'a: 'b {
