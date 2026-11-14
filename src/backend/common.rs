@@ -2357,6 +2357,65 @@ impl<SL,SR,SO,BE> SimdMatMulKernel<SL,SR,SO> for BE
         }
     }
 }
+impl<BE,T,S> SimdLinearCombinationKernel<T,T,S> for BE
+    where BE: Backend + NativeBackend +
+          SimdReg<T> +
+          SimdAdd<T,T,T,Lhs=<Self as SimdReg<T>>::Reg,Rhs=<Self as SimdReg<T>>::Reg,Output=<Self as SimdReg<T>>::Reg> +
+          SimdSign<T,Input=<Self as SimdReg<T>>::Reg,Output=<Self as SimdReg<T>>::Reg> +
+          SimdSplat<<S as Sign>::Mask> +
+          SimdLoad<T> +
+          SimdPartialLoad<T> +
+          SimdStore<T> +
+          SimdPartialStore<T> +
+          SimdLanes<T>,
+          T: BitsBitXor + Copy,
+          S: Sign<Mask=<T as BitsBitXor>::Bits>,
+          (T,T,T): SupportAdd<Homogeneous> {
+    #[inline(always)]
+    unsafe fn linear_combination<'a, 'b, const N: usize>(&self,
+                                                         mut acc: VectorMutView<'b,T,N>,
+                                                         lines: &[(VectorView<'a, T, N>, S)]) {
+        unsafe {
+            let ref_o = acc.as_mut();
+
+            for (line,sign) in lines {
+                let mask = self.splat(sign.mask());
+                let ref_r = line.as_ref();
+
+                {
+                    let chunks_r = ref_r.chunks_exact(<Self as SimdLanes<T>>::LANES);
+                    let chunks_o = ref_o.chunks_exact_mut(<Self as SimdLanes<T>>::LANES);
+
+                    for (co, cr) in chunks_o.zip(chunks_r) {
+                        let ra = self.load(co.as_ptr());
+                        let rb = self.load(cr.as_ptr());
+
+                        let rr = self.sign(rb, mask);
+
+                        let rr = self.add(ra,rr);
+
+                        self.store(co.as_mut_ptr(), rr);
+                    }
+                }
+
+                if N % <Self as SimdLanes<T>>::LANES != 0 {
+                    let rem = N % <Self as SimdLanes<T>>::LANES;
+
+                    let cr = ref_r.chunks_exact(<Self as SimdLanes<T>>::LANES).remainder();
+                    let co = ref_o.chunks_exact_mut(<Self as SimdLanes<T>>::LANES).into_remainder();
+
+                    let ra = self.partial_load(co,rem);
+                    let rb = self.partial_load(cr,rem);
+
+                    let rr = self.sign(rb, mask);
+
+                    let rr = self.add(ra,rr);
+                    self.partial_store(co, rr, rem);
+                }
+            }
+        }
+    }
+}
 impl<BE,SL,SR,S> SimdLinearCombinationKernel<SL,SR,S> for BE
     where BE: Backend + NativeBackend +
               SimdReg<SL> +
@@ -2373,7 +2432,8 @@ impl<BE,SL,SR,S> SimdLinearCombinationKernel<SL,SR,S> for BE
               SimdLanes<SR>,
           SR: BitsBitXor + Copy,
           SL: Copy,
-          S: Sign<Mask=<SR as BitsBitXor>::Bits> {
+          S: Sign<Mask=<SR as BitsBitXor>::Bits>,
+          (SL,SR,SL): SupportAdd<Heterogeneous> {
     #[inline(always)]
     unsafe fn linear_combination<'a, 'b, const N: usize>(&self,
                                                          mut acc: VectorMutView<'b,SL,N>,
